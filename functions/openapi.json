@@ -1,0 +1,115 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Alegria Booking System API",
+    "version": "1.0.0",
+    "description": "API documentation for the Alegria Booking System"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5001/nextjstutorial-c5b58/asia-southeast1/api",
+      "description": "Local Emulator"
+    },
+    {
+      "url": "https://api-nextjstutorial-c5b58.asia-southeast1.a.run.app",
+      "description": "Production"
+    }
+  ],
+  "paths": {
+    "/auth/register": {
+      "post": {
+        "summary": "Register a new user",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Login user",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/reset-password": {
+      "patch": {
+        "summary": "Reset user password",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/bookings": {
+      -"get": {
+        "summary": "Fetch all bookings",
+        "tags": [
+          "Bookings"
+        ]
+      }
+    },
+    "/bookings/slots/availability": {
+      "get": {
+        "summary": "Check available slots",
+        "tags": [
+          "Bookings"
+        ]
+      }
+    },
+    "/bookings/create": {
+      "post": {
+        "summary": "Create a new booking",
+        "tags": [
+          "Bookings"
+        ]
+      }
+    },
+    "/bookings/cancel": {
+      "post": {
+        "summary": "Cancel a booking",
+        "tags": [
+          "Bookings"
+        ]
+      }
+    },
+    "/bookings/reschedule": {
+      "post": {
+        "summary": "Reschedule a booking",
+        "tags": [
+          "Bookings"
+        ]
+      }
+    },
+    "/bookings/scan-qrcode": {
+      "get": {
+        "summary": "Scan QR code for booking verification",
+        "tags": [
+          "Bookings"
+        ]
+      }
+    },
+    "/hello": {
+      "get": {
+        "description": "Simple health check",
+        "responses": {
+          "200": {
+            "description": "Returns a greeting"
+          }
+        }
+      }
+    },
+    "/initDb": {
+      "post": {
+        "summary": "Initialize Database with dummy data",
+        "description": "Populates Firestore with initial collections (users, activities, slots, bookings, payments) and dummy data.",
+        "responses": {
+          "200": {
+            "description": "Database initialized successfully"
+          }
+        }
+      }
+    }
+  },
+  "components": {},
+  "tags": []
+}

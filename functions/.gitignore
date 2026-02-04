@@ -1,0 +1,19 @@
+# Build output (compiled JS and sourcemaps)
+lib/
+
+# Node.js dependencies
+node_modules/
+
+# Environment files
+.env
+.env.*
+*.local
+
+# Firebase emulator/debug logs
+firebase-debug.log
+firebase-debug.*.log
+database-debug.log
+firestore-debug.log
+
+# Legacy TypeScript typings
+typings/

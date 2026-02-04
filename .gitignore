@@ -22,6 +22,7 @@
 
 # misc
 .DS_Store
+Thumbs.db
 *.pem
 
 # debug
@@ -29,13 +30,24 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+.eslintcache
+
+# firebase emulator
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+database-debug.log
+firestore-debug.log
+
+# editors / IDE
+.vscode/
+.idea/
+
+# functions build output (compiled JS)
+functions/lib/
 
 # env files (can opt-in for committing if needed)
 .env*
 
-# vercel
-.vercel
-
 # typescript
 *.tsbuildinfo
-next-env.d.ts
