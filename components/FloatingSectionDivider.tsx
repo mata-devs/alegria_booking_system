@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 
 export default function FloatingSectionDivider() {
     return (
@@ -53,9 +54,11 @@ export default function FloatingSectionDivider() {
                     </div>
 
                     {/* Book Button */}
+                    <Link href="/booking">
                     <button className="bg-[#178893] hover:bg-teal-700 text-white font-semibold px-16 py-3 rounded-full transition-colors">
                         Book
                     </button>
+                    </Link>
                 </div>
             </div>
         </div>

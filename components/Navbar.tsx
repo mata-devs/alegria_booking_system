@@ -2,13 +2,19 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 export default function Navbar(){
+    const pathname = usePathname();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
+    const showNavbar = ["/", "/booking"];
+    
+    if (!showNavbar.includes(pathname)) return null;
+
     return (
-        <nav className="bg-white shadow-sm">
+        <nav className="bg-white shadow-sm sticky top-0 z-50">
             <div className="flex items-center justify-between p-4 max-w-[95%] mx-auto">
                 {/* Logo */}
                 <div className="shrink-0">
@@ -32,7 +38,7 @@ export default function Navbar(){
                     <Link href="/" className="hover:text-[#45A80A] transition-colors">
                         More Tours
                     </Link>
-                    <Link href="/">
+                    <Link href="/booking">
                         <button className="bg-[#45A80A] hover:bg-[#3a8c08] rounded-lg px-6 xl:px-10 py-2.5 xl:py-3 text-white transition-colors">
                             Book Now
                         </button>
@@ -94,8 +100,8 @@ export default function Navbar(){
                         >
                             More Tours
                         </Link>
-                        <Link href="/" onClick={() => setIsMenuOpen(false)}>
-                            <button className="w-full bg-[#45A80A] hover:bg-[#3a8c08] rounded-lg px-6 py-3 text-white transition-colors">
+                        <Link href="/booking" onClick={() => setIsMenuOpen(false)}>
+                            <button className="w-full bg-[#45A80A] hover:bg-[#3a8c08] rounded-lg px-6 py-3 text-white transition-colors cursor-pointer">
                                 Book Now
                             </button>
                         </Link>
