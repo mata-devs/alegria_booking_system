@@ -25,3 +25,12 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.fc .fc-event {
+  background: transparent;
+  border: none;
+}
+
+.fc-timegrid-event {
+  inset: 4px;
+}
