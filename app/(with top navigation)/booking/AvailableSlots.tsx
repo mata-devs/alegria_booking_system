@@ -3,6 +3,7 @@
 import FullCalendar from '@fullcalendar/react'
 // import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
+import { HiUsers } from "react-icons/hi2";
 
 
 export default function AvailableSlots() {
@@ -20,7 +21,7 @@ export default function AvailableSlots() {
         {
             title: 'Tour 2',
             start: '2026-02-11T08:00:00',
-            end: '2026-02-11T10:00:00',
+            end: '2026-02-11T09:00:00',
             extendedProps: {
                 slots: '30/30',
                 status: 'full',
@@ -32,7 +33,7 @@ export default function AvailableSlots() {
             end: '2026-02-11T15:00:00',
             extendedProps: {
                 slots: '29/30',
-                status: 'limited',
+                status: 'available',
             },
         },
     ]
@@ -56,27 +57,39 @@ export default function AvailableSlots() {
                         contentHeight={300}
                         aspectRatio={2}
                         allDaySlot={false}
+                        eventBackgroundColor='#ffffff'
                         eventContent={(arg) => {
                             const { title } = arg.event
                             const { slots, status } = arg.event.extendedProps
 
                             const statusStyles = {
-                                available: 'border-green-500 text-green-600 bg-green-50',
-                                limited: 'border-yellow-500 text-yellow-600 bg-yellow-50',
+                                available: 'border-green-500 text-[#8BC34A] bg-[#8BC34A]/10',
+                                // limited: 'border-yellow-500 text-yellow-600 bg-yellow-50',
                                 full: 'border-red-500 text-red-600 bg-red-50',
                             }
 
                             return (
                             <div 
-                                className={`w-full h-full p-2 text-xs font-medium ${statusStyles[status as keyof typeof statusStyles]}`}
+                                className={`w-full h-full overflow-scroll grid justify-center rounded-md p-2 text-xs border-2 font-medium ${statusStyles[status as keyof typeof statusStyles]}`}
                             >
-                                <div className="font-semibold">{title}</div>
-                                <div className="text-[10px] opacity-70">
-                                    {arg.timeText}
+                                <div
+                                    className='flex flex-col'
+                                >
+                                    <div className="font-semibold">{title}</div>
+                                    <div className="text-[10px] opacity-70">
+                                        {arg.timeText}
+                                    </div>
                                 </div>
-                                <div className="mt-1 flex items-center gap-1">
-                                    <span>Slots</span>
-                                    <span className="font-semibold">{slots}</span>
+                                <div
+                                    className='flex  justify-center '
+                                >
+                                    <div className=" flex flex-col items-center justify-center">
+                                        <span>Slots</span>
+                                        <span className="font-semibold flex items-center gap-1">
+                                            {slots}
+                                            <HiUsers className="text-lg" />
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                             )
