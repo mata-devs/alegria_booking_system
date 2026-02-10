@@ -68,7 +68,7 @@ export default function AvailableSlots() {
 
                             return (
                             <div 
-                                className={`w-full h-full overflow-scroll grid justify-center rounded-md p-2 text-xs border-2 font-medium ${statusStyles[status as keyof typeof statusStyles]}`}
+                                className={`w-full h-full overflow-scroll hide-scrollbar grid justify-center rounded-md p-2 text-xs border-2 font-medium ${statusStyles[status as keyof typeof statusStyles]}`}
                             >
                                 <div
                                     className='flex flex-col'
