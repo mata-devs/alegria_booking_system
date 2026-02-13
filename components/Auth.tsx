@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { FaGoogle } from 'react-icons/fa';
-import { z } from 'zod';
 import {
   onAuthStateChanged,
   sendPasswordResetEmail,
@@ -12,30 +11,20 @@ import {
   type User,
 } from 'firebase/auth';
 import { firebaseAuth, googleAuthProvider } from '@/lib/firebase';
+import { emailPasswordSignInSchema, resetPasswordSchema } from '@/lib/schema';
+import { LoginPanel } from './auth/LoginPanel';
+import { ResetPasswordPanel } from './auth/ResetPasswordPanel';
+import { SignedInPanel } from './auth/SignedInPanel';
+import type { FieldErrors } from './auth/types';
 
-// TODO: refactor and modularize
-
-const emailPasswordSignInSchema = z.object({
-  email: z
-    .email('Please enter a valid email address.')
-    .trim()
-    .min(1, 'Please fill out this field.'),
-  password: z.string().min(1, 'Please fill out this field.'),
-});
-
-const resetPasswordSchema = z.object({
-  email: z
-    .email('Please enter a valid email address.')
-    .trim()
-    .min(1, 'Please fill out this field.'),
-});
-
-type FieldErrors = Partial<Record<'email' | 'password', string>>;
+type FirebaseAuthErrorLike = {
+  code?: unknown;
+};
 
 function getFirebaseAuthErrorCode(error: unknown): string | null {
   if (typeof error !== 'object' || error === null) return null;
   if (!('code' in error)) return null;
-  const value = (error as any).code;
+  const value = (error as FirebaseAuthErrorLike).code;
   return typeof value === 'string' ? value : null;
 }
 
@@ -125,7 +114,7 @@ export default function Auth() {
 
     try {
       await signOut(firebaseAuth);
-    } catch (e) {
+    } catch {
       if (!isMountedRef.current) return;
       setError('Failed to sign out. Please try again.');
     }
@@ -254,220 +243,57 @@ export default function Auth() {
   if (user) {
     // temporary, page should redirect to dashboard
     return (
-      <div className="flex flex-col items-center gap-4">
-        <p className="text-sm text-gray-700 text-center max-w-full truncate">
-          Signed in as {user.displayName || user.email || 'user'}
-        </p>
-        <button
-          type="button"
-          onClick={handleSignOut}
-          className="w-full max-w-xs rounded-xl bg-[#178893] px-6 py-3 text-white font-semibold hover:bg-[#156c84] disabled:opacity-60 transition-colors"
-        >
-          Sign out
-        </button>
-        {error ? <p className="text-xs text-red-600">{error}</p> : null}
-      </div>
+      <SignedInPanel user={user} error={error} onSignOut={handleSignOut} />
     );
   }
 
   return (
     <div className="flex flex-col items-center gap-4 w-full">
       {mode === 'reset' ? (
-        <div className="w-full max-w-sm">
-          {resetStep === 'sent' ? (
-            <div className="text-center">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Check your inbox
-              </h2>
-              <p className="mt-2 text-sm text-gray-600">
-                An email with a link to reset your password was sent to the
-                email address associated with your account
-              </p>
-
-              <div className="mt-6 flex items-center justify-center gap-2 text-sm text-gray-700">
-                <span>Didn't get an email?</span>
-                <button
-                  type="button"
-                  onClick={handleResendResetEmail}
-                  disabled={resendCooldownSeconds > 0}
-                  className="font-semibold text-gray-900 hover:underline disabled:opacity-60 disabled:hover:no-underline"
-                >
-                  {resendCooldownSeconds > 0
-                    ? `Resend in ${formatCooldown(resendCooldownSeconds)}`
-                    : 'Resend'}
-                </button>
-              </div>
-
-              {resetError ? (
-                <p className="mt-3 text-xs text-red-600">{resetError}</p>
-              ) : null}
-            </div>
-          ) : (
-            <>
-              <div className="space-y-1 text-center">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Reset your password
-                </h2>
-                <p className="text-sm text-gray-600">
-                  Enter your email and we'll send you a link to reset your
-                  password.
-                </p>
-              </div>
-
-              <form onSubmit={handleResetPassword} noValidate className="mt-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-900">
-                      Email
-                    </label>
-                    <input
-                      value={email}
-                      onChange={(e) => {
-                        setEmail(e.target.value);
-                        setFieldErrors((prev) => ({
-                          ...prev,
-                          email: undefined,
-                        }));
-                        setResetError(null);
-                      }}
-                      id="email"
-                      type="email"
-                      inputMode="email"
-                      autoComplete="username"
-                      aria-invalid={
-                        fieldErrors.email || resetError ? 'true' : 'false'
-                      }
-                      aria-describedby={
-                        fieldErrors.email ? emailErrorId : undefined
-                      }
-                      className={`mt-2 w-full rounded-lg border px-4 py-2.5 text-gray-900 outline-none focus:ring-2 disabled:bg-gray-50 ${
-                        fieldErrors.email || resetError
-                          ? 'border-red-500 focus:ring-red-200'
-                          : 'border-gray-300 focus:ring-teal-200'
-                      }`}
-                    />
-                    <p
-                      id={emailErrorId}
-                      className="mt-2 text-xs text-red-600 min-h-4"
-                    >
-                      {fieldErrors.email ?? resetError ?? ''}
-                    </p>
-                  </div>
-
-                  <div className="pt-1 flex justify-center">
-                    <button
-                      type="submit"
-                      className="w-full rounded-xl bg-[#178893] px-6 py-3 text-white font-semibold hover:bg-[#156c84] disabled:opacity-60 transition-colors"
-                    >
-                      Reset Password
-                    </button>
-                  </div>
-                </div>
-              </form>
-            </>
-          )}
-        </div>
+        <ResetPasswordPanel
+          resetStep={resetStep}
+          resendCooldownSeconds={resendCooldownSeconds}
+          resetError={resetError}
+          fieldErrors={fieldErrors}
+          email={email}
+          emailErrorId={emailErrorId}
+          onEmailChange={(value) => {
+            setEmail(value);
+            setFieldErrors((prev) => ({ ...prev, email: undefined }));
+            setResetError(null);
+          }}
+          onSubmit={handleResetPassword}
+          onResend={handleResendResetEmail}
+          formatCooldown={formatCooldown}
+        />
       ) : (
-        <form
+        <LoginPanel
+          email={email}
+          password={password}
+          fieldErrors={fieldErrors}
+          credentialError={credentialError}
+          emailErrorId={emailErrorId}
+          passwordErrorId={passwordErrorId}
+          onEmailChange={(value) => {
+            setEmail(value);
+            setFieldErrors((prev) => ({ ...prev, email: undefined }));
+            setCredentialError(null);
+          }}
+          onPasswordChange={(value) => {
+            setPassword(value);
+            setFieldErrors((prev) => ({ ...prev, password: undefined }));
+            setCredentialError(null);
+          }}
           onSubmit={handleEmailPasswordSignIn}
-          noValidate
-          className="w-full max-w-sm"
-        >
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-900">
-                Email
-              </label>
-              <input
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  setFieldErrors((prev) => ({ ...prev, email: undefined }));
-                  setCredentialError(null);
-                }}
-                id="email"
-                type="email"
-                inputMode="email"
-                autoComplete="username"
-                aria-invalid={
-                  fieldErrors.email || credentialError ? 'true' : 'false'
-                }
-                aria-describedby={fieldErrors.email ? emailErrorId : undefined}
-                className={`mt-2 w-full rounded-lg border px-4 py-2.5 text-gray-900 outline-none focus:ring-2 disabled:bg-gray-50 ${
-                  fieldErrors.email || credentialError
-                    ? 'border-red-500 focus:ring-red-200'
-                    : 'border-gray-300 focus:ring-teal-200'
-                }`}
-              />
-              <p
-                id={emailErrorId}
-                className="mt-2 text-xs text-red-600 min-h-4"
-              >
-                {fieldErrors.email ?? ''}
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-900">
-                Password
-              </label>
-              <input
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setFieldErrors((prev) => ({ ...prev, password: undefined }));
-                  setCredentialError(null);
-                }}
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                aria-invalid={
-                  fieldErrors.password || credentialError ? 'true' : 'false'
-                }
-                aria-describedby={
-                  fieldErrors.password ? passwordErrorId : undefined
-                }
-                className={`mt-2 w-full rounded-lg border px-4 py-2.5 text-gray-900 outline-none focus:ring-2 disabled:bg-gray-50 ${
-                  fieldErrors.password || credentialError
-                    ? 'border-red-500 focus:ring-red-200'
-                    : 'border-gray-300 focus:ring-teal-200'
-                }`}
-              />
-              <p
-                id={passwordErrorId}
-                className="mt-2 text-xs text-red-600 min-h-4"
-              >
-                {fieldErrors.password ?? credentialError ?? ''}
-              </p>
-            </div>
-
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('reset');
-                  setResetStep('form');
-                  setError(null);
-                  setFieldErrors({});
-                  setCredentialError(null);
-                  setResetError(null);
-                }}
-                className="text-sm font-semibold text-gray-600 hover:text-gray-900"
-              >
-                Forgot Password?
-              </button>
-            </div>
-
-            <div className="pt-1 flex justify-center">
-              <button
-                type="submit"
-                className="w-full rounded-xl bg-[#178893] px-6 py-3 text-white font-semibold hover:bg-[#156c84] disabled:opacity-60 transition-colors"
-              >
-                Log In
-              </button>
-            </div>
-          </div>
-        </form>
+          onForgotPassword={() => {
+            setMode('reset');
+            setResetStep('form');
+            setError(null);
+            setFieldErrors({});
+            setCredentialError(null);
+            setResetError(null);
+          }}
+        />
       )}
 
       <div className="w-full flex items-center gap-3">
