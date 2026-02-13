@@ -37,14 +37,6 @@ export default function Navbar(){
                             Book Now
                         </button>
                     </Link>
-                    <Image
-                        src="/user-icon.png"
-                        alt="user icon"
-                        width={50}
-                        height={50}
-                        className="w-10 h-10 xl:w-12 xl:h-12 cursor-pointer hover:opacity-80 transition-opacity"
-                        priority
-                    />
                 </div>
 
                 <button
