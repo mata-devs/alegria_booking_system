@@ -22,7 +22,7 @@ export default function OperatorLayout({
           />
           <main
             className={`min-h-screen p-6 pt-16 lg:pt-6 transition-all duration-200 ${
-              isCollapsed ? 'lg:ml-[4.5rem]' : 'lg:ml-56'
+              isCollapsed ? 'lg:ml-18' : 'lg:ml-56'
             }`}
           >
             {children}

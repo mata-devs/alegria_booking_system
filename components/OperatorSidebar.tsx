@@ -55,7 +55,7 @@ export default function OperatorSidebar({ isCollapsed, onToggleCollapse }: Opera
       <aside
         className={`fixed top-0 left-0 z-50 h-full bg-[#558B2F] text-white flex flex-col transition-all duration-200 lg:translate-x-0 ${
           isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        } ${isCollapsed ? 'w-[4.5rem]' : 'w-56'}`}
+        } ${isCollapsed ? 'w-18' : 'w-56'}`}
       >
         {/* Header */}
         <div className={`flex items-center gap-3 py-6 ${isCollapsed ? 'justify-center px-3' : 'px-5'}`}>
