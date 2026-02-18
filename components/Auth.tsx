@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { FaGoogle } from 'react-icons/fa';
 import {
   onAuthStateChanged,
@@ -11,12 +12,13 @@ import {
   signOut,
   type User,
 } from 'firebase/auth';
-import { firebaseAuth, googleAuthProvider } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { firebaseAuth, firebaseDb, googleAuthProvider } from '@/lib/firebase';
 import { emailPasswordSignInSchema, resetPasswordSchema } from '@/lib/schema';
 import { LoginPanel } from './auth/LoginPanel';
 import { ResetPasswordPanel } from './auth/ResetPasswordPanel';
-import { SignedInPanel } from './auth/SignedInPanel';
 import type { FieldErrors } from './auth/types';
+import type { UserRole } from '@/lib/types';
 
 type FirebaseAuthErrorLike = {
   code?: unknown;
@@ -51,6 +53,7 @@ export default function Auth() {
   const [resetStep, setResetStep] = useState<'form' | 'sent'>('form');
   const [resendCooldownSeconds, setResendCooldownSeconds] = useState(0);
   const [user, setUser] = useState<User | null>(null);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [credentialError, setCredentialError] = useState<string | null>(null);
@@ -60,18 +63,67 @@ export default function Auth() {
   const isMountedRef = useRef(true);
   const emailErrorId = 'auth-email-error';
   const passwordErrorId = 'auth-password-error';
+  const router = useRouter();
+
+  const ROLE_REDIRECT_MAP: Record<UserRole, string> = {
+    super_admin: '/super-admin/analytics',
+    operator: '/operator/bookings',
+    customer: '/',
+  };
+
+  async function redirectByRole(firebaseUser: User) {
+    try {
+      setIsRedirecting(true);
+      const userDoc = await getDoc(doc(firebaseDb, 'users', firebaseUser.uid));
+
+      if (!userDoc.exists()) {
+        setIsRedirecting(false);
+        setError('No user profile found. Please contact an administrator.');
+        await signOut(firebaseAuth);
+        return;
+      }
+
+      const data = userDoc.data();
+      const role = data.role as UserRole;
+
+      if (role !== 'super_admin' && role !== 'operator') {
+        setIsRedirecting(false);
+        setError('You do not have permission to access the admin portal.');
+        await signOut(firebaseAuth);
+        return;
+      }
+
+      if (data.status === 'inactive') {
+        setIsRedirecting(false);
+        setError('Your account has been deactivated. Please contact an administrator.');
+        await signOut(firebaseAuth);
+        return;
+      }
+
+      const redirectPath = ROLE_REDIRECT_MAP[role];
+      router.replace(redirectPath);
+    } catch {
+      setIsRedirecting(false);
+      setError('Failed to verify your account. Please try again.');
+      await signOut(firebaseAuth);
+    }
+  }
 
   useEffect(() => {
     isMountedRef.current = true;
     const unsubscribe = onAuthStateChanged(firebaseAuth, (nextUser) => {
       if (!isMountedRef.current) return;
       setUser(nextUser);
+      if (nextUser) {
+        redirectByRole(nextUser);
+      }
     });
 
     return () => {
       isMountedRef.current = false;
       unsubscribe();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -255,10 +307,12 @@ export default function Auth() {
     }
   }
 
-  if (user) {
-    // temporary, page should redirect to dashboard
+  if (user || isRedirecting) {
     return (
-      <SignedInPanel user={user} error={error} onSignOut={handleSignOut} />
+      <div className="flex flex-col items-center gap-4">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-[#178893]" />
+        <p className="text-sm text-gray-600">Signing you in...</p>
+      </div>
     );
   }
 
