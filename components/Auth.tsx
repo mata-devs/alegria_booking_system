@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { FaGoogle } from 'react-icons/fa';
 import {
   onAuthStateChanged,
+  type ActionCodeSettings,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
@@ -86,6 +87,12 @@ export default function Auth() {
     const mm = Math.floor(clamped / 60);
     const ss = clamped % 60;
     return `${mm}:${ss.toString().padStart(2, '0')}`;
+  }
+
+  function getPasswordResetActionCodeSettings(): ActionCodeSettings {
+    return {
+      url: `${window.location.origin}/reset-password`,
+    };
   }
 
   async function handleGoogleAuth() {
@@ -186,7 +193,11 @@ export default function Auth() {
     }
 
     try {
-      await sendPasswordResetEmail(firebaseAuth, parsed.data.email);
+      await sendPasswordResetEmail(
+        firebaseAuth,
+        parsed.data.email,
+        getPasswordResetActionCodeSettings(),
+      );
       if (!isMountedRef.current) return;
       setResetStep('sent');
     } catch (err) {
@@ -226,7 +237,11 @@ export default function Auth() {
     }
 
     try {
-      await sendPasswordResetEmail(firebaseAuth, parsed.data.email);
+      await sendPasswordResetEmail(
+        firebaseAuth,
+        parsed.data.email,
+        getPasswordResetActionCodeSettings(),
+      );
     } catch (err) {
       if (!isMountedRef.current) return;
       const code = getFirebaseAuthErrorCode(err);
