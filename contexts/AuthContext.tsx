@@ -59,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        if (data.status === 'inactive') {
+        if (data.status === 'suspended') {
           setAuthState({
             status: 'unauthorized',
             user: firebaseUser,
@@ -75,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           firstName: data.firstName ?? '',
           lastName: data.lastName ?? '',
           status: data.status ?? 'active',
+          createdAt: data.createdAt?.toDate?.() ?? null,
         };
 
         setAuthState({ status: 'authenticated', user: firebaseUser, profile });
