@@ -9,7 +9,5 @@ const maxInstances = parseInt(process.env.APP_MAX_INSTANCES || "10");
 setGlobalOptions({ maxInstances: maxInstances, region: region as any });
 
 // Export the Express app as a Cloud Function named 'api'
-export const api = onRequest(app);
-
-// Export the separate initialization function
-export { initDb } from "./initDb";
+// invoker: "public" allows unauthenticated HTTP access (required for a REST API)
+export const api = onRequest({ invoker: "public" }, app);

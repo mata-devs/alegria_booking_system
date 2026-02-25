@@ -17,3 +17,10 @@ firestore-debug.log
 
 # Legacy TypeScript typings
 typings/
+
+# Firebase Emulator Data
+emulator_data/
+guides-docs
+firebase-export-1771814371418EEHnRC
+firebase-export-1771814044240VAY5IX
+
