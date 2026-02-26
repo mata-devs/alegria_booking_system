@@ -12,6 +12,8 @@ import { doc, getDoc } from 'firebase/firestore';
 import { firebaseAuth, firebaseDb } from '@/lib/firebase';
 import type { UserProfile, UserRole } from '@/lib/types';
 
+// TODO: double check user disabled or not status in firestore vs firebase authentication
+
 type AuthState =
   | { status: 'loading' }
   | { status: 'unauthenticated' }

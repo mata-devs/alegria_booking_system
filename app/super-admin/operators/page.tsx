@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { firebaseDb, firebaseStorage } from '@/lib/firebase';
 import { ref, getDownloadURL } from 'firebase/storage';
 import { Filter, Search, ChevronDown, FileImage } from 'lucide-react';
@@ -23,6 +23,8 @@ export default function OperatorsManagementPage() {
   const [searchField, setSearchField] = useState<SearchField>('name');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const [statusUpdating, setStatusUpdating] = useState(false);
 
   useEffect(() => {
     async function fetchOperators() {
@@ -97,6 +99,23 @@ export default function OperatorsManagementPage() {
     const dd = String(date.getDate()).padStart(2, '0');
     const yy = String(date.getFullYear()).slice(-2);
     return `${mm} - ${dd} - ${yy}`;
+  }
+
+  // TODO: call cloud function to disable user in firebase authentication using firebase admin sdk
+  // update status in Firestore
+  async function updateOperatorStatus(uid: string, newStatus: 'active' | 'suspended') {
+    setStatusUpdating(true);
+    setStatusDropdownOpen(false);
+    try {
+      await updateDoc(doc(firebaseDb, 'users', uid), { status: newStatus });
+      setOperators((prev) =>
+        prev.map((op) => (op.uid === uid ? { ...op, status: newStatus } : op)),
+      );
+    } catch (error) {
+      console.error('Failed to update status:', error);
+    } finally {
+      setStatusUpdating(false);
+    }
   }
 
   return (
@@ -204,7 +223,7 @@ export default function OperatorsManagementPage() {
                   <button
                     key={op.uid}
                     type="button"
-                    onClick={() => setSelectedId(op.uid)}
+                    onClick={() => { setSelectedId(op.uid); setStatusDropdownOpen(false); }}
                     className={`grid grid-cols-[1fr_1.4fr_1fr_0.7fr] items-center gap-0 rounded-lg text-left transition-colors ${
                       selectedId === op.uid
                         ? 'bg-green-100 ring-1 ring-green-300'
@@ -285,17 +304,43 @@ export default function OperatorsManagementPage() {
               {/* Status */}
               <div className="mt-5">
                 <p className="text-xs text-gray-400">Status</p>
-                <div className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-gray-300 px-4 py-1.5 text-sm">
-                  <span
-                    className={
-                      selectedOperator.status === 'active'
-                        ? 'text-green-600 font-medium'
-                        : 'text-red-500 font-medium'
-                    }
+                <div className="relative mt-1 inline-block">
+                  <button
+                    onClick={() => setStatusDropdownOpen((o) => !o)}
+                    disabled={statusUpdating}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-gray-300 px-4 py-1.5 text-sm hover:bg-gray-50 transition-colors disabled:opacity-50"
                   >
-                    {selectedOperator.status === 'active' ? 'Active' : 'Suspended'}
-                  </span>
-                  <ChevronDown size={14} className="text-gray-400" />
+                    <span
+                      className={
+                        selectedOperator.status === 'active'
+                          ? 'text-green-600 font-medium'
+                          : 'text-red-500 font-medium'
+                      }
+                    >
+                      {statusUpdating ? 'Updating…' : selectedOperator.status === 'active' ? 'Active' : 'Suspended'}
+                    </span>
+                    <ChevronDown size={14} className="text-gray-400" />
+                  </button>
+                  {statusDropdownOpen && (
+                    <div className="absolute left-0 top-full z-20 mt-1 w-36 rounded-md border border-gray-200 bg-white py-1 shadow-lg">
+                      <button
+                        onClick={() => updateOperatorStatus(selectedOperator.uid, 'active')}
+                        className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-100 ${
+                          selectedOperator.status === 'active' ? 'text-green-600 font-medium' : 'text-gray-700'
+                        }`}
+                      >
+                        Active
+                      </button>
+                      <button
+                        onClick={() => updateOperatorStatus(selectedOperator.uid, 'suspended')}
+                        className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-100 ${
+                          selectedOperator.status === 'suspended' ? 'text-red-500 font-medium' : 'text-gray-700'
+                        }`}
+                      >
+                        Suspended
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
