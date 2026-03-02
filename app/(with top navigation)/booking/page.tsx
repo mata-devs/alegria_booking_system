@@ -7,7 +7,16 @@ import ExperiencesDescription from "./ExperiencesDescription";
 import Include from "./Include";
 import Availablity from "./Availability";
 import Reviews from "./Reviews";
+import ReviewsTest from "./ReviewTest";
 
+
+// interface BookingPageProps {
+//     searchParams: {
+//         date?: string;
+//         time?: string;
+//         guests?: string;
+//     };
+// }
 
 export default function Boooking() {
 return (
