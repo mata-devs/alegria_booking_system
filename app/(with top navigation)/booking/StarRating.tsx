@@ -26,20 +26,20 @@ export default function StarRating({
             const star = i + 1;
             const isActive = star <= (hover || rating);
 
-        return (
-            <button
-                key={star}
-                type="button"
-                onClick={() => handleClick(star)}
-                onMouseEnter={() => setHover(star)}
-                onMouseLeave={() => setHover(0)}
-                className="cursor-pointer text-2xl focus:outline-none text-[46px]"
-            >
-            <span className={isActive ? "text-yellow-400" : "text-gray-300 " }>
-                ★
-            </span>
-            </button>
-            );
+            return (
+                <button
+                    key={star}
+                    type="button"
+                    onClick={() => handleClick(star)}
+                    onMouseEnter={() => setHover(star)}
+                    onMouseLeave={() => setHover(0)}
+                    className="cursor-pointer text-2xl focus:outline-none text-[46px]"
+                >
+                <span className={isActive ? "text-yellow-400" : "text-gray-300 " }>
+                    ★
+                </span>
+                </button>
+                );
         })}
     </div>
     );
