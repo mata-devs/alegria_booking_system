@@ -34,3 +34,10 @@ body {
 .fc-timegrid-event {
   inset: 4px;
 }
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  overflow: auto;
+}
