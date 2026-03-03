@@ -25,3 +25,20 @@ export interface OperatorFile {
   name: string;
   url: string;
 }
+
+export type SignUpRequestStatus = 'pending' | 'approved' | 'rejected';
+
+export interface OperatorSignUpRequest {
+  id: string;
+  applicantId: string;
+  name: string;
+  email: string;
+  phoneNumber: string;
+  mobileNumber: string;
+  address: string;
+  photoUrl: string | null;
+  documents: OperatorFile[];
+  status: SignUpRequestStatus;
+  submittedAt: Date | null;
+  reviewedAt: Date | null;
+}

@@ -1,19 +1,39 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, orderBy, Timestamp } from 'firebase/firestore';
 import { firebaseDb, firebaseStorage } from '@/lib/firebase';
 import { ref, getDownloadURL } from 'firebase/storage';
 import { Filter, Search, ChevronDown, FileImage } from 'lucide-react';
-import type { OperatorProfile } from '@/lib/types';
+import type { OperatorProfile, OperatorSignUpRequest, SignUpRequestStatus } from '@/lib/types';
 
 type Tab = 'operators' | 'signup-requests';
 type SearchField = 'name' | 'id';
+type RequestSearchField = 'name' | 'id';
 
 const SEARCH_FIELD_LABELS: Record<SearchField, string> = {
   name: 'Operator Name',
   id: 'Operator ID',
 };
+
+const REQUEST_SEARCH_LABELS: Record<RequestSearchField, string> = {
+  name: 'Name',
+  id: 'Applicant ID',
+};
+
+const STATUS_DOT: Record<SignUpRequestStatus, string> = {
+  pending: 'bg-amber-500',
+  approved: 'bg-green-500',
+  rejected: 'bg-red-500',
+};
+
+const STATUS_LABEL: Record<SignUpRequestStatus, string> = {
+  pending: 'Pending',
+  approved: 'Accepted',
+  rejected: 'Declined',
+};
+
+// TODO: make responsive
 
 export default function OperatorsManagementPage() {
   const [activeTab, setActiveTab] = useState<Tab>('operators');
@@ -25,6 +45,16 @@ export default function OperatorsManagementPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
+
+  // Sign-up requests state
+  const [requests, setRequests] = useState<OperatorSignUpRequest[]>([]);
+  const [requestsLoading, setRequestsLoading] = useState(false);
+  const [requestSearchQuery, setRequestSearchQuery] = useState('');
+  const [requestSearchField, setRequestSearchField] = useState<RequestSearchField>('name');
+  const [requestDropdownOpen, setRequestDropdownOpen] = useState(false);
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+  const [requestUpdating, setRequestUpdating] = useState(false);
+  const [requestsFetched, setRequestsFetched] = useState(false);
 
   useEffect(() => {
     async function fetchOperators() {
@@ -79,6 +109,78 @@ export default function OperatorsManagementPage() {
 
     fetchOperators();
   }, []);
+
+  // Fetch sign-up requests when the tab becomes active
+  useEffect(() => {
+    if (activeTab !== 'signup-requests' || requestsFetched) return;
+
+    async function fetchRequests() {
+      setRequestsLoading(true);
+      try {
+        const q = query(
+          collection(firebaseDb, 'operator_signup_requests'),
+          orderBy('submittedAt', 'desc'),
+        );
+        const snapshot = await getDocs(q);
+        const results: OperatorSignUpRequest[] = snapshot.docs.map((d) => {
+          const data = d.data();
+          return {
+            id: d.id,
+            applicantId: data.applicantId ?? d.id.slice(0, 6).toUpperCase(),
+            name: data.name ?? '',
+            email: data.email ?? '',
+            phoneNumber: data.phoneNumber ?? '',
+            mobileNumber: data.mobileNumber ?? '',
+            address: data.address ?? '',
+            photoUrl: data.photoUrl ?? null,
+            documents: Array.isArray(data.documents) ? data.documents : [],
+            status: data.status ?? 'pending',
+            submittedAt: data.submittedAt instanceof Timestamp ? data.submittedAt.toDate() : null,
+            reviewedAt: data.reviewedAt instanceof Timestamp ? data.reviewedAt.toDate() : null,
+          };
+        });
+        setRequests(results);
+        if (results.length > 0) setSelectedRequestId(results[0].id);
+        setRequestsFetched(true);
+      } catch (error) {
+        console.error('Failed to fetch sign-up requests:', error);
+      } finally {
+        setRequestsLoading(false);
+      }
+    }
+
+    fetchRequests();
+  }, [activeTab, requestsFetched]);
+
+  const filteredRequests = useMemo(() => {
+    if (!requestSearchQuery.trim()) return requests;
+    const q = requestSearchQuery.toLowerCase();
+    return requests.filter((r) => {
+      if (requestSearchField === 'name') return r.name.toLowerCase().includes(q);
+      return r.applicantId.toLowerCase().includes(q);
+    });
+  }, [requests, requestSearchQuery, requestSearchField]);
+
+  const selectedRequest = requests.find((r) => r.id === selectedRequestId) ?? null;
+
+  async function updateRequestStatus(requestId: string, newStatus: 'approved' | 'rejected') {
+    setRequestUpdating(true);
+    try {
+      await updateDoc(doc(firebaseDb, 'operator_signup_requests', requestId), {
+        status: newStatus,
+        reviewedAt: Timestamp.now(),
+      });
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === requestId ? { ...r, status: newStatus, reviewedAt: new Date() } : r,
+        ),
+      );
+    } catch (error) {
+      console.error('Failed to update request status:', error);
+    } finally {
+      setRequestUpdating(false);
+    }
+  }
 
   const filtered = useMemo(() => {
     if (!searchQuery.trim()) return operators;
@@ -386,8 +488,216 @@ export default function OperatorsManagementPage() {
           )}
         </div>
       ) : (
-        <div className="mt-6 rounded-lg border border-gray-200 bg-white p-8 text-center text-sm text-gray-400">
-          Sign up requests coming soon.
+        <div className="mt-4 flex gap-4">
+          {/* Left column */}
+          <div className="flex flex-1 min-w-0 flex-col gap-4">
+            {/* Table panel */}
+            <div className="rounded-lg border border-gray-200 bg-white p-4">
+              {/* Toolbar — mirrors operators tab */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <button className="inline-flex items-center gap-2 rounded-md bg-[#558B2F] px-4 py-2 text-sm font-medium text-white hover:bg-[#4a7a28] transition-colors">
+                  <Filter size={16} />
+                  Filters
+                </button>
+
+                <span className="text-sm font-medium text-gray-700">Search by:</span>
+
+                {/* Search-field dropdown */}
+                <div className="relative">
+                  <button
+                    onClick={() => setRequestDropdownOpen(!requestDropdownOpen)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-[#558B2F] px-4 py-1.5 text-sm font-medium text-[#558B2F] hover:bg-green-50 transition-colors"
+                  >
+                    {REQUEST_SEARCH_LABELS[requestSearchField]}
+                    <ChevronDown size={14} />
+                  </button>
+                  {requestDropdownOpen && (
+                    <div className="absolute left-0 top-full z-10 mt-1 w-44 rounded-md border border-gray-200 bg-white py-1 shadow-lg">
+                      {(Object.keys(REQUEST_SEARCH_LABELS) as RequestSearchField[]).map((field) => (
+                        <button
+                          key={field}
+                          onClick={() => {
+                            setRequestSearchField(field);
+                            setRequestDropdownOpen(false);
+                          }}
+                          className={`block w-full px-4 py-2 text-left text-sm hover:bg-gray-100 ${
+                            requestSearchField === field ? 'text-[#558B2F] font-medium' : 'text-gray-700'
+                          }`}
+                        >
+                          {REQUEST_SEARCH_LABELS[field]}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Search input */}
+                <div className="relative">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search"
+                    value={requestSearchQuery}
+                    onChange={(e) => setRequestSearchQuery(e.target.value)}
+                    className="rounded-md border border-gray-300 py-1.5 pl-9 pr-4 text-sm text-gray-700 placeholder:text-gray-400 focus:border-[#558B2F] focus:outline-none focus:ring-1 focus:ring-[#558B2F]"
+                  />
+                </div>
+              </div>
+
+              {/* Column headers */}
+              <div className="mt-5 grid grid-cols-[1fr_1.4fr_1fr_0.8fr] gap-0 px-4">
+                <span className="text-sm font-bold text-gray-900">Applicant ID</span>
+                <span className="text-sm font-bold text-gray-900">Name</span>
+                <span className="text-sm font-bold text-gray-900">Date</span>
+                <span className="text-sm font-bold text-gray-900">Status</span>
+              </div>
+
+              {/* Rows */}
+              <div className="mt-3 flex flex-col gap-2">
+                {requestsLoading ? (
+                  <div className="rounded-lg bg-gray-100 px-4 py-4 text-center text-sm text-gray-400">
+                    Loading requests…
+                  </div>
+                ) : filteredRequests.length === 0 ? (
+                  <div className="rounded-lg bg-gray-100 px-4 py-4 text-center text-sm text-gray-400">
+                    No sign-up requests found.
+                  </div>
+                ) : (
+                  filteredRequests.map((req) => (
+                    <button
+                      key={req.id}
+                      type="button"
+                      onClick={() => setSelectedRequestId(req.id)}
+                      className={`grid grid-cols-[1fr_1.4fr_1fr_0.8fr] items-center gap-0 rounded-lg text-left transition-colors ${
+                        selectedRequestId === req.id
+                          ? 'bg-green-100 ring-1 ring-green-300'
+                          : 'bg-gray-100 hover:bg-gray-200'
+                      }`}
+                    >
+                      <span className="border-r border-gray-300 px-4 py-3 text-sm text-gray-700">
+                        {req.applicantId}
+                      </span>
+                      <span className="border-r border-gray-300 px-4 py-3 text-sm text-gray-700 truncate">
+                        {req.name}
+                      </span>
+                      <span className="border-r border-gray-300 px-4 py-3 text-sm text-gray-700">
+                        {formatDate(req.submittedAt)}
+                      </span>
+                      <span className="flex items-center gap-2 px-4 py-3 text-sm text-gray-700">
+                        <span className={`h-2.5 w-2.5 rounded-full ${STATUS_DOT[req.status]}`} />
+                        {STATUS_LABEL[req.status]}
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+
+          </div>
+
+          {/* Right panel — Request Detail */}
+          {selectedRequest && (
+            <div className="w-88 shrink-0 rounded-lg border border-gray-200 bg-white p-5">
+              {/* Photo + Name field */}
+              <div className="flex gap-4">
+                <div className="h-28 w-28 shrink-0 overflow-hidden rounded-md bg-lime-100">
+                  {selectedRequest.photoUrl ? (
+                    <img
+                      src={selectedRequest.photoUrl}
+                      alt={selectedRequest.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-sm font-medium text-gray-500">
+                      Photo
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <label className="text-xs font-semibold text-gray-700">Name</label>
+                  <div className="mt-0.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 truncate">
+                    {selectedRequest.name || '—'}
+                  </div>
+
+                  <label className="mt-3 block text-xs font-semibold text-gray-700">Telephone number</label>
+                  <div className="mt-0.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900">
+                    {selectedRequest.phoneNumber || '—'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Remaining fields */}
+              <div className="mt-3 space-y-3">
+                <div>
+                  <label className="text-xs font-semibold text-gray-700">Mobile number</label>
+                  <div className="mt-0.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900">
+                    {selectedRequest.mobileNumber || '—'}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-700">Email address</label>
+                  <div className="mt-0.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 truncate">
+                    {selectedRequest.email || '—'}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-700">Address</label>
+                  <div className="mt-0.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900">
+                    {selectedRequest.address || '—'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Documents */}
+              <div className="mt-5">
+                <h3 className="text-sm font-bold text-gray-900">Documents</h3>
+                <div className="mt-2 rounded-lg border border-gray-200 divide-y divide-gray-200">
+                  {selectedRequest.documents.length === 0 ? (
+                    <p className="px-4 py-3 text-sm text-gray-400">No documents uploaded.</p>
+                  ) : (
+                    selectedRequest.documents.map((file) => (
+                      <a
+                        key={file.name}
+                        href={file.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <FileImage size={18} className="shrink-0 text-teal-600" />
+                          <span className="truncate">{file.name}</span>
+                        </div>
+                        <span className="ml-2 flex h-6 w-6 shrink-0 items-center justify-center rounded bg-red-100 text-red-500">
+                          <FileImage size={12} />
+                        </span>
+                      </a>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Actions */}
+              {selectedRequest.status === 'pending' && (
+                <div className="mt-6 flex gap-3">
+                  <button
+                    disabled={requestUpdating}
+                    onClick={() => updateRequestStatus(selectedRequest.id, 'approved')}
+                    className="flex-1 rounded-lg bg-[#558B2F] py-2.5 text-sm font-semibold text-white hover:bg-[#4a7a28] transition-colors disabled:opacity-50"
+                  >
+                    {requestUpdating ? 'Updating…' : 'Approve'}
+                  </button>
+                  <button
+                    disabled={requestUpdating}
+                    onClick={() => updateRequestStatus(selectedRequest.id, 'rejected')}
+                    className="flex-1 rounded-lg border border-red-300 py-2.5 text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
+                  >
+                    {requestUpdating ? 'Updating…' : 'Decline'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
