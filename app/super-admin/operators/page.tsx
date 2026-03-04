@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { collection, query, where, getDocs, doc, updateDoc, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, orderBy, Timestamp, onSnapshot } from 'firebase/firestore';
 import { firebaseDb, firebaseStorage } from '@/lib/firebase';
 import { ref, getDownloadURL } from 'firebase/storage';
 import { Filter, Search, ChevronDown, FileImage } from 'lucide-react';
@@ -54,7 +54,7 @@ export default function OperatorsManagementPage() {
   const [requestDropdownOpen, setRequestDropdownOpen] = useState(false);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [requestUpdating, setRequestUpdating] = useState(false);
-  const [requestsFetched, setRequestsFetched] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
     async function fetchOperators() {
@@ -110,47 +110,51 @@ export default function OperatorsManagementPage() {
     fetchOperators();
   }, []);
 
-  // Fetch sign-up requests when the tab becomes active
+  // Real-time listener for pending request count (badge on tab)
   useEffect(() => {
-    if (activeTab !== 'signup-requests' || requestsFetched) return;
+    const q = query(
+      collection(firebaseDb, 'operator_signup_requests'),
+      where('status', '==', 'pending'),
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setPendingCount(snapshot.size);
+    });
+    return () => unsubscribe();
+  }, []);
 
-    async function fetchRequests() {
-      setRequestsLoading(true);
-      try {
-        const q = query(
-          collection(firebaseDb, 'operator_signup_requests'),
-          orderBy('submittedAt', 'desc'),
-        );
-        const snapshot = await getDocs(q);
-        const results: OperatorSignUpRequest[] = snapshot.docs.map((d) => {
-          const data = d.data();
-          return {
-            id: d.id,
-            applicantId: data.applicantId ?? d.id.slice(0, 6).toUpperCase(),
-            name: data.name ?? '',
-            email: data.email ?? '',
-            phoneNumber: data.phoneNumber ?? '',
-            mobileNumber: data.mobileNumber ?? '',
-            address: data.address ?? '',
-            photoUrl: data.photoUrl ?? null,
-            documents: Array.isArray(data.documents) ? data.documents : [],
-            status: data.status ?? 'pending',
-            submittedAt: data.submittedAt instanceof Timestamp ? data.submittedAt.toDate() : null,
-            reviewedAt: data.reviewedAt instanceof Timestamp ? data.reviewedAt.toDate() : null,
-          };
-        });
-        setRequests(results);
-        if (results.length > 0) setSelectedRequestId(results[0].id);
-        setRequestsFetched(true);
-      } catch (error) {
-        console.error('Failed to fetch sign-up requests:', error);
-      } finally {
-        setRequestsLoading(false);
-      }
-    }
-
-    fetchRequests();
-  }, [activeTab, requestsFetched]);
+  // Real-time listener for sign-up requests
+  useEffect(() => {
+    const q = query(
+      collection(firebaseDb, 'operator_signup_requests'),
+      orderBy('submittedAt', 'desc'),
+    );
+    setRequestsLoading(true);
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const results: OperatorSignUpRequest[] = snapshot.docs.map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          applicantId: data.applicantId ?? d.id.slice(0, 6).toUpperCase(),
+          name: data.name ?? '',
+          email: data.email ?? '',
+          phoneNumber: data.phoneNumber ?? '',
+          mobileNumber: data.mobileNumber ?? '',
+          address: data.address ?? '',
+          photoUrl: data.photoUrl ?? null,
+          documents: Array.isArray(data.documents) ? data.documents : [],
+          status: data.status ?? 'pending',
+          submittedAt: data.submittedAt instanceof Timestamp ? data.submittedAt.toDate() : null,
+          reviewedAt: data.reviewedAt instanceof Timestamp ? data.reviewedAt.toDate() : null,
+        };
+      });
+      setRequests(results);
+      setRequestsLoading(false);
+    }, (error) => {
+      console.error('Failed to fetch sign-up requests:', error);
+      setRequestsLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const filteredRequests = useMemo(() => {
     if (!requestSearchQuery.trim()) return requests;
@@ -237,13 +241,18 @@ export default function OperatorsManagementPage() {
         <div className="w-px bg-gray-300 my-2" />
         <button
           onClick={() => setActiveTab('signup-requests')}
-          className={`px-6 py-3 text-sm font-semibold transition-colors ${
+          className={`inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold transition-colors ${
             activeTab === 'signup-requests'
               ? 'text-[#558B2F] border-b-2 border-[#558B2F]'
               : 'text-gray-500 hover:text-gray-700'
           }`}
         >
           Sign up requests
+          {pendingCount > 0 && (
+            <span className="inline-flex items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white min-w-5 h-5">
+              {pendingCount > 99 ? '99+' : pendingCount}
+            </span>
+          )}
         </button>
       </div>
 

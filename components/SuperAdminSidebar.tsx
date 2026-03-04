@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { firebaseDb } from '@/lib/firebase';
 import {
   BarChart3,
   Users,
@@ -15,7 +17,7 @@ import {
   CircleUserRound,
   Menu,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const NAV_ITEMS = [
   { label: 'Analytics', href: '/super-admin/analytics', icon: BarChart3 },
@@ -33,6 +35,18 @@ export default function SuperAdminSidebar({ isCollapsed, onToggleCollapse }: Sup
   const pathname = usePathname();
   const { signOutUser } = useAuth();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [pendingRequestCount, setPendingRequestCount] = useState(0);
+
+  useEffect(() => {
+    const q = query(
+      collection(firebaseDb, 'operator_signup_requests'),
+      where('status', '==', 'pending'),
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setPendingRequestCount(snapshot.size);
+    });
+    return () => unsubscribe();
+  }, []);
 
   return (
     <>
@@ -95,7 +109,7 @@ export default function SuperAdminSidebar({ isCollapsed, onToggleCollapse }: Sup
                 href={item.href}
                 onClick={() => setIsMobileOpen(false)}
                 title={isCollapsed ? item.label.replace('\n', ' ') : undefined}
-                className={`flex items-center rounded-lg text-sm font-semibold transition-colors ${
+                className={`relative flex items-center rounded-lg text-sm font-semibold transition-colors ${
                   isCollapsed ? 'justify-center px-2 py-3' : 'gap-4 px-3 py-3'
                 } ${
                   isActive
@@ -108,6 +122,15 @@ export default function SuperAdminSidebar({ isCollapsed, onToggleCollapse }: Sup
                 </span>
                 {!isCollapsed && (
                   <span className="whitespace-pre-line leading-tight">{item.label}</span>
+                )}
+                {item.href === '/super-admin/operators' && pendingRequestCount > 0 && (
+                  <span className={`flex items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ${
+                    isCollapsed
+                      ? 'absolute -top-1 -right-1 h-5 min-w-5 px-1'
+                      : 'ml-auto h-5 min-w-5 px-1.5'
+                  }`}>
+                    {pendingRequestCount > 99 ? '99+' : pendingRequestCount}
+                  </span>
                 )}
               </Link>
             );
