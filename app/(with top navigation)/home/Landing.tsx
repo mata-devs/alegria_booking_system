@@ -35,7 +35,7 @@ export default function Landing() {
       <ServicesSection />
       <GallerySection />
 
-      <Footer />
+      {/* <Footer /> */}
     </div>
   );
 }

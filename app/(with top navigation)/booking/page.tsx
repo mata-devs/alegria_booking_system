@@ -8,6 +8,8 @@ import Include from "./Include";
 import Availablity from "./Availability";
 import Reviews from "./Reviews";
 import ReviewsTest from "./ReviewTest";
+import ReviewForm from "./ReviewForm";
+import Footer from "@/components/Footer";
 
 
 // interface BookingPageProps {
@@ -75,10 +77,12 @@ return (
                 <AvailableSlots/>
                 <ExperiencesDescription/>
                 <Include/>
-                <Availablity/>
                 <Reviews/>
+                <ReviewForm/>
             </div>
         </div>
+        
     </div>
+    
     );
 }

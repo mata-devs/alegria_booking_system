@@ -9,7 +9,7 @@ export default function Navbar(){
     const pathname = usePathname();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-    const showNavbar = ["/", "/booking"];
+    const showNavbar = ["/", "/booking", "/guestbooking"];
 
     if (!showNavbar.includes(pathname)) return null;
 
@@ -28,29 +28,26 @@ export default function Navbar(){
                     />
                 </div>
 
-                <div className="hidden lg:flex items-center gap-6 xl:gap-8 text-black font-poppins">
+                <div className="hidden lg:flex items-center gap-6 xl:gap-15 text-black font-poppins">
                     <Link href="/" className="hover:text-[#45A80A] transition-colors">
                         Home
                     </Link>
                     <Link href="/" className="hover:text-[#45A80A] transition-colors">
-                        Tour Packages
-                    </Link>
-                    <Link href="/" className="hover:text-[#45A80A] transition-colors">
-                        More Tours
+                        Tour Guides
                     </Link>
                     <Link href="/booking">
                         <button className="bg-[#45A80A] hover:bg-[#3a8c08] rounded-lg px-6 xl:px-10 py-2.5 xl:py-3 text-white transition-colors">
                             Book Now
                         </button>
                     </Link>
-                    <Image
+                    {/* <Image
                         src="/user-icon.png"
                         alt="user icon"
                         width={50}
                         height={50}
                         className="w-10 h-10 xl:w-12 xl:h-12 cursor-pointer hover:opacity-80 transition-opacity"
                         priority
-                    />
+                    /> */}
                 </div>
 
                 <button
