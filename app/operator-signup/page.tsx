@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useRef, type ChangeEvent, type FormEvent } from 'react';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useState, useEffect, useRef, type ChangeEvent, type FormEvent } from 'react';
+import { collection, addDoc, serverTimestamp, doc, getDoc, deleteDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { firebaseDb, firebaseStorage } from '@/lib/firebase';
-import { Upload, X, FileImage, ArrowLeft } from 'lucide-react';
+import { Upload, X, FileImage, ArrowLeft, ShieldX } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
 interface FormData {
   name: string;
@@ -28,6 +29,9 @@ const REQUIRED_DOCUMENTS = [
 ];
 
 export default function OperatorSignUpPage() {
+  const searchParams = useSearchParams();
+  const [tokenValid, setTokenValid] = useState<boolean | null>(null); // null = loading
+
   const [form, setForm] = useState<FormData>({
     name: '',
     phoneNumber: '',
@@ -44,6 +48,28 @@ export default function OperatorSignUpPage() {
 
   const photoInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Validate token on mount
+  useEffect(() => {
+    async function validateToken() {
+      const token = searchParams.get('token');
+      if (!token) {
+        setTokenValid(false);
+        return;
+      }
+      try {
+        const snap = await getDoc(doc(firebaseDb, 'app_config', 'operator_signup_link'));
+        if (snap.exists() && snap.data().token === token) {
+          setTokenValid(true);
+        } else {
+          setTokenValid(false);
+        }
+      } catch {
+        setTokenValid(false);
+      }
+    }
+    validateToken();
+  }, [searchParams]);
 
   function handleInput(e: ChangeEvent<HTMLInputElement>) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -165,6 +191,9 @@ export default function OperatorSignUpPage() {
         reviewedAt: null,
       });
 
+      // Invalidate the signup link so it can't be reused
+      await deleteDoc(doc(firebaseDb, 'app_config', 'operator_signup_link'));
+
       setSubmitted(true);
     } catch (err) {
       console.error('Submission failed:', err);
@@ -172,6 +201,38 @@ export default function OperatorSignUpPage() {
     } finally {
       setSubmitting(false);
     }
+  }
+// TODO: add time limit
+  if (tokenValid === null) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <p className="text-sm text-gray-400">Validating link…</p>
+      </div>
+    );
+  }
+
+  if (!tokenValid) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+        <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-10 text-center shadow-sm space-y-4">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-100">
+            <ShieldX className="h-7 w-7 text-red-500" />
+          </div>
+          <h1 className="text-xl font-bold text-gray-900">Invalid or Expired Link</h1>
+          <p className="text-sm text-gray-500">
+            This application link is no longer valid. Please contact the administrator
+            to request a new link.
+          </p>
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-[#558B2F] hover:underline"
+          >
+            <ArrowLeft size={16} />
+            Back to home
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   if (submitted) {

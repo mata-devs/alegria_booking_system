@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { collection, query, where, getDocs, doc, updateDoc, orderBy, Timestamp, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, orderBy, Timestamp, onSnapshot, getDoc, setDoc } from 'firebase/firestore';
 import { firebaseDb, firebaseStorage } from '@/lib/firebase';
 import { ref, getDownloadURL } from 'firebase/storage';
-import { Filter, Search, ChevronDown, FileImage } from 'lucide-react';
+import { Filter, Search, ChevronDown, FileImage, Copy, RefreshCw, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import type { OperatorProfile, OperatorSignUpRequest, SignUpRequestStatus } from '@/lib/types';
 
 type Tab = 'operators' | 'signup-requests';
@@ -33,7 +33,9 @@ const STATUS_LABEL: Record<SignUpRequestStatus, string> = {
   rejected: 'Declined',
 };
 
-// TODO: make responsive
+const ROWS_PER_PAGE = 10;
+
+// TODO: update firestore security rules
 
 export default function OperatorsManagementPage() {
   const [activeTab, setActiveTab] = useState<Tab>('operators');
@@ -45,6 +47,7 @@ export default function OperatorsManagementPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
+  const [operatorPage, setOperatorPage] = useState(1);
 
   // Sign-up requests state
   const [requests, setRequests] = useState<OperatorSignUpRequest[]>([]);
@@ -54,7 +57,14 @@ export default function OperatorsManagementPage() {
   const [requestDropdownOpen, setRequestDropdownOpen] = useState(false);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [requestUpdating, setRequestUpdating] = useState(false);
+  const [requestPage, setRequestPage] = useState(1);
   const [pendingCount, setPendingCount] = useState(0);
+
+  // Application link state
+  const [signupToken, setSignupToken] = useState<string | null>(null);
+  const [tokenLoading, setTokenLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     async function fetchOperators() {
@@ -109,6 +119,56 @@ export default function OperatorsManagementPage() {
 
     fetchOperators();
   }, []);
+
+  // Fetch active signup token
+  useEffect(() => {
+    async function fetchToken() {
+      try {
+        const snap = await getDoc(doc(firebaseDb, 'app_config', 'operator_signup_link'));
+        if (snap.exists()) {
+          setSignupToken(snap.data().token ?? null);
+        }
+      } catch (error) {
+        console.error('Failed to fetch signup token:', error);
+      } finally {
+        setTokenLoading(false);
+      }
+    }
+    fetchToken();
+  }, []);
+
+  function getSignupUrl(token: string) {
+    const base = typeof window !== 'undefined' ? window.location.origin : '';
+    return `${base}/operator-signup?token=${token}`;
+  }
+
+  async function generateNewToken() {
+    setGenerating(true);
+    try {
+      const token = crypto.randomUUID().replace(/-/g, '').slice(0, 12);
+      await setDoc(doc(firebaseDb, 'app_config', 'operator_signup_link'), {
+        token,
+        createdAt: Timestamp.now(),
+      });
+      setSignupToken(token);
+      setCopied(false);
+    } catch (error) {
+      console.error('Failed to generate token:', error);
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  async function copyLink() {
+    if (!signupToken) return;
+    try {
+      await navigator.clipboard.writeText(getSignupUrl(signupToken));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error('Failed to copy:', error);
+    }
+  }
 
   // Real-time listener for pending request count (badge on tab)
   useEffect(() => {
@@ -165,6 +225,15 @@ export default function OperatorsManagementPage() {
     });
   }, [requests, requestSearchQuery, requestSearchField]);
 
+  // Reset requests page when search changes
+  useEffect(() => { setRequestPage(1); }, [requestSearchQuery, requestSearchField]);
+
+  const requestTotalPages = Math.max(1, Math.ceil(filteredRequests.length / ROWS_PER_PAGE));
+  const paginatedRequests = filteredRequests.slice(
+    (requestPage - 1) * ROWS_PER_PAGE,
+    requestPage * ROWS_PER_PAGE,
+  );
+
   const selectedRequest = requests.find((r) => r.id === selectedRequestId) ?? null;
 
   async function updateRequestStatus(requestId: string, newStatus: 'approved' | 'rejected') {
@@ -196,6 +265,15 @@ export default function OperatorsManagementPage() {
       return op.operatorId.toLowerCase().includes(q);
     });
   }, [operators, searchQuery, searchField]);
+
+  // Reset operators page when search changes
+  useEffect(() => { setOperatorPage(1); }, [searchQuery, searchField]);
+
+  const operatorTotalPages = Math.max(1, Math.ceil(filtered.length / ROWS_PER_PAGE));
+  const paginatedOperators = filtered.slice(
+    (operatorPage - 1) * ROWS_PER_PAGE,
+    operatorPage * ROWS_PER_PAGE,
+  );
 
   const selectedOperator = operators.find((op) => op.uid === selectedId) ?? null;
 
@@ -257,7 +335,7 @@ export default function OperatorsManagementPage() {
       </div>
 
       {activeTab === 'operators' ? (
-        <div className="mt-4 flex gap-4">
+        <div className="mt-4 flex flex-col lg:flex-row gap-4">
           {/* Left panel — Table */}
           <div className="flex-1 min-w-0 rounded-lg border border-gray-200 bg-white p-4">
             {/* Toolbar */}
@@ -312,11 +390,11 @@ export default function OperatorsManagementPage() {
             </div>
 
             {/* Column headers */}
-            <div className="mt-5 grid grid-cols-[1fr_1.4fr_1fr_0.7fr] gap-0 px-4">
-              <span className="text-sm font-bold text-gray-900">Operator ID</span>
-              <span className="text-sm font-bold text-gray-900">Operator Name</span>
-              <span className="text-sm font-bold text-gray-900">Date Joined</span>
-              <span className="text-sm font-bold text-gray-900">Status</span>
+            <div className="mt-5 hidden md:grid grid-cols-4 gap-0">
+              <span className="px-4 text-sm font-bold text-gray-900">Operator ID</span>
+              <span className="px-4 text-sm font-bold text-gray-900">Operator Name</span>
+              <span className="px-4 text-sm font-bold text-gray-900">Date Joined</span>
+              <span className="px-4 text-sm font-bold text-gray-900">Status</span>
             </div>
 
             {/* Rows */}
@@ -330,45 +408,112 @@ export default function OperatorsManagementPage() {
                   No operators found.
                 </div>
               ) : (
-                filtered.map((op) => (
+                paginatedOperators.map((op) => (
                   <button
                     key={op.uid}
                     type="button"
                     onClick={() => { setSelectedId(op.uid); setStatusDropdownOpen(false); }}
-                    className={`grid grid-cols-[1fr_1.4fr_1fr_0.7fr] items-center gap-0 rounded-lg text-left transition-colors ${
+                    className={`rounded-lg text-left transition-colors ${
                       selectedId === op.uid
                         ? 'bg-green-100 ring-1 ring-green-300'
                         : 'bg-gray-100 hover:bg-gray-200'
                     }`}
                   >
-                    <span className="border-r border-gray-300 px-4 py-3 text-sm text-gray-700">
-                      {op.operatorId}
-                    </span>
-                    <span className="border-r border-gray-300 px-4 py-3 text-sm text-gray-700">
-                      {op.firstName} {op.lastName}
-                    </span>
-                    <span className="border-r border-gray-300 px-4 py-3 text-sm text-gray-700">
-                      {formatDate(op.createdAt)}
-                    </span>
-                    <span
-                      className={`px-4 py-3 text-sm font-medium ${
-                        op.status === 'active' ? 'text-green-600' : 'text-red-500'
-                      }`}
-                    >
-                      {op.status === 'active' ? 'Active' : 'Suspended'}
-                    </span>
+                    {/* Desktop row */}
+                    <div className="hidden md:grid grid-cols-4 items-center gap-0">
+                      <span className="border-r border-gray-300 px-4 py-3 text-sm text-gray-700">
+                        {op.operatorId}
+                      </span>
+                      <span className="border-r border-gray-300 px-4 py-3 text-sm text-gray-700">
+                        {op.firstName} {op.lastName}
+                      </span>
+                      <span className="border-r border-gray-300 px-4 py-3 text-sm text-gray-700">
+                        {formatDate(op.createdAt)}
+                      </span>
+                      <span
+                        className={`px-4 py-3 text-sm font-medium ${
+                          op.status === 'active' ? 'text-green-600' : 'text-red-500'
+                        }`}
+                      >
+                        {op.status === 'active' ? 'Active' : 'Suspended'}
+                      </span>
+                    </div>
+                    {/* Mobile card */}
+                    <div className="md:hidden px-4 py-3 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-gray-900">{op.firstName} {op.lastName}</span>
+                        <span
+                          className={`text-xs font-medium ${
+                            op.status === 'active' ? 'text-green-600' : 'text-red-500'
+                          }`}
+                        >
+                          {op.status === 'active' ? 'Active' : 'Suspended'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span>ID: {op.operatorId}</span>
+                        <span>{formatDate(op.createdAt)}</span>
+                      </div>
+                    </div>
                   </button>
                 ))
               )}
             </div>
+
+            {/* Pagination */}
+            {filtered.length > ROWS_PER_PAGE && (
+              <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3">
+                <p className="text-xs text-gray-500">
+                  Showing {(operatorPage - 1) * ROWS_PER_PAGE + 1}–{Math.min(operatorPage * ROWS_PER_PAGE, filtered.length)} of {filtered.length}
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setOperatorPage((p) => Math.max(1, p - 1))}
+                    disabled={operatorPage === 1}
+                    className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  {Array.from({ length: operatorTotalPages }, (_, i) => i + 1).map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => setOperatorPage(page)}
+                      className={`h-7 min-w-7 rounded-md px-2 text-xs font-medium transition-colors ${
+                        operatorPage === page
+                          ? 'bg-[#558B2F] text-white'
+                          : 'text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setOperatorPage((p) => Math.min(operatorTotalPages, p + 1))}
+                    disabled={operatorPage === operatorTotalPages}
+                    className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right panel — Operator Detail */}
           {selectedOperator && (
-            <div className="w-80 shrink-0 rounded-lg border border-gray-200 bg-white p-5">
-              <p className="text-center text-xs text-gray-500">
-                Operator ID: {selectedOperator.operatorId}
-              </p>
+            <div className="w-full lg:w-80 shrink-0 rounded-lg border border-gray-200 bg-white p-5">
+              <div className="flex items-center justify-between">
+                <span />
+                <p className="text-xs text-gray-500">
+                  Operator ID: {selectedOperator.operatorId}
+                </p>
+                <button
+                  onClick={() => setSelectedId(null)}
+                  className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              </div>
 
               {/* Profile section */}
               <div className="mt-4 flex gap-4">
@@ -497,7 +642,7 @@ export default function OperatorsManagementPage() {
           )}
         </div>
       ) : (
-        <div className="mt-4 flex gap-4">
+        <div className="mt-4 flex flex-col lg:flex-row gap-4">
           {/* Left column */}
           <div className="flex flex-1 min-w-0 flex-col gap-4">
             {/* Table panel */}
@@ -554,11 +699,11 @@ export default function OperatorsManagementPage() {
               </div>
 
               {/* Column headers */}
-              <div className="mt-5 grid grid-cols-[1fr_1.4fr_1fr_0.8fr] gap-0 px-4">
-                <span className="text-sm font-bold text-gray-900">Applicant ID</span>
-                <span className="text-sm font-bold text-gray-900">Name</span>
-                <span className="text-sm font-bold text-gray-900">Date</span>
-                <span className="text-sm font-bold text-gray-900">Status</span>
+              <div className="mt-5 hidden md:grid grid-cols-4 gap-0">
+                <span className="px-4 text-sm font-bold text-gray-900">Applicant ID</span>
+                <span className="px-4 text-sm font-bold text-gray-900">Name</span>
+                <span className="px-4 text-sm font-bold text-gray-900">Date</span>
+                <span className="px-4 text-sm font-bold text-gray-900">Status</span>
               </div>
 
               {/* Rows */}
@@ -572,41 +717,134 @@ export default function OperatorsManagementPage() {
                     No sign-up requests found.
                   </div>
                 ) : (
-                  filteredRequests.map((req) => (
+                  paginatedRequests.map((req) => (
                     <button
                       key={req.id}
                       type="button"
                       onClick={() => setSelectedRequestId(req.id)}
-                      className={`grid grid-cols-[1fr_1.4fr_1fr_0.8fr] items-center gap-0 rounded-lg text-left transition-colors ${
+                      className={`rounded-lg text-left transition-colors ${
                         selectedRequestId === req.id
                           ? 'bg-green-100 ring-1 ring-green-300'
                           : 'bg-gray-100 hover:bg-gray-200'
                       }`}
                     >
-                      <span className="border-r border-gray-300 px-4 py-3 text-sm text-gray-700">
-                        {req.applicantId}
-                      </span>
-                      <span className="border-r border-gray-300 px-4 py-3 text-sm text-gray-700 truncate">
-                        {req.name}
-                      </span>
-                      <span className="border-r border-gray-300 px-4 py-3 text-sm text-gray-700">
-                        {formatDate(req.submittedAt)}
-                      </span>
-                      <span className="flex items-center gap-2 px-4 py-3 text-sm text-gray-700">
-                        <span className={`h-2.5 w-2.5 rounded-full ${STATUS_DOT[req.status]}`} />
-                        {STATUS_LABEL[req.status]}
-                      </span>
+                      {/* Desktop row */}
+                      <div className="hidden md:grid grid-cols-4 items-center gap-0">
+                        <span className="border-r border-gray-300 px-4 py-3 text-sm text-gray-700">
+                          {req.applicantId}
+                        </span>
+                        <span className="border-r border-gray-300 px-4 py-3 text-sm text-gray-700 truncate">
+                          {req.name}
+                        </span>
+                        <span className="border-r border-gray-300 px-4 py-3 text-sm text-gray-700">
+                          {formatDate(req.submittedAt)}
+                        </span>
+                        <span className="flex items-center gap-2 px-4 py-3 text-sm text-gray-700">
+                          <span className={`h-2.5 w-2.5 rounded-full ${STATUS_DOT[req.status]}`} />
+                          {STATUS_LABEL[req.status]}
+                        </span>
+                      </div>
+                      {/* Mobile card */}
+                      <div className="md:hidden px-4 py-3 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold text-gray-900 truncate">{req.name}</span>
+                          <span className="flex items-center gap-1.5 text-xs text-gray-600 shrink-0 ml-2">
+                            <span className={`h-2 w-2 rounded-full ${STATUS_DOT[req.status]}`} />
+                            {STATUS_LABEL[req.status]}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-gray-500">
+                          <span>ID: {req.applicantId}</span>
+                          <span>{formatDate(req.submittedAt)}</span>
+                        </div>
+                      </div>
                     </button>
                   ))
                 )}
               </div>
+
+              {/* Pagination */}
+              {filteredRequests.length > ROWS_PER_PAGE && (
+                <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3">
+                  <p className="text-xs text-gray-500">
+                    Showing {(requestPage - 1) * ROWS_PER_PAGE + 1}–{Math.min(requestPage * ROWS_PER_PAGE, filteredRequests.length)} of {filteredRequests.length}
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setRequestPage((p) => Math.max(1, p - 1))}
+                      disabled={requestPage === 1}
+                      className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    {Array.from({ length: requestTotalPages }, (_, i) => i + 1).map((page) => (
+                      <button
+                        key={page}
+                        onClick={() => setRequestPage(page)}
+                        className={`h-7 min-w-7 rounded-md px-2 text-xs font-medium transition-colors ${
+                          requestPage === page
+                            ? 'bg-[#558B2F] text-white'
+                            : 'text-gray-600 hover:bg-gray-100'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => setRequestPage((p) => Math.min(requestTotalPages, p + 1))}
+                      disabled={requestPage === requestTotalPages}
+                      className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
+            {/* Application Link panel */}
+            <div className="rounded-lg border border-gray-200 bg-white p-5">
+              <h3 className="text-center text-sm font-bold text-gray-900">Application link</h3>
+
+              <div className="mt-3 flex items-center gap-2">
+                <div className="flex-1 truncate rounded-full border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-500">
+                  {tokenLoading ? 'Loading…' : signupToken ? getSignupUrl(signupToken) : 'No link generated yet'}
+                </div>
+                <button
+                  onClick={copyLink}
+                  disabled={!signupToken || tokenLoading}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#4A8B8C] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3d7374] transition-colors disabled:opacity-50"
+                >
+                  <Copy size={14} />
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+
+              <button
+                onClick={generateNewToken}
+                disabled={generating}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-[#558B2F] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#4a7a28] transition-colors disabled:opacity-50"
+              >
+                <RefreshCw size={12} className={generating ? 'animate-spin' : ''} />
+                {generating ? 'Generating…' : 'Generate new link'}
+              </button>
+              <p className="mt-1.5 text-xs text-gray-400">
+                Generating new link makes the current link unusable.
+              </p>
+            </div>
           </div>
 
           {/* Right panel — Request Detail */}
           {selectedRequest && (
-            <div className="w-88 shrink-0 rounded-lg border border-gray-200 bg-white p-5">
+            <div className="w-full lg:w-88 shrink-0 rounded-lg border border-gray-200 bg-white p-5">
+              <div className="mb-3 flex justify-end">
+                <button
+                  onClick={() => setSelectedRequestId(null)}
+                  className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              </div>
               {/* Photo + Name field */}
               <div className="flex gap-4">
                 <div className="h-28 w-28 shrink-0 overflow-hidden rounded-md bg-lime-100">
