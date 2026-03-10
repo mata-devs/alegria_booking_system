@@ -265,60 +265,6 @@ export default function BookingDetailsCard({ booking }: { booking?: Booking }) {
             ))
           )}
         </div>
-
-        {/* Dropzone */}
-        <div
-          className={[
-            "mt-4 rounded-xl border-2 border-dashed bg-lime-50 px-4 py-2",
-            isDragOver ? "border-lime-600" : "border-lime-400",
-          ].join(" ")}
-          onDragOver={onDragOver}
-          onDragLeave={onDragLeave}
-          onDrop={onDrop}
-        >
-          {/* hidden file input */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={onInputChange}
-          />
-
-          <div className="flex items-center justify-center gap-5">
-            <button
-              type="button"
-              onClick={onBrowse}
-              className="inline-flex items-center gap-1  px-2 py-2 text-white text-[12px] font-semibold "
-            >
-              <Image src="/browse.png" alt="" width={75} height={75} />
-            </button>
-
-            <div className="text-[12px] text-neutral-500">
-              Drop a file here
-            </div>
-          </div>
-        </div>
-
-        {/* Status (client-side editable for visibility) */}
-        <div className="mt-4 flex items-center justify-center">
-          <div className="relative inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-[12px] text-neutral-700">
-            <span className={`h-2 w-2 rounded-full ${statusDot[status]}`} />
-
-            {/* keep look, but actually works */}
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value as BookingStatus)}
-              className="appearance-none bg-transparent pr-6 font-medium outline-none cursor-pointer"
-            >
-              <option value="Reserved">Reserved</option>
-              <option value="Paid">Paid</option>
-              <option value="Processing">Processing</option>
-            </select>
-
-            <span className="pointer-events-none absolute right-3 text-neutral-400">▾</span>
-          </div>
-        </div>
       </div>
     </div>
   );

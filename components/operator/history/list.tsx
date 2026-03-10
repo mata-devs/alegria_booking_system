@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import type { Booking } from '@/components/operator/booking/details';
+import React from 'react';
+import type { Booking } from '@/components/operator/history/details';
 
 
 type BookingStatus = 'Reserved' | 'Paid' | 'Processing'| 'Cancelled'| 'Completed';
@@ -45,8 +45,6 @@ function pesoShort(n: number) {
     maximumFractionDigits: 0,
   }).format(n);
 }
-
-
 function FilterIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
@@ -77,6 +75,7 @@ function SearchIcon(props: React.SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
 function ChevronDownIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" {...props}>
@@ -89,59 +88,71 @@ function ChevronDownIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-export default function BookingRequestsPanel({
+export default function BookingHistoryPanel({
   bookings,
-  onSelect,
-  selectedId,
-  searchBy,
-  setSearchBy,
-  query,
-  setQuery,
-  onOpenFilters, // ✅ must be here
-}: {
-  bookings: Booking[];
-  onSelect?: (id: string) => void;
-  selectedId?: string;
-  searchBy: 'Representative' | 'Booking ID';
-  setSearchBy: (v: 'Representative' | 'Booking ID') => void;
-  query: string;
-  setQuery: (v: string) => void;
-  onOpenFilters?: () => void; 
-}) {
-  const newBookings24h = 12;
-  const totalRequests = 30;
+    onSelect,
+    selectedId,
+    searchBy,
+    setSearchBy,
+    query,
+    setQuery,
+    onOpenFilters, // ✅ must be here
+  }: {
+    bookings: Booking[];
+    onSelect?: (id: string) => void;
+    selectedId?: string;
+    searchBy: 'Representative' | 'Booking ID';
+    setSearchBy: (v: 'Representative' | 'Booking ID') => void;
+    query: string;
+    setQuery: (v: string) => void;
+    onOpenFilters?: () => void; 
+  }) {
+  const cancelled = 14;
+  const completed = 54;
+  const totalBookings = 68;
   const [openSearchBy, setOpenSearchBy] = React.useState(false);
-  
   return (
     <div className="w-full min-w-0 flex flex-col gap-5">
-      <div className="rounded-xl border border-neutral-200 bg-white px-4 py-3 sm:px-6 sm:py-4">
+      <div className="rounded-xl border border-neutral-200 bg-white px- py-3 sm:px-6 sm:py-4">
 
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between md:gap-6">
-          <div className="text-lg font-semibold text-neutral-900">
-            Booking Requests
+        <div className="flex flex-col  gap-4 md:flex-row md:items-start md:justify-between md:gap-4">
+          <div className="text-2xl font-semibold text-neutral-900 ">
+            Booking History
           </div>
 
 
           <div className="w-full md:flex-1 md:flex md:justify-end md:px-20">
-            <div className="flex w-full flex-col items-center gap-4 sm:gap-6 md:w-auto md:flex-row md:gap-20">
-
-              <div className="text-center">
-                <div className="text-3xl font-bold text-gray-600 sm:text-4xl">
-                  {newBookings24h}
-                </div>
-                <div className="text-base font-medium text-gray-900 sm:text-xl">
-                  New Bookings last 24 hours
+            <div className="flex w-full flex-row items-center gap-4 sm:gap-4 ">
+              <div className="text-center flex w-full flex-row items-center">
+                <div className="text-center flex w-full flex-row items-center">
+                    <div className="text-center flex w-full flex-col items-center">
+                        <div className="text-1xl font-bold  text-gray-600 sm:text-2xl">
+                        {cancelled}
+                        </div>
+                        <div className="text-base font-semibold text-gray-600 sm:text-xl">
+                        Cancelled
+                        </div>
+                    </div>
+              <div className="h-px w-full bg-gray-200 md:h-14 md:w-px md:bg-gray-400" />
+                    <div className="text-center flex w-full flex-col items-center">
+                        <div className="text-1xl font-bold text-gray-600 sm:text-2xl">
+                        {completed}
+                        </div>
+                        <div className="text-base font-semibold text-gray-600 sm:text-xl">
+                        Completed
+                        </div>
+                    </div>
                 </div>
               </div>
 
-              <div className="h-px w-full bg-gray-200 md:h-16 md:w-px md:bg-gray-400" />
+              <div className="h-px w-full bg-gray-200 md:h-20 md:w-1 md:bg-gray-400" />
 
-              <div className="text-center">
-                <div className="text-3xl font-bold text-gray-600 sm:text-4xl">
-                  {totalRequests}
+              <div className="flex flex-col justify-center text-center w-70 gap-4 pl-1">
+                <div className="text-2xl font-bold text-gray-600 sm:text-3xl">
+                  {totalBookings}
                 </div>
-                <div className="text-base font-medium text-gray-900 sm:text-xl">
-                  Total booking requests
+                <div className="text-base font-semibold text-gray-900 sm:text-xl">
+                  Total bookings
                 </div>
               </div>
             </div>
@@ -220,8 +231,6 @@ export default function BookingRequestsPanel({
     </div>
   </div>
 
-  <div className="mt-4 h-px w-full bg-neutral-300" />
-</div>
         <div className="px-3 pb-4 pt-3">
           <div className="grid grid-cols-7 gap-3 text-[13px] font-semibold text-gray-900">
             <div className="col-span-1">Booking Id</div>
@@ -255,7 +264,7 @@ export default function BookingRequestsPanel({
             selectedId === b.id ? "ring-2 ring-neutral-400" : "",
           ].join(" ")}
         >
-          <div className="grid grid-cols-7 items-center font-semibold gap-3 text-[14px] text-neutral-800">
+          <div className="grid grid-cols-7 items-center gap-3 text-[13px] text-neutral-800">
             <div className="col-span-1 truncate">{b.bookingIdLabel ?? b.id}</div>
 
             <div className="col-span-1">
@@ -302,24 +311,17 @@ export default function BookingRequestsPanel({
                   ].join(' ')}
                 >
                   <span className={`h-2 w-2 rounded-full ${s.dot}`} />
-                  <span className={`text-[12px] ${s.text}`}>{b.status}</span>
+                  <span className={`text-[15px] ${s.text}`}>{b.status}</span>
                 </div>
 
-                <button
-                  type="button"
-                  className="ml-2 inline-flex h-8 w-8 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-200"
-                  aria-label="Row actions"
-                  onClick={(e) => e.stopPropagation()} // prevents row click
-                >
-                  <ChevronDownIcon className="h-4 w-4" />
-                </button>
               </div>
             </div>
-          </div>  
+          </div>
         </div>
       );
     })}
   </div>
+    </div>
     </div>
     </div>
   );
