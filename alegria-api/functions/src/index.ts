@@ -132,41 +132,29 @@ export const approveOperatorSignup = onCall(
     //    so we'll reference them by URL and copy the underlying objects.
     const files: { name: string; url: string }[] = [];
 
-    // Copy profile photo
-    let profileImageUrl: string | null = null;
+    // Copy profile photo (keep original download URL – it remains valid)
+    let profileImageUrl: string | null = reqData.photoUrl ?? null;
     if (reqData.photoUrl) {
       try {
-        // Extract storage path from the download URL
         const photoPath = extractPathFromUrl(reqData.photoUrl);
         if (photoPath) {
           const destPath = `profile-pictures/${operatorUid}.jpg`;
           await copyFile(photoPath, destPath);
-          const destFile = bucket.file(destPath);
-          const [url] = await destFile.getSignedUrl({
-            action: "read",
-            expires: "03-01-2100",
-          });
-          profileImageUrl = url;
         }
       } catch (err) {
         logger.warn("Failed to copy profile photo:", err);
       }
     }
 
-    // Copy documents
+    // Copy documents (keep original download URLs)
     if (Array.isArray(reqData.documents)) {
       for (const doc of reqData.documents as { name: string; url: string }[]) {
+        files.push({ name: doc.name, url: doc.url });
         try {
           const srcPath = extractPathFromUrl(doc.url);
           if (srcPath) {
             const destPath = `operator-documents/${operatorUid}/${doc.name}`;
             await copyFile(srcPath, destPath);
-            const destFile = bucket.file(destPath);
-            const [url] = await destFile.getSignedUrl({
-              action: "read",
-              expires: "03-01-2100",
-            });
-            files.push({ name: doc.name, url });
           }
         } catch (err) {
           logger.warn(`Failed to copy document ${doc.name}:`, err);

@@ -88,7 +88,7 @@ export default function OperatorsManagementPage() {
           createdAt: data.createdAt?.toDate?.() ?? null,
           phoneNumber: data.phoneNumber ?? '',
           mobileNumber: data.mobileNumber ?? '',
-          profileImage: null as string | null,
+          profileImage: data.profileImage ?? null,
           applicationApproveDate: data.approvedAt?.toDate?.() ?? null,
           files: Array.isArray(data.files) ? data.files : [],
         };
@@ -96,9 +96,10 @@ export default function OperatorsManagementPage() {
 
       const results: OperatorProfile[] = await Promise.all(
         rawResults.map(async (op) => {
+          if (op.profileImage) return op;
           try {
             const url = await getDownloadURL(
-              ref(firebaseStorage, `profile-pictures/${op.operatorId}.jpg`),
+              ref(firebaseStorage, `profile-pictures/${op.uid}.jpg`),
             );
             return { ...op, profileImage: url };
           } catch {
