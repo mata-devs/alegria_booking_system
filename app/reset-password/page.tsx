@@ -1,136 +1,23 @@
-'use client';
-
-import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { confirmPasswordReset, verifyPasswordResetCode } from 'firebase/auth';
-import { firebaseAuth } from '@/lib/firebase';
-
-type PageStatus = 'verifying' | 'ready' | 'saving' | 'done' | 'invalid';
-
-type FieldErrors = Partial<Record<'password' | 'confirmPassword', string>>;
+import { Suspense } from 'react';
+import ResetPasswordClient from './ResetPasswordClient';
 
 export default function ResetPasswordPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-
-  const oobCode = useMemo(() => searchParams.get('oobCode'), [searchParams]);
-  const mode = useMemo(() => searchParams.get('mode'), [searchParams]);
-
-  const [status, setStatus] = useState<PageStatus>('verifying');
-  const [email, setEmail] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function run() {
-      setError(null);
-      setEmail(null);
-
-      if (mode && mode !== 'resetPassword') {
-        setStatus('invalid');
-        setError('This link is not a password reset link.');
-        return;
-      }
-
-      if (!oobCode) {
-        setStatus('invalid');
-        setError('Missing reset code. Please request a new link.');
-        return;
-      }
-
-      setStatus('verifying');
-
-      try {
-        const nextEmail = await verifyPasswordResetCode(firebaseAuth, oobCode);
-        if (cancelled) return;
-        setEmail(nextEmail);
-        setStatus('ready');
-      } catch {
-        if (cancelled) return;
-        setStatus('invalid');
-        setError('This reset link is invalid or has expired.');
-      }
-    }
-
-    void run();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [oobCode, mode]);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
-    setError(null);
-    setFieldErrors({});
-
-    if (!oobCode) {
-      setStatus('invalid');
-      setError('Missing reset code. Please request a new link.');
-      return;
-    }
-
-    const nextErrors: FieldErrors = {};
-
-    if (password.length < 6) {
-      nextErrors.password = 'Password must be at least 6 characters.';
-    }
-
-    if (confirmPassword !== password) {
-      nextErrors.confirmPassword = 'Passwords do not match.';
-    }
-
-    if (Object.keys(nextErrors).length > 0) {
-      setFieldErrors(nextErrors);
-      return;
-    }
-
-    setStatus('saving');
-
-    try {
-      await confirmPasswordReset(firebaseAuth, oobCode, password);
-      setStatus('done');
-    } catch {
-      setStatus('invalid');
-      setError('Could not reset password. Please request a new link.');
-    }
-  }
-
   return (
-    <div className="min-h-screen bg-white flex flex-col">
-      <main className="flex-1 flex items-center justify-center px-6 py-10">
-        <div className="w-full max-w-md rounded-2xl border border-gray-400 bg-white px-6 py-8 sm:px-10 sm:py-12 shadow-2xl shadow-gray-400">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 text-center leading-snug">
-            Alegria
-            <br />
-            Canyoneering
-          </h1>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-white flex flex-col">
+          <main className="flex-1 flex items-center justify-center px-6 py-10">
+            <div className="w-full max-w-md rounded-2xl border border-gray-400 bg-white px-6 py-8 sm:px-10 sm:py-12 shadow-2xl shadow-gray-400">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 text-center leading-snug">
+                Alegria
+                <br />
+                Canyoneering
+              </h1>
 
-          <div className="mt-8 sm:mt-12">
-            {status === 'verifying' ? (
-              <p className="text-sm text-gray-700 text-center">
-                Verifying reset link…
-              </p>
-            ) : null}
-
-            {status === 'invalid' ? (
-              <div className="space-y-3 text-center">
-                <p className="text-sm font-bold text-red-600">
-                  {error ?? 'Something went wrong.'}
+              <div className="mt-8 sm:mt-12">
+                <p className="text-sm text-gray-700 text-center">
+                  Verifying reset link…
                 </p>
-                <Link
-                  href="/login"
-                  className="inline-flex items-center justify-center w-full rounded-xl bg-[#178893] px-6 py-3 text-white font-semibold hover:bg-[#156c84] transition-colors"
-                >
-                  Back to login
-                </Link>
               </div>
             ) : null}
 
@@ -239,7 +126,9 @@ export default function ResetPasswordPage() {
             ) : null}
           </div>
         </div>
-      </main>
-    </div>
+      }
+    >
+      <ResetPasswordClient />
+    </Suspense>
   );
 }
