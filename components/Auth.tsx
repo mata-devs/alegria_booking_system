@@ -93,7 +93,7 @@ export default function Auth() {
         return;
       }
 
-      if (data.status === 'inactive') {
+      if (data.status === 'suspended') {
         setIsRedirecting(false);
         setError('Your account has been deactivated. Please contact an administrator.');
         await signOut(firebaseAuth);
@@ -102,7 +102,8 @@ export default function Auth() {
 
       const redirectPath = ROLE_REDIRECT_MAP[role];
       router.replace(redirectPath);
-    } catch {
+    } catch (err) {
+      console.error('Failed to verify account during login:', err);
       setIsRedirecting(false);
       setError('Failed to verify your account. Please try again.');
       await signOut(firebaseAuth);

@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { collection, query, where, getDocs, doc, updateDoc, orderBy, Timestamp, onSnapshot, getDoc, setDoc } from 'firebase/firestore';
-import { firebaseDb, firebaseStorage } from '@/lib/firebase';
+import { firebaseDb, firebaseStorage, firebaseFunctions, firebaseAuth } from '@/lib/firebase';
+import { httpsCallable } from 'firebase/functions';
+import { sendPasswordResetEmail } from 'firebase/auth';
 import { ref, getDownloadURL } from 'firebase/storage';
 import { Filter, Search, ChevronDown, FileImage, Copy, RefreshCw, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import type { OperatorProfile, OperatorSignUpRequest, SignUpRequestStatus } from '@/lib/types';
@@ -66,57 +68,57 @@ export default function OperatorsManagementPage() {
   const [generating, setGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    async function fetchOperators() {
-      try {
-        const q = query(
-          collection(firebaseDb, 'users'),
-          where('role', '==', 'operator'),
-        );
-        const snapshot = await getDocs(q);
-        const rawResults = snapshot.docs.map((doc) => {
-          const data = doc.data();
-          return {
-            uid: doc.id,
-            operatorId: data.operatorId ?? doc.id,
-            email: data.email ?? null,
-            role: data.role,
-            firstName: data.firstName ?? '',
-            lastName: data.lastName ?? '',
-            status: data.status ?? 'active',
-            createdAt: data.createdAt?.toDate?.() ?? null,
-            phoneNumber: data.phoneNumber ?? '',
-            mobileNumber: data.mobileNumber ?? '',
-            profileImage: null as string | null,
-            applicationApproveDate: data.approvedAt?.toDate?.() ?? null,
-            files: Array.isArray(data.files) ? data.files : [],
-          };
-        });
+  async function fetchOperators() {
+    try {
+      const q = query(
+        collection(firebaseDb, 'users'),
+        where('role', '==', 'operator'),
+      );
+      const snapshot = await getDocs(q);
+      const rawResults = snapshot.docs.map((d) => {
+        const data = d.data();
+        return {
+          uid: d.id,
+          operatorId: data.operatorId ?? d.id,
+          email: data.email ?? null,
+          role: data.role,
+          firstName: data.firstName ?? '',
+          lastName: data.lastName ?? '',
+          status: data.status ?? 'active',
+          createdAt: data.createdAt?.toDate?.() ?? null,
+          phoneNumber: data.phoneNumber ?? '',
+          mobileNumber: data.mobileNumber ?? '',
+          profileImage: null as string | null,
+          applicationApproveDate: data.approvedAt?.toDate?.() ?? null,
+          files: Array.isArray(data.files) ? data.files : [],
+        };
+      });
 
-        const results: OperatorProfile[] = await Promise.all(
-          rawResults.map(async (op) => {
-            try {
-              const url = await getDownloadURL(
-                ref(firebaseStorage, `profile-pictures/${op.operatorId}.jpg`),
-              );
-              return { ...op, profileImage: url };
-            } catch {
-              return op;
-            }
-          }),
-        );
+      const results: OperatorProfile[] = await Promise.all(
+        rawResults.map(async (op) => {
+          try {
+            const url = await getDownloadURL(
+              ref(firebaseStorage, `profile-pictures/${op.operatorId}.jpg`),
+            );
+            return { ...op, profileImage: url };
+          } catch {
+            return op;
+          }
+        }),
+      );
 
-        setOperators(results);
-        if (results.length > 0) {
-          setSelectedId(results[0].uid);
-        }
-      } catch (error) {
-        console.error('Failed to fetch operators:', error);
-      } finally {
-        setLoading(false);
+      setOperators(results);
+      if (results.length > 0 && !selectedId) {
+        setSelectedId(results[0].uid);
       }
+    } catch (error) {
+      console.error('Failed to fetch operators:', error);
+    } finally {
+      setLoading(false);
     }
+  }
 
+  useEffect(() => {
     fetchOperators();
   }, []);
 
@@ -239,15 +241,20 @@ export default function OperatorsManagementPage() {
   async function updateRequestStatus(requestId: string, newStatus: 'approved' | 'rejected') {
     setRequestUpdating(true);
     try {
-      await updateDoc(doc(firebaseDb, 'operator_signup_requests', requestId), {
-        status: newStatus,
-        reviewedAt: Timestamp.now(),
-      });
-      setRequests((prev) =>
-        prev.map((r) =>
-          r.id === requestId ? { ...r, status: newStatus, reviewedAt: new Date() } : r,
-        ),
-      );
+      if (newStatus === 'approved') {
+        const approve = httpsCallable<{ requestId: string }, { email: string }>(firebaseFunctions, 'approveOperatorSignup');
+        const result = await approve({ requestId });
+        // Send the password-reset email via Firebase Auth's built-in template
+        await sendPasswordResetEmail(firebaseAuth, result.data.email);
+      } else {
+        const decline = httpsCallable(firebaseFunctions, 'declineOperatorSignup');
+        await decline({ requestId });
+      }
+      // The real-time listener will update the requests list automatically,
+      // but also refresh operators list since a new one was created
+      if (newStatus === 'approved') {
+        await fetchOperators();
+      }
     } catch (error) {
       console.error('Failed to update request status:', error);
     } finally {
@@ -285,8 +292,6 @@ export default function OperatorsManagementPage() {
     return `${mm} - ${dd} - ${yy}`;
   }
 
-  // TODO: call cloud function to disable user in firebase authentication using firebase admin sdk
-  // update status in Firestore
   async function updateOperatorStatus(uid: string, newStatus: 'active' | 'suspended') {
     setStatusUpdating(true);
     setStatusDropdownOpen(false);

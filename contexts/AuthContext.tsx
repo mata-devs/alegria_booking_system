@@ -12,7 +12,6 @@ import { doc, getDoc } from 'firebase/firestore';
 import { firebaseAuth, firebaseDb } from '@/lib/firebase';
 import type { UserProfile, UserRole } from '@/lib/types';
 
-// TODO: double check user disabled or not status in firestore vs firebase authentication
 
 type AuthState =
   | { status: 'loading' }
@@ -81,7 +80,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
 
         setAuthState({ status: 'authenticated', user: firebaseUser, profile });
-      } catch {
+      } catch (err) {
+        console.error('Failed to fetch user profile:', err);
         setAuthState({
           status: 'unauthorized',
           user: firebaseUser,
