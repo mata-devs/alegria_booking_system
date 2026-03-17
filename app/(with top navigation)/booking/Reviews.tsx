@@ -4,58 +4,38 @@ import { ArrowRight } from "lucide-react";
 import StarRating from "./StarRating";
 import { useEffect, useState } from "react";
 import ReviewStar from "./ReviewStar";
+import { CircleFlag } from "react-circle-flags";
 
 type Review = {
     id: number;
     name: string;
+    nationality: string;
     comment: string;
     rating: number
     date: Date
 };
 
 const mockReviews: Review[] = [
-    { id: 1, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 2, name: "Maria Santos", comment: "Very smooth booking process.", rating: 5, date: new Date("2026-02-27") },
-    { id: 3, name: "Carlos Reyes", comment: "Customer support was helpful.", rating: 4, date: new Date("2026-02-27") },
-    { id: 4, name: "Anna Lim", comment: "Will book again!", rating: 3, date: new Date("2026-02-27") },
-    { id: 5, name: "Mark Tan", comment: "Well organized tour.", rating: 1, date: new Date("2026-02-27") },
-    { id: 6, name: "Liza Gomez", comment: "Worth every peso.", rating: 2, date: new Date("2026-02-27") },
-    { id: 7, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 8, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 9, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 10, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 11, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 12, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 13, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 14, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 15, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 16, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 17, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 18, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 19, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 20, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 21, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 22, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 23, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 24, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 25, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 26, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 27, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 28, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 29, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 30, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 31, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 32, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 33, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 34, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 35, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 36, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 37, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 38, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 39, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 40, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 41, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
-    { id: 42, name: "Juan Dela Cruz", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time. The waterfalls and cliff jumps were unforgettable.", rating: 3, date: new Date("2026-02-27") },
+{ id: 1, name: "Juan Dela Cruz", nationality: "PH", comment: "Absolutely amazing experience! The guides were professional and made us feel safe the whole time.", rating: 5, date: new Date("2026-02-27") },
+{ id: 2, name: "Maria Santos", nationality: "PH", comment: "Very smooth booking process and the tour was well organized.", rating: 5, date: new Date("2026-02-25") },
+{ id: 3, name: "Carlos Reyes", nationality: "ES", comment: "Customer support was helpful when we had questions before booking.", rating: 4, date: new Date("2026-02-24") },
+{ id: 4, name: "Anna Lim", nationality: "SG", comment: "Will definitely book again next time we visit Cebu.", rating: 4, date: new Date("2026-02-23") },
+{ id: 5, name: "Mark Tan", nationality: "SG", comment: "Well organized tour and friendly guides.", rating: 4, date: new Date("2026-02-22") },
+{ id: 6, name: "Liza Gomez", nationality: "PH", comment: "Worth every peso! The waterfalls were beautiful.", rating: 5, date: new Date("2026-02-21") },
+{ id: 7, name: "Daniel Schmidt", nationality: "DE", comment: "Great adventure and stunning scenery. Highly recommended.", rating: 5, date: new Date("2026-02-20") },
+{ id: 8, name: "Emily Johnson", nationality: "US", comment: "One of the best experiences during our Philippines trip.", rating: 5, date: new Date("2026-02-19") },
+{ id: 9, name: "Tom Wilson", nationality: "GB", comment: "Fun activity but prepare for lots of walking and climbing.", rating: 4, date: new Date("2026-02-18") },
+{ id: 10, name: "Hiroshi Tanaka", nationality: "JP", comment: "Very professional guides and good safety briefing.", rating: 5, date: new Date("2026-02-17") },
+{ id: 11, name: "Claire Dubois", nationality: "FR", comment: "Beautiful canyon and waterfalls. The jumps were exciting!", rating: 5, date: new Date("2026-02-16") },
+{ id: 12, name: "Lucas Oliveira", nationality: "BR", comment: "Amazing adventure with great views.", rating: 5, date: new Date("2026-02-15") },
+{ id: 13, name: "Sophia Rossi", nationality: "IT", comment: "The guides were very friendly and helpful.", rating: 4, date: new Date("2026-02-14") },
+{ id: 14, name: "Noah Kim", nationality: "KR", comment: "Good experience overall. Would recommend to friends.", rating: 4, date: new Date("2026-02-13") },
+{ id: 15, name: "Olivia Chen", nationality: "CN", comment: "The waterfalls were stunning and the water was refreshing.", rating: 5, date: new Date("2026-02-12") },
+{ id: 16, name: "Ethan Walker", nationality: "AU", comment: "Perfect activity for adventure lovers.", rating: 5, date: new Date("2026-02-11") },
+{ id: 17, name: "Isabella Garcia", nationality: "MX", comment: "Super fun day with amazing views.", rating: 5, date: new Date("2026-02-10") },
+{ id: 18, name: "Liam O'Connor", nationality: "IE", comment: "The cliff jumps were thrilling!", rating: 4, date: new Date("2026-02-09") },
+{ id: 19, name: "Ava Müller", nationality: "DE", comment: "Very well organized and safe.", rating: 4, date: new Date("2026-02-08") },
+{ id: 20, name: "Mateo Silva", nationality: "BR", comment: "A must-do adventure when visiting Cebu.", rating: 5, date: new Date("2026-02-07") },
 ];
 
 export default function Reviews() {
@@ -88,7 +68,7 @@ export default function Reviews() {
 
  
     return(
-        <div className="w-full flex flex-col h-[120vh] gap-[3%] border-[3px] border-[#9F9F9F] rounded-[20px] bg-[#FFFFFF] pt-[3%] pr-[5%] pl-[5%]">
+        <div className="w-full flex flex-col h-[120vh] gap-[4%] border-[3px] border-[#9F9F9F] rounded-[20px] bg-[#FFFFFF] pt-[3%] pr-[5%] pl-[5%]">
             <div>
                 <p className="text-[#000000] text-[32px] font-poppins font-semibold">Reviews <span className="font-light text-[#4E4E4E]">({mockReviews.length} reviews)</span></p>
             </div>
@@ -97,16 +77,22 @@ export default function Reviews() {
             <div className="w-full h-full flex flex-col gap-4">
 
                 {visibleReviews.map((review) => (
-                <div key={review.id} className="flex flex-col gap-2 p-[2%] h-[23%] w-full bg-[#F5FFE6] rounded-[15px]">
+                <div key={review.id} className="flex flex-col gap-2 p-[2%] pr-[4%] pl-[4%] h-[23%] w-full bg-[#F5FFE6] rounded-[15px]">
                     <div className="flex flex-row justify-between">
                         {/* Name & Date */}
-                        <div>
-                            <h3 className="font-semibold text-[#000000] font-poppins text-[20px]">{review.name}</h3>
-                            <p className="font-poppins font-light text-[#000000] text-[13px]">{review.date.toLocaleDateString("en-US", {
-                                month: "long",
-                                day: "numeric",
-                                year: "numeric",
-                            })}</p>
+                        <div className="flex flex-row gap-5">
+                            <div className="flex aspect-[1/1] w-14 justify-center items-center">
+                                {/* <p className="font-poppins font-medium text-[#FFFFFF] text-[36px]">{review.name[0]}</p> */}
+                                <CircleFlag countryCode={review.nationality.toLowerCase()} className="w-15 h-15" />
+                            </div>
+                            <div>
+                                <h3 className="font-semibold text-[#000000] font-poppins text-[20px]">{review.name}</h3>
+                                <p className="font-poppins font-light text-[#000000] text-[13px]">{review.date.toLocaleDateString("en-US", {
+                                    month: "long",
+                                    day: "numeric",
+                                    year: "numeric",
+                                })}</p>
+                            </div>
                         </div>
                         
                         {/* Stars */}

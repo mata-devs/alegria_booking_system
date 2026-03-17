@@ -17,7 +17,7 @@ export default function ServicesSectionCards({serviceCards}: ServicesSectionCard
                     <Image
                         src={card.img_path}
                         alt={card.title}
-                        width={300}
+                        width={350}
                         height={300}
                     />
                     <h2 className="text-[#3F8814] font-poppins font-semibold text-2xl p-2">

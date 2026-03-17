@@ -16,7 +16,7 @@ export default function ServicesSection(){
 
     return (
         <div
-            className="flex flex-col min-h-max items-center mt-8 md:mt-50 justify-center font-poppins p-4"
+            className="flex flex-col gap-5 min-h-max items-center mt-5 md:mt-10 justify-center font-poppins p-4"
         >
             <div className="flex flex-col justify-center items-center h-auto w-full sm:w-[80%] md:w-[70%] lg:w-[50%] mb-6 md:mb-8">
                 <h1
@@ -24,11 +24,14 @@ export default function ServicesSection(){
                 >
                     Alegria, Cebu
                 </h1>
+                {/* hidden div */}
                 <h2
                     className="text-[#535353] font-medium text-4xl sm:text-5xl md:text-6xl lg:text-7xl text-center"
                 >
                     Canyoneering
                 </h2>
+
+                {/* <div className="h-5"></div> */}
             </div>
 
             <div className="flex flex-col justify-center items-center h-auto w-full sm:w-[80%] md:w-[70%] md:mt-16  mb-8 md:mb-12">
