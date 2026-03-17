@@ -571,7 +571,9 @@ const filteredBookings = useMemo(() => {
       <div className="h-full flex-1 min-w-0 bg-gray-300">
         <div className="h-full w-full bg-gray-200 flex flex-col gap-5">
           <div className="h-110 w-full bg-gray-100">
-            <BookingDetailsCard booking={selectedBooking} />
+            <BookingDetailsCard booking={selectedBooking} 
+            onClose={() => setSelectedId(undefined)}
+            />
           </div>
 
           <div className="h-105 w-full bg-gray-100">

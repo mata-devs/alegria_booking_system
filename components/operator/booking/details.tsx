@@ -3,7 +3,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 
-export type BookingStatus = 'Reserved' | 'Paid' | 'Processing' | 'Cancelled'| 'Completed';
+export type BookingStatus =
+  | 'Reserved'
+  | 'Paid'
+  | 'Processing'
+  | 'Cancelled'
+  | 'Completed';
 
 export type Guest = {
   name: string;
@@ -20,7 +25,7 @@ export type Booking = {
   id: string;
   bookingIdLabel?: string;
   scheduleLabel: string;
-requestDate: string;
+  requestDate: string;
   representative: {
     name: string;
     age: number;
@@ -28,16 +33,13 @@ requestDate: string;
     email: string;
     mobile: string;
   };
-
   otherGuests: Guest[];
-
   payment: {
     pricePerPerson: number;
     qty: number;
     serviceCharge: number;
     option: string;
   };
-
   status: BookingStatus;
   uploads: UploadedFile[];
 };
@@ -63,21 +65,28 @@ function uid() {
   return c?.crypto?.randomUUID?.() ?? `${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
 
-export default function BookingDetailsCard({ booking }: { booking?: Booking }) {
+interface BookingDetailsCardProps {
+  booking?: Booking;
+  onClose?: () => void;
+}
+
+export default function BookingDetailsCard({
+  booking,
+  onClose,
+}: BookingDetailsCardProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const printSheetRef = useRef<HTMLDivElement | null>(null);
 
   const [isDragOver, setIsDragOver] = useState(false);
-
-
   const [visibleUploads, setVisibleUploads] = useState<UploadedFile[]>([]);
   const [status, setStatus] = useState<BookingStatus>('Reserved');
-
+  const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
 
   useEffect(() => {
     if (!booking) return;
     setVisibleUploads(booking.uploads ?? []);
     setStatus(booking.status);
-  }, [booking?.id]); 
+  }, [booking?.id]);
 
   const totals = useMemo(() => {
     if (!booking) return null;
@@ -103,7 +112,6 @@ export default function BookingDetailsCard({ booking }: { booking?: Booking }) {
 
   const onInputChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
     if (e.target.files) addFiles(e.target.files);
-    
     e.target.value = '';
   };
 
@@ -130,6 +138,103 @@ export default function BookingDetailsCard({ booking }: { booking?: Booking }) {
     setVisibleUploads((prev) => prev.filter((x) => x.id !== id));
   };
 
+  const handlePrint = () => {
+    const node = printSheetRef.current;
+    if (!node) return;
+
+    const width = 900;
+    const height = 1200;
+
+    const dualScreenLeft =
+      window.screenLeft !== undefined ? window.screenLeft : window.screenX;
+    const dualScreenTop =
+      window.screenTop !== undefined ? window.screenTop : window.screenY;
+
+    const viewportWidth =
+      window.innerWidth ||
+      document.documentElement.clientWidth ||
+      screen.width;
+
+    const viewportHeight =
+      window.innerHeight ||
+      document.documentElement.clientHeight ||
+      screen.height;
+
+    const left = dualScreenLeft + Math.max(0, (viewportWidth - width) / 2);
+    const top = dualScreenTop + Math.max(0, (viewportHeight - height) / 2);
+
+    const printWindow = window.open(
+      '',
+      '_blank',
+      `width=${width},height=${height},left=${left},top=${top}`
+    );
+
+    if (!printWindow) return;
+
+    const headContent = Array.from(
+      document.querySelectorAll('style, link[rel="stylesheet"]')
+    )
+      .map((el) => el.outerHTML)
+      .join('\n');
+
+    const printableHtml = node.outerHTML;
+
+    printWindow.document.open();
+    printWindow.document.write(`
+      <!doctype html>
+      <html>
+        <head>
+          <title>Booking Print</title>
+          ${headContent}
+          <style>
+            @page {
+              size: A4 portrait;
+              margin: 10mm;
+            }
+
+            html, body {
+              margin: 0;
+              padding: 0;
+              background: #ffffff;
+            }
+
+            *, *::before, *::after {
+              box-sizing: border-box;
+            }
+
+            body {
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+
+            #print-root {
+              width: 100%;
+            }
+          </style>
+        </head>
+        <body>
+          <div id="print-root">
+            ${printableHtml}
+          </div>
+
+          <script>
+            window.onload = function () {
+              setTimeout(function () {
+                window.focus();
+                window.print();
+              }, 250);
+            };
+
+            window.onafterprint = function () {
+              window.close();
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   if (!booking) {
     return (
       <div className="h-full min-h-0 w-full rounded-2xl border border-neutral-200 bg-white flex items-center justify-center text-sm text-neutral-500">
@@ -139,188 +244,352 @@ export default function BookingDetailsCard({ booking }: { booking?: Booking }) {
   }
 
   return (
-    <div className="w-full h-full min-h-0 rounded-2xl bg-white border border-neutral-200 shadow-sm overflow-hidden flex flex-col">
-      {/* Header */}
-      <div className=" bg-white flex  py-1">
-        <div className="flex items-center w-[100%] pl-55 justify-center">
-          <div className="text-[15px] text-gray-500  leading-tight">
-            Booking Id:{' '}
-            <div className='flex items-center w-[100%] justify-center'>
-            <span className="font-medium text-gray-500">
-              {booking.bookingIdLabel ?? booking.id}
-            </span>
-            </div>
-          </div>
-</div>
-          <div className='w-full flex items-center w-full justify-end py-1 px-2'>
-          <span className="w-[60%] flex items-center justify-center text-[10px] px-3 py-1 rounded-full bg-lime-200  text-lime-900 border border-lime-300 font-medium">
-            preview printable
-          </span>
-          </div>
-      </div>
-
-      {/* Body */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-12 pb-5">
-        {/* Schedule + Representative */}
-        <div className="mt-2 space-y-2 text-[18px] text-neutral-700">
-          <Row
-            label="Tour Schedule:"
-            value={
-              <span className="font-semibold text-neutral-900">
-                {booking.scheduleLabel}
-              </span>
-            }
-          />
-          <Row label="Representative:" value="" />
-        </div>
-
-        <div className="mt-2 px-1 text-[18px] text-neutral-700 pl-3">
-          <div className="flex items-center gap-6">
-            <Row label="Name:" value={<span className="font-semibold">{booking.representative.name}</span>} />
-            <RowInline label="Age:" value={booking.representative.age} />
-          </div>
-          <RowInline label="Gender:" value={booking.representative.gender} />
-          <RowInline label="Email:" value={booking.representative.email} />
-          <RowInline label="Mobile Number:" value={booking.representative.mobile} />
-        </div>
-
-        {/* Other Guests */}
-        <div className="mt-2 text-lg text-neutral-700 font-semibold">Other Guests</div>
-
-        <div className="mt-2  overflow-hidden">
-          <div className="grid grid-cols-6 gap-2 px-3 py-2 text-sm text-neutral-800 font-medium">
-            <div className="col-span-3 text-center md:text-left">Name</div>
-            <div className="col-span-1 text-center">Age</div>
-            <div className="col-span-2 text-center md:text-right">Gender</div>
-          </div>
-          <div className="">
-            {booking.otherGuests.map((g, idx) => (
-              <div key={idx} className="grid grid-cols-6 gap-2 px-3 py-1 text-sm text-neutral-800">
-                <div className="col-span-3 font-semibold truncate">{g.name}</div>
-                <div className="col-span-1 font-semibold text-center">{g.age}</div>
-                <div className="col-span-2 text-right font-semibold">{g.gender}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Payment */}
-        <div className="mt-5 text-lg text-neutral-800 font-semibold">Payment</div>
-
-        <div className="mt-2 text-[12px] text-neutral-800 space-y-4 px-10">
-          <div className="flex items-center justify-between">
-            <span className="text-lg font-semibold text-neutral-800">{`₱${booking.payment.pricePerPerson} x ${booking.payment.qty}`}</span>
-            <span className="text-lg font-semibold text-neutral-800">{peso(totals?.subtotal ?? 0)}</span>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <span className="text-lg font-semibold text-neutral-800">Service charge</span>
-            <span className="text-lg font-semibold text-neutral-800">{peso(booking.payment.serviceCharge)}</span>
-          </div>
-
-          <div className="h-px bg-neutral-200" />
-
-          <div className="flex items-center justify-between">
-            <span className="text-lg font-semibold text-neutral-800">Total</span>
-            <span className="text-lg font-semibold text-neutral-800">{peso(totals?.total ?? 0)}</span>
-          </div>
-
-          <div className="mt-2">
-            <span className="text-[12px] text-neutral-800">Payment Option: </span>
-            <span className="font-semibold text-neutral-800">{booking.payment.option}</span>
-          </div>
-        </div>
-
-        {/* File Upload */}
-        <div className="mt-5 text-lg text-neutral-800 font-semibold">File Upload</div>
-
-        {/* visible file list */}
-        <div className="mt-2 rounded-xl border border-neutral-200 overflow-hidden bg-white">
-          {visibleUploads.length === 0 ? (
-            <div className="px-2 py-2 text-[11px] text-neutral-500">
-              No files uploaded yet.
-            </div>
-          ) : (
-            visibleUploads.map((f) => (
-              <div
-                key={f.id}
-                className="flex items-center justify-between px-3 py-2 text-[12px] border-b last:border-b-0 border-neutral-200"
-              >
-                <div className="flex items-center gap-2 text-neutral-700">
-                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-neutral-100 border border-neutral-200">
-                    <Image src="/photos.png" alt="" width={25} height={2} />
-                  </span>
-                  <span className="font-medium">{f.name}</span>
-                </div>
-
-                <button
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-md text-red-500 hover:bg-red-50"
-                  type="button"
-                  aria-label="Delete file"
-                  onClick={() => removeUpload(f.id)}
-                >
-                  <Image src="/trash.png" alt="" width={25} height={2} />
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* Dropzone */}
-        <div
-          className={[
-            "mt-4 rounded-xl border-2 border-dashed bg-lime-50 px-4 py-2",
-            isDragOver ? "border-lime-600" : "border-lime-400",
-          ].join(" ")}
-          onDragOver={onDragOver}
-          onDragLeave={onDragLeave}
-          onDrop={onDrop}
-        >
-          {/* hidden file input */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={onInputChange}
-          />
-
-          <div className="flex items-center justify-center gap-5">
+    <>
+      <div className="w-full h-full min-h-0 rounded-2xl bg-white border border-neutral-200 shadow-sm overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="bg-white flex py-1">
+           <div className="w-[132px] py-2 shrink-0 flex justify-end">
             <button
               type="button"
-              onClick={onBrowse}
-              className="inline-flex items-center gap-1  px-2 py-2 text-white text-[12px] font-semibold "
+              onClick={() => setIsPrintPreviewOpen(true)}
+              className="inline-flex h-7 items-center justify-center rounded-full border border-lime-300 bg-lime-200 px-4 text-[11px] font-medium text-lime-900 hover:bg-lime-300"
             >
-              <Image src="/browse.png" alt="" width={75} height={75} />
+              preview printable
             </button>
+          </div>
+          <div className="flex items-center w-[100%] pl-55 justify-center">
+            
+            <div className="text-[15px] text-gray-500 leading-tight">
+              Booking Id:{' '}
+              <div className="flex items-center w-[100%] justify-center">
+                <span className="font-medium text-gray-500">
+                  {booking.bookingIdLabel ?? booking.id}
+                </span>
+              </div>
+            </div>
+          </div>
 
-            <div className="text-[12px] text-neutral-500">
-              Drop a file here
+          <div className="w-full flex items-center justify-end py-1 px-2 gap-2">
+            
+
+            {onClose ? (
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close booking details"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-neutral-200 bg-gray-100 text-neutral-600 hover:bg-neutral-100 shrink-0"
+              >
+                ✕
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-12 pb-5">
+          {/* Schedule + Representative */}
+          <div className="mt-2 space-y-2 text-[18px] text-neutral-700">
+            <Row
+              label="Tour Schedule:"
+              value={
+                <span className="font-semibold text-neutral-900">
+                  {booking.scheduleLabel}
+                </span>
+              }
+            />
+            <Row label="Representative:" value="" />
+          </div>
+
+          <div className="mt-2 px-1 text-[18px] text-neutral-700 pl-3">
+            <div className="flex items-center gap-6">
+              <Row
+                label="Name:"
+                value={<span className="font-semibold">{booking.representative.name}</span>}
+              />
+              <RowInline label="Age:" value={booking.representative.age} />
+            </div>
+            <RowInline label="Gender:" value={booking.representative.gender} />
+            <RowInline label="Email:" value={booking.representative.email} />
+            <RowInline label="Mobile Number:" value={booking.representative.mobile} />
+          </div>
+
+          {/* Other Guests */}
+          <div className="mt-2 text-lg text-neutral-700 font-semibold">Other Guests</div>
+
+          <div className="mt-2 overflow-hidden">
+            <div className="grid grid-cols-6 gap-2 px-3 py-2 text-sm text-neutral-800 font-medium">
+              <div className="col-span-3 text-center md:text-left">Name</div>
+              <div className="col-span-1 text-center">Age</div>
+              <div className="col-span-2 text-center md:text-right">Gender</div>
+            </div>
+            <div>
+              {booking.otherGuests.map((g, idx) => (
+                <div
+                  key={idx}
+                  className="grid grid-cols-6 gap-2 px-3 py-1 text-sm text-neutral-800"
+                >
+                  <div className="col-span-3 font-semibold truncate">{g.name}</div>
+                  <div className="col-span-1 font-semibold text-center">{g.age}</div>
+                  <div className="col-span-2 text-right font-semibold">{g.gender}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Payment */}
+          <div className="mt-5 text-lg text-neutral-800 font-semibold">Payment</div>
+
+          <div className="mt-2 text-[12px] text-neutral-800 space-y-4 px-10">
+            <div className="flex items-center justify-between">
+              <span className="text-lg font-semibold text-neutral-800">
+                {`₱${booking.payment.pricePerPerson} x ${booking.payment.qty}`}
+              </span>
+              <span className="text-lg font-semibold text-neutral-800">
+                {peso(totals?.subtotal ?? 0)}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-lg font-semibold text-neutral-800">Service charge</span>
+              <span className="text-lg font-semibold text-neutral-800">
+                {peso(booking.payment.serviceCharge)}
+              </span>
+            </div>
+
+            <div className="h-px bg-neutral-200" />
+
+            <div className="flex items-center justify-between">
+              <span className="text-lg font-semibold text-neutral-800">Total</span>
+              <span className="text-lg font-semibold text-neutral-800">
+                {peso(totals?.total ?? 0)}
+              </span>
+            </div>
+
+            <div className="mt-2">
+              <span className="text-[12px] text-neutral-800">Payment Option: </span>
+              <span className="font-semibold text-neutral-800">{booking.payment.option}</span>
+            </div>
+          </div>
+
+          {/* File Upload */}
+          <div className="mt-5 text-lg text-neutral-800 font-semibold">File Upload</div>
+
+          <div className="mt-2 rounded-xl border border-neutral-200 overflow-hidden bg-white">
+            {visibleUploads.length === 0 ? (
+              <div className="px-2 py-2 text-[11px] text-neutral-500">
+                No files uploaded yet.
+              </div>
+            ) : (
+              visibleUploads.map((f) => (
+                <div
+                  key={f.id}
+                  className="flex items-center justify-between px-3 py-2 text-[12px] border-b last:border-b-0 border-neutral-200"
+                >
+                  <div className="flex items-center gap-2 text-neutral-700">
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-neutral-100 border border-neutral-200">
+                      <Image src="/photos.png" alt="" width={25} height={2} />
+                    </span>
+                    <span className="font-medium">{f.name}</span>
+                  </div>
+
+                  <button
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-red-500 hover:bg-red-50"
+                    type="button"
+                    aria-label="Delete file"
+                    onClick={() => removeUpload(f.id)}
+                  >
+                    <Image src="/trash.png" alt="" width={25} height={2} />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Dropzone */}
+          <div
+            className={[
+              'mt-4 rounded-xl border-2 border-dashed bg-lime-50 px-4 py-2',
+              isDragOver ? 'border-lime-600' : 'border-lime-400',
+            ].join(' ')}
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={onInputChange}
+            />
+
+            <div className="flex items-center justify-center gap-5">
+              <button
+                type="button"
+                onClick={onBrowse}
+                className="inline-flex items-center gap-1 px-2 py-2 text-white text-[12px] font-semibold"
+              >
+                <Image src="/browse.png" alt="" width={75} height={75} />
+              </button>
+
+              <div className="text-[12px] text-neutral-500">Drop a file here</div>
+            </div>
+          </div>
+
+          {/* Status */}
+          <div className="mt-4 flex items-center justify-center">
+            <div className="relative inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-[12px] text-neutral-700">
+              <span className={`h-2 w-2 rounded-full ${statusDot[status]}`} />
+
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value as BookingStatus)}
+                className="appearance-none bg-transparent pr-6 font-medium outline-none cursor-pointer"
+              >
+                <option value="Reserved">Reserved</option>
+                <option value="Paid">Paid</option>
+                <option value="Processing">Processing</option>
+              </select>
+
+              <span className="pointer-events-none absolute right-3 text-neutral-400">▾</span>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Status (client-side editable for visibility) */}
-        <div className="mt-4 flex items-center justify-center">
-          <div className="relative inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-[12px] text-neutral-700">
-            <span className={`h-2 w-2 rounded-full ${statusDot[status]}`} />
-
-            {/* keep look, but actually works */}
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value as BookingStatus)}
-              className="appearance-none bg-transparent pr-6 font-medium outline-none cursor-pointer"
+      {/* Print Preview Modal */}
+      {isPrintPreviewOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 p-4">
+          <div className="relative w-full max-w-[400px] sm:max-w-[600px]">
+            <button
+              type="button"
+              onClick={() => setIsPrintPreviewOpen(false)}
+              className="absolute -top-3 -right-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-neutral-700 shadow-md hover:bg-neutral-100"
             >
-              <option value="Reserved">Reserved</option>
-              <option value="Paid">Paid</option>
-              <option value="Processing">Processing</option>
-            </select>
+              ✕
+            </button>
 
-            <span className="pointer-events-none absolute right-3 text-neutral-400">▾</span>
+            <div className="h-[87vh] overflow-y-auto rounded-sm bg-[#f6f6f6] shadow-2xl">
+              <div
+                ref={printSheetRef}
+                className="px-6 pt-6 pb-8 text-[15px] text-black"
+              >
+                <div className="mb-5 h-[5px] w-full bg-black" />
+
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <span className="w-[70px] shrink-0">Booking ID:</span>
+                    <span className="font-medium">{booking.bookingIdLabel ?? booking.id}</span>
+                  </div>
+
+                  <div className="mt-4 font-medium">Representative:</div>
+
+                  <div className="grid grid-cols-[60px_1fr_35px_1fr] gap-x-2 gap-y-1 pl-2">
+                    <span>Name:</span>
+                    <span className="font-medium">{booking.representative.name}</span>
+                    <span>Age:</span>
+                    <span className="font-medium">{booking.representative.age}</span>
+
+                    <span>Email:</span>
+                    <span className="font-medium break-all">{booking.representative.email}</span>
+                    <span></span>
+                    <span></span>
+
+                    <span>Mobile Number:</span>
+                    <span className="font-medium break-all">{booking.representative.mobile}</span>
+                    <span></span>
+                    <span></span>
+                  </div>
+
+                  <div className="mt-6 font-medium">Other Guests</div>
+
+                  <div className="pl-2">
+                    <div className="grid grid-cols-[1.6fr_0.5fr_0.8fr] gap-2 pb-1 text-center">
+                      <div>Name</div>
+                      <div>Age</div>
+                      <div>Gender</div>
+                    </div>
+
+                    <div className="space-y-1">
+                      {booking.otherGuests.map((guest, idx) => (
+                        <div
+                          key={`${guest.name}-${idx}`}
+                          className="grid grid-cols-[1.6fr_0.5fr_0.8fr] gap-2 text-center"
+                        >
+                          <div className="text-left font-medium">{guest.name}</div>
+                          <div className="font-medium">{guest.age}</div>
+                          <div className="font-medium">{guest.gender}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-6 font-medium">Payment</div>
+
+                  <div className="space-y-2 pl-2">
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="font-medium">
+                        ₱{booking.payment.pricePerPerson} x {booking.payment.qty}
+                      </span>
+                      <span className="font-medium">{peso(totals?.subtotal ?? 0)}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="font-medium">Service charge</span>
+                      <span className="font-medium">{peso(booking.payment.serviceCharge)}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4 pt-1">
+                      <span className="font-medium">Total</span>
+                      <span className="font-medium">{peso(totals?.total ?? 0)}</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-8 pl-2">
+                    <div className="flex gap-2">
+                      <span>Payment Option:</span>
+                      <span className="font-medium">{booking.payment.option}</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pl-2 space-y-1">
+                    <div className="flex gap-2">
+                      <span className="w-[70px] shrink-0">Tour Operator:</span>
+                      <span className="font-medium">Operator 1</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <span className="w-[70px] shrink-0">email:</span>
+                      <span className="font-medium">tourop1@email.com</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <span className="w-[70px] shrink-0">phone number:</span>
+                      <span className="font-medium">0932221458</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 border-t border-neutral-200 bg-white px-4 py-4">
+                <button
+                  type="button"
+                  onClick={() => setIsPrintPreviewOpen(false)}
+                  className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePrint}
+                  className="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800"
+                >
+                  Print
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 }
 

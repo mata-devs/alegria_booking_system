@@ -553,7 +553,7 @@ const filteredBookings = useMemo(() => {
   return (
   <div className="h-full w-full bg-gray-200 flex items-center justify-center hide-scrollbar">
     <div className="h-[95%] w-[95%] bg-gray-200 flex gap-5 md:flex-row flex-col">    
-        <div className="h-full w-[65%] bg-gray-200">
+        <div className="h-full w-full bg-gray-200">
             <BookingHistoryPanel
               bookings={filteredBookings}
                 selectedId={selectedId}
@@ -564,10 +564,15 @@ const filteredBookings = useMemo(() => {
                 setQuery={setQuery}
                 onOpenFilters={() => setIsFilterOpen(true)}
               />
-        </div> 
-        <div className="h-full w-[35%] bg-gray-300">
+        </div>
+        <div className="h-full w-auto bg-gray-300">
             <div className="h-full w-full bg-gray-100">
-              <BookingHistoryCard booking={selectedBooking} />
+              {selectedBooking && (
+                <BookingHistoryCard
+                  booking={selectedBooking}
+                  onClose={() => setSelectedId(undefined)}
+                />
+              )}
             </div> 
           </div> 
     </div>
