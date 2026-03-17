@@ -42,8 +42,8 @@ export default function Reviews() {
     e.preventDefault();
 
     // Basic validation
-    if (!formData.name.trim()) return alert("Please enter your name.");
-    if (!formData.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
+        if (!formData.name.trim()) return alert("Please enter your name.");
+        if (!formData.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
         return alert("Please enter a valid email address.");
         if (!formData.review.trim()) return alert("Please write a review.");
         if (formData.rating === 0) return alert("Please select a rating.");
@@ -215,13 +215,21 @@ export default function Reviews() {
                             onChange={(e) =>{
                                 const value = e.target.value;
 
-                                // Allow letters, numbers, spaces, and basic punctuation
                                 const sanitized = value.replace(/[^a-zA-Z0-9 .,!?'-]/g, "");
 
-                                setFormData({
-                                    ...formData,
-                                    review: e.target.value,
-                            })
+                                setFormData((prev) => ({
+                                    ...prev,
+                                    review: sanitized,
+                                }));
+                            //     const value = e.target.value;
+
+                            //     // Allow letters, numbers, spaces, and basic punctuation
+                            //     const sanitized = value.replace(/[^a-zA-Z0-9 .,!?'-]/g, "");
+
+                            //     setFormData({
+                            //         ...formData,
+                            //         review: e.target.value,
+                            // })
                             }}
                         />
                     </div>

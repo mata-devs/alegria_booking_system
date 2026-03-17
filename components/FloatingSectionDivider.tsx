@@ -39,7 +39,7 @@ export default function FloatingSectionDivider() {
 
     
     return (
-        <div className="relative -mt-12 mb-20 px-4 md:px-8 lg:px-16">
+        <div className="relative -mt-60 mb-20 px-4 md:px-8 lg:px-16">
             <div className="max-w-[99%] mx-auto bg-white rounded-full shadow-lg p-6 md:py-6 md:px-16">
                 <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                     <div
