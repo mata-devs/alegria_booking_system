@@ -34,7 +34,7 @@ if (!projectId) {
 const doc = {
   info: {
     title: process.env.API_TITLE || "Alegria Booking System API",
-    version: process.env.API_VERSION || "1.0.0",
+    version: process.env.API_VERSION || "1.0.1",
     description: process.env.API_DESCRIPTION || "API documentation for the Alegria Booking System",
   },
   servers: [
@@ -43,7 +43,10 @@ const doc = {
   ],
   tags: [
     { name: "Auth", description: "Authentication" },
+    {name: "Analytics", description: "Analytics for operator" },
     { name: "Bookings", description: "Booking management" },
+    { name: "Entities", description: "Business partner entities management" },
+    { name: "Voucher Codes", description: "Promo/discount code management" },
     { name: "Database", description: "Database management" },
     { name: "Health", description: "Health check" },
   ],

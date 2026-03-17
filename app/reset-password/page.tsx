@@ -180,11 +180,10 @@ export default function ResetPasswordPage() {
                         type="password"
                         autoComplete="new-password"
                         aria-invalid={fieldErrors.password ? 'true' : 'false'}
-                        className={`mt-2 w-full rounded-lg border px-4 py-2.5 text-gray-900 outline-none focus:ring-2 disabled:bg-gray-50 ${
-                          fieldErrors.password
+                        className={`mt-2 w-full rounded-lg border px-4 py-2.5 text-gray-900 outline-none focus:ring-2 disabled:bg-gray-50 ${fieldErrors.password
                             ? 'border-red-500 focus:ring-red-200'
                             : 'border-gray-300 focus:ring-teal-200'
-                        }`}
+                          }`}
                       />
                       <p className="mt-2 text-xs text-red-600 min-h-4">
                         {fieldErrors.password ?? ''}
@@ -209,11 +208,10 @@ export default function ResetPasswordPage() {
                         aria-invalid={
                           fieldErrors.confirmPassword ? 'true' : 'false'
                         }
-                        className={`mt-2 w-full rounded-lg border px-4 py-2.5 text-gray-900 outline-none focus:ring-2 disabled:bg-gray-50 ${
-                          fieldErrors.confirmPassword
+                        className={`mt-2 w-full rounded-lg border px-4 py-2.5 text-gray-900 outline-none focus:ring-2 disabled:bg-gray-50 ${fieldErrors.confirmPassword
                             ? 'border-red-500 focus:ring-red-200'
                             : 'border-gray-300 focus:ring-teal-200'
-                        }`}
+                          }`}
                       />
                       <p className="mt-2 text-xs text-red-600 min-h-4">
                         {fieldErrors.confirmPassword ?? ''}

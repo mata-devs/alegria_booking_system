@@ -1,17 +1,14 @@
 import Image from "next/image";
 import ServicesSection from "@/app/(client)/_sections/home/ServicesSection";
-import Navbar from "@/app/(client)/_components/layout/Navbar";
 import FloatingSectionDivider from "@/app/(client)/_components/home/FloatingSectionDivider";
 import GallerySection from "@/app/(client)/_sections/home/GallerySection";
-import Footer from "@/app/(client)/_components/layout/Footer";
 
-export default function Home() {
+export default function Landing() {
   return (
     <div className="flex min-h-screen  items-center justify-center bg-zinc-50 font-sans flex-col">
       <div
         className="w-full h-[10%] z-50"
       >
-        <Navbar />
       </div>
       {/* first section of hero page */}
       <div
@@ -36,7 +33,7 @@ export default function Home() {
       <ServicesSection />
       <GallerySection />
 
-      <Footer />
+      {/* <Footer /> */}
     </div>
   );
 }
