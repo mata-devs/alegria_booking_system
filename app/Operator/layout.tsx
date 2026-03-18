@@ -1,28 +1,34 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import SideNav from '@/components/sidenav';
+import { useState } from 'react';
+import { AuthProvider } from '@/contexts/AuthContext';
+import RoleGuard from '@/components/RoleGuard';
+import OperatorSidebar from '@/components/OperatorSidebar';
 
-export default function OperatorLayout({ children }: { children: React.ReactNode }) {
-  const [collapsed, setCollapsed] = useState(false);
-
-  // keep in sync with localStorage (since SideNav saves there)
-  useEffect(() => {
-    const read = () => setCollapsed(localStorage.getItem('sidenav_collapsed') === '1');
-    read();
-    window.addEventListener('storage', read);
-    return () => window.removeEventListener('storage', read);
-  }, []);
+export default function OperatorLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
-    <div className="min-h-screen flex">
-      {/* SideNav keeps its own width (72px / 220px) */}
-      <SideNav />
-
-      {/* Main content automatically takes remaining space */}
-      <main className="flex-1 min-w-0">
-        {children}
-      </main>
-    </div>
+    <AuthProvider>
+      <RoleGuard allowedRoles={['operator']}>
+        <div className="min-h-screen bg-gray-50">
+          <OperatorSidebar
+            isCollapsed={isCollapsed}
+            onToggleCollapse={() => setIsCollapsed((prev) => !prev)}
+          />
+          <main
+            className={`min-h-screen p-6 pt-16 lg:pt-6 transition-all duration-200 ${
+              isCollapsed ? 'lg:ml-18' : 'lg:ml-56'
+            }`}
+          >
+            {children}
+          </main>
+        </div>
+      </RoleGuard>
+    </AuthProvider>
   );
 }
