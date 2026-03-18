@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { CircleFlag } from "react-circle-flags";
 import { countries } from "country-data-list";
 import Image from "next/image";
-import Lightbox from "@/components/Lightbox";
+import Lightbox from "@/app/(with top navigation)/components/Lightbox";
 
 export default function ReviewCarouselTest() {
 

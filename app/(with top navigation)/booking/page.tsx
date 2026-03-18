@@ -9,7 +9,7 @@ import Availablity from "./Availability";
 import Reviews from "./Reviews";
 import ReviewsTest from "./ReviewTest";
 import ReviewForm from "./ReviewForm";
-import Footer from "@/components/Footer";
+import Footer from "@/app/(with top navigation)/components/Footer";
 import { Book } from "lucide-react";
 import BookingGallery from "./BookingGallery";
 import { Suspense } from "react";

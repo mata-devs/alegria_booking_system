@@ -3,7 +3,7 @@
 import { useState } from "react";
 import ShowAllButton from "./ShowAllButton";
 import Image from "next/image";
-import Lightbox from '@/components/Lightbox';
+import Lightbox from '@/app/(with top navigation)/components/Lightbox';
 
 export default function BookingGallery() {
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);

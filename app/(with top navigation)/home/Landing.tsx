@@ -1,9 +1,9 @@
 import Image from "next/image";
-import ServicesSection from "../../ServicesSection";
-import Navbar from "@/components/Navbar";
-import FloatingSectionDivider from "@/components/FloatingSectionDivider";
-import GallerySection from "../../GallerySection";
-import Footer from "@/components/Footer";
+import ServicesSection from "./ServicesSection";
+import Navbar from "@/app/(with top navigation)/components/Navbar";
+import FloatingSectionDivider from "@/app/(with top navigation)/components/FloatingSectionDivider";
+import GallerySection from "./GallerySection";
+import Footer from "@/app/(with top navigation)/components/Footer";
 import LandingGallery from "./LandingGallery";
 import FrequentQuestions from "./FrequentQuestions";
 import CustomerReview from "./CustomerReview";

@@ -1,8 +1,8 @@
 "use client"
 
 import { useState } from 'react';
-import GalleryCard from '@/components/GalleryCard';
-import Lightbox from '@/components/Lightbox';
+import GalleryCard from '@/app/(with top navigation)/components/GalleryCard';
+import Lightbox from '@/app/(with top navigation)/components/Lightbox';
 
 export default function GallerySection() {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);

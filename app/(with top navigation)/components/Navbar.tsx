@@ -29,7 +29,7 @@ export default function Navbar(){
                 </div>
 
                 <div className="hidden lg:flex items-center gap-6 xl:gap-20 text-black font-poppins">
-                    <Link href="/" className="hover:text-[#45A80A] transition-colors font-medium font-poppins text-[20px]">
+                    <Link href="/public" className="hover:text-[#45A80A] transition-colors font-medium font-poppins text-[20px]">
                         Home
                     </Link>
                     <Link href="/tourguides" className="hover:text-[#45A80A] transition-colors font-medium font-poppins text-[20px]">
@@ -77,21 +77,21 @@ export default function Navbar(){
                 <div className="lg:hidden border-t border-gray-200">
                     <div className="flex flex-col p-4 space-y-4 text-black font-poppins">
                         <Link 
-                            href="/" 
+                            href="/public"
                             className="hover:text-[#45A80A] transition-colors py-2"
                             onClick={() => setIsMenuOpen(false)}
                         >
                             Home
                         </Link>
                         <Link 
-                            href="/" 
+                            href="/public"
                             className="hover:text-[#45A80A] transition-colors py-2"
                             onClick={() => setIsMenuOpen(false)}
                         >
                             Tour Packages
                         </Link>
                         <Link 
-                            href="/" 
+                            href="/public"
                             className="hover:text-[#45A80A] transition-colors py-2"
                             onClick={() => setIsMenuOpen(false)}
                         >

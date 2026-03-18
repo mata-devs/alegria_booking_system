@@ -1,4 +1,4 @@
-import ServicesSectionCards from "@/components/ServicesSectionCards"
+import ServicesSectionCards from "@/app/(with top navigation)/components/ServicesSectionCards"
 
 
 export default function ServicesSection(){

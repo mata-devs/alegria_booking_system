@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import Lightbox from "@/components/Lightbox";
+import Lightbox from "@/app/(with top navigation)/components/Lightbox";
 
 export default function LandingCarousel() {
 
