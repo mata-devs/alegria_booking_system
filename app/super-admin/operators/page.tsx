@@ -123,21 +123,24 @@ export default function OperatorsManagementPage() {
     fetchOperators();
   }, []);
 
-  // Fetch active signup token
+  // Listen for signup token changes in real-time
   useEffect(() => {
-    async function fetchToken() {
-      try {
-        const snap = await getDoc(doc(firebaseDb, 'app_config', 'operator_signup_link'));
+    const unsub = onSnapshot(
+      doc(firebaseDb, 'app_config', 'operator_signup_link'),
+      (snap) => {
         if (snap.exists()) {
           setSignupToken(snap.data().token ?? null);
+        } else {
+          setSignupToken(null);
         }
-      } catch (error) {
-        console.error('Failed to fetch signup token:', error);
-      } finally {
         setTokenLoading(false);
-      }
-    }
-    fetchToken();
+      },
+      (error) => {
+        console.error('Failed to listen for signup token:', error);
+        setTokenLoading(false);
+      },
+    );
+    return unsub;
   }, []);
 
   function getSignupUrl(token: string) {
