@@ -12,6 +12,7 @@ import ReviewForm from "./ReviewForm";
 import Footer from "@/components/Footer";
 import { Book } from "lucide-react";
 import BookingGallery from "./BookingGallery";
+import { Suspense } from "react";
 
 
 // interface BookingPageProps {
@@ -35,7 +36,9 @@ return (
         <div className="w-full flex flex-row-reverse pt-[3%]">
             {/* RIGHT */}
             <div className=" flex items-start w-[36%] justify-center items-center">
-                <BoookingSmall/>
+                <Suspense fallback={<div>Loading...</div>}>
+                    <BoookingSmall/>
+                </Suspense>
             </div>
 
             {/* LEFT */}

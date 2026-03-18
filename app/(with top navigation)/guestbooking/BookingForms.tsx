@@ -1,4 +1,5 @@
 import BookingPayInfo from "./BookingPayInfo";
+import { Suspense } from "react";
 
 export default function BookingForms() {
 
@@ -13,7 +14,9 @@ export default function BookingForms() {
                     </div>
 
                     <div className="w-[35%] h-full border-[2px] border-[#000000]">
-                        <BookingPayInfo/>
+                        <Suspense fallback={<div>Loading...</div>}>
+                            <BookingPayInfo/>
+                        </Suspense>
                     </div>
                 </div>
 
