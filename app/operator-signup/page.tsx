@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, type ChangeEvent, type FormEvent } from 'react';
+import { Suspense, useState, useEffect, useRef, type ChangeEvent, type FormEvent } from 'react';
 import { collection, addDoc, serverTimestamp, doc, getDoc, deleteDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { firebaseDb, firebaseStorage } from '@/lib/firebase';
@@ -29,6 +29,14 @@ const REQUIRED_DOCUMENTS = [
 ];
 
 export default function OperatorSignUpPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center"><p>Loading…</p></div>}>
+      <OperatorSignUpContent />
+    </Suspense>
+  );
+}
+
+function OperatorSignUpContent() {
   const searchParams = useSearchParams();
   const [tokenValid, setTokenValid] = useState<boolean | null>(null); // null = loading
 
