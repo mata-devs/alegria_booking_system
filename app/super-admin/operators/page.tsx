@@ -842,7 +842,7 @@ export default function OperatorsManagementPage() {
 
           {/* Right panel — Request Detail */}
           {selectedRequest && (
-            <div className="w-full lg:w-88 shrink-0 rounded-lg border border-gray-200 bg-white p-5">
+            <div className="w-full lg:w-[22rem] shrink-0 rounded-lg border border-gray-200 bg-white p-5">
               <div className="mb-3 flex justify-end">
                 <button
                   onClick={() => setSelectedRequestId(null)}
