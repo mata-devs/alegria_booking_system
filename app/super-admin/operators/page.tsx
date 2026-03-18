@@ -58,7 +58,7 @@ export default function OperatorsManagementPage() {
   const [requestSearchField, setRequestSearchField] = useState<RequestSearchField>('name');
   const [requestDropdownOpen, setRequestDropdownOpen] = useState(false);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
-  const [requestUpdating, setRequestUpdating] = useState(false);
+  const [requestUpdating, setRequestUpdating] = useState<'approved' | 'rejected' | null>(null);
   const [requestPage, setRequestPage] = useState(1);
   const [pendingCount, setPendingCount] = useState(0);
 
@@ -243,7 +243,7 @@ export default function OperatorsManagementPage() {
   const selectedRequest = requests.find((r) => r.id === selectedRequestId) ?? null;
 
   async function updateRequestStatus(requestId: string, newStatus: 'approved' | 'rejected') {
-    setRequestUpdating(true);
+    setRequestUpdating(newStatus);
     try {
       if (newStatus === 'approved') {
         const approve = httpsCallable<{ requestId: string }, { email: string }>(firebaseFunctions, 'approveOperatorSignup');
@@ -262,7 +262,7 @@ export default function OperatorsManagementPage() {
     } catch (error) {
       console.error('Failed to update request status:', error);
     } finally {
-      setRequestUpdating(false);
+      setRequestUpdating(null);
     }
   }
 
@@ -937,18 +937,18 @@ export default function OperatorsManagementPage() {
               {selectedRequest.status === 'pending' && (
                 <div className="mt-6 flex gap-3">
                   <button
-                    disabled={requestUpdating}
+                    disabled={!!requestUpdating}
                     onClick={() => updateRequestStatus(selectedRequest.id, 'approved')}
                     className="flex-1 rounded-lg bg-[#558B2F] py-2.5 text-sm font-semibold text-white hover:bg-[#4a7a28] transition-colors disabled:opacity-50"
                   >
-                    {requestUpdating ? 'Updating…' : 'Approve'}
+                    {requestUpdating === 'approved' ? 'Approving…' : 'Approve'}
                   </button>
                   <button
-                    disabled={requestUpdating}
+                    disabled={!!requestUpdating}
                     onClick={() => updateRequestStatus(selectedRequest.id, 'rejected')}
                     className="flex-1 rounded-lg border border-red-300 py-2.5 text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
                   >
-                    {requestUpdating ? 'Updating…' : 'Decline'}
+                    {requestUpdating === 'rejected' ? 'Declining…' : 'Decline'}
                   </button>
                 </div>
               )}
