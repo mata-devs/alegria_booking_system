@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import { AuthProvider } from '@/contexts/AuthContext';
 import RoleGuard from '@/components/RoleGuard';
-import OperatorSidebar from '@/components/OperatorSidebar';
+import SuperAdminSidebar from '@/components/SuperAdminSidebar';
 
-export default function OperatorLayout({
+export default function SuperAdminLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -14,9 +14,9 @@ export default function OperatorLayout({
 
   return (
     <AuthProvider>
-      <RoleGuard allowedRoles={['operator']}>
+      <RoleGuard allowedRoles={['super_admin']}>
         <div className="min-h-screen bg-gray-50">
-          <OperatorSidebar
+          <SuperAdminSidebar
             isCollapsed={isCollapsed}
             onToggleCollapse={() => setIsCollapsed((prev) => !prev)}
           />
