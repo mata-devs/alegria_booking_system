@@ -30,5 +30,11 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules", "functions"]
+  "exclude": [
+    "node_modules",
+    "functions",
+    "functions/**/*",
+    "alegria-api/functions",
+    "alegria-api/functions/**/*"
+  ]
 }
