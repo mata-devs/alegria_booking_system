@@ -33,7 +33,7 @@ export default function Landing() {
             <div className="w-full h-full aspect-video">
               <iframe
                 className="w-full h-[81%] border-0"
-                src="https://www.mata.ph/cebu/alegria/"
+                src="https://www.mata.ph/bookingsystem"
                 title="Alegria Virtual Tour"
                 
               />
