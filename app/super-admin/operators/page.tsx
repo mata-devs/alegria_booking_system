@@ -638,10 +638,15 @@ export default function OperatorsManagementPage() {
                         href={file.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        className="flex items-center justify-between px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                       >
-                        <FileImage size={18} className="shrink-0 text-teal-600" />
-                        {file.name}
+                        <div className="flex items-center gap-3 min-w-0">
+                          <FileImage size={18} className="shrink-0 text-teal-600" />
+                          <span className="truncate">{file.name}</span>
+                        </div>
+                        <span className="ml-2 flex h-6 w-6 shrink-0 items-center justify-center rounded bg-red-100 text-red-500">
+                          <FileImage size={12} />
+                        </span>
                       </a>
                     ))
                   )}
