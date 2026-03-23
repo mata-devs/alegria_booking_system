@@ -16,7 +16,7 @@ export default function ServicesSection(){
 
     return (
         <div
-            className="flex flex-col gap-5 min-h-max items-center mt-5 md:mt-10 justify-center font-poppins p-4"
+            className="flex flex-col gap-5 min-h-max items-center mt-5 mt-[90%] sm:mt-[20%] lg:mt-10 justify-center font-poppins p-4"
         >
             <div className="flex flex-col justify-center items-center h-auto w-full sm:w-[80%] md:w-[70%] lg:w-[50%] mb-6 md:mb-8">
                 <h1

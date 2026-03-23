@@ -15,7 +15,7 @@ export default function Navbar(){
 
     return (
         <nav className="bg-white shadow-sm sticky top-0 z-50">
-            <div className="flex items-center justify-between p-4 px-20 max-w-[100%] mx-auto">
+            <div className="flex items-center justify-between p-4 px-10 lg:px-20 max-w-[100%] mx-auto">
                 {/* Logo */}
                 <div className="shrink-0">
                     <Image
@@ -60,7 +60,7 @@ export default function Navbar(){
                         fill="none"
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        strokeWidth="2"
+                        strokeWidth="3"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
                     >
@@ -84,25 +84,25 @@ export default function Navbar(){
                             Home
                         </Link>
                         <Link 
-                            href="/" 
+                            href="/tourguides" 
                             className="hover:text-[#45A80A] transition-colors py-2"
                             onClick={() => setIsMenuOpen(false)}
                         >
-                            Tour Packages
+                            Tour Guides
                         </Link>
-                        <Link 
+                        {/* <Link 
                             href="/" 
                             className="hover:text-[#45A80A] transition-colors py-2"
                             onClick={() => setIsMenuOpen(false)}
                         >
                             More Tours
-                        </Link>
+                        </Link> */}
                         <Link href="/booking" onClick={() => setIsMenuOpen(false)}>
                             <button className="w-full bg-[#45A80A] hover:bg-[#3a8c08] rounded-lg px-6 py-3 text-white transition-colors cursor-pointer">
                                 Book Now
                             </button>
                         </Link>
-                        <div className="flex items-center gap-2 py-2 border-t border-gray-100 mt-2">
+                        {/* <div className="flex items-center gap-2 py-2 border-t border-gray-100 mt-2">
                             <Image
                                 src="/user-icon.png"
                                 alt="user icon"
@@ -112,7 +112,7 @@ export default function Navbar(){
                                 priority
                             />
                             <span className="text-sm text-gray-600">Account</span>
-                        </div>
+                        </div> */}
                     </div>
                 </div>
             )}

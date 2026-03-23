@@ -39,17 +39,19 @@ export default function FloatingSectionDivider() {
 
     
     return (
-        <div className="relative -mt-60 mb-20 px-4 md:px-8 lg:px-16">
-            <div className="max-w-[99%] mx-auto bg-white rounded-full shadow-lg p-6 md:py-6 md:px-16">
-                <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="relative -mt-[10%] sm:-mt-[6%] lg:-mt-[17%] mb-20 px-4 md:px-8 lg:px-16">
+
+            {/* THE BAR */}
+            <div className="max-w-[80%] sm:max-w-[99%] mx-auto bg-white rounded-[20px] sm:rounded-full shadow-lg pt-7 pb-4 px-2  sm:py-5 sm:px-5 lg:px-16">
+                <div className="flex flex-col sm:flex-row items-between sm:items-center justify-between gap-11 sm:gap-1 lg:gap-6">
                     <div
-                        className=" w-[80%] flex justify-center"
+                        className=" w-[100%] sm:w-[80%] flex justify-center"
                     >
                         <div
-                            className="flex justify-between w-[75%]"
+                            className="flex flex-col sm:flex-row justify-between gap-6 sm:gap-1 w-[100%] sm:w-[90%] lg:w-[75%]"
                         >
                             {/* Date Section */}
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 pl-[20%] sm:pl-0">
                                 <div className="relative w-10 h-10 rounded-lg flex items-center justify-center">
                                     {/* <Image
                                         className=""
@@ -79,21 +81,21 @@ export default function FloatingSectionDivider() {
                                     )}
                                 </div>
                                 <div>
-                                    <p className="font-poppins font-bold text-[20px] text-[#000000]">
+                                    <p className="font-poppins font-bold text-[16px] sm:text-[14px] lg:text-[20px] text-[#000000]">
                                     {startDate ? startDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) 
                                         : "Select Date"}
                                     </p>
                             
-                                    <p className="text-sm text-gray-500">Date</p>
+                                    <p className="text-[11px] lg:text-sm text-gray-500">Date</p>
                                 </div>
                             </div>
 
                             {/* Divider */}
-                            <div className="w-px h-10 bg-gray-300"></div>
+                            <div className="w-[full] h-[2px] sm:w-[1px] sm:h-10 bg-gray-300"></div>
 
                             {/* Time Section */}
-                            <div className="flex items-center gap-3">
-                                <div className="relative w-20 h-10 rounded-lg flex items-center justify-center">
+                            <div className="flex items-center gap-3 sm:justify-center pl-[20%] sm:pl-0">
+                                <div className="relative w-10 h-10 rounded-lg flex items-center justify-center">
                                     {/* <Image
                                         className=""
                                         src="/guests.png"
@@ -127,19 +129,19 @@ export default function FloatingSectionDivider() {
                                     )}
                                 </div>
                                 <div>
-                                    <p className="w-31 font-poppins font-bold text-[20px] text-[#000000]">
+                                    <p className=" font-poppins font-bold text-[16px] sm:text-[14px] lg:text-[20px] text-[#000000]">
                                     {time ? time .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) 
                                         : "--:--"}
                                     </p>
-                                    <p className="text-sm text-gray-500">Time</p>
+                                    <p className="text-[11px] lg:text-sm text-gray-500">Time</p>
                                 </div>
                             </div>
 
                             {/* Divider */}
-                            <div className="w-px h-10 bg-gray-300"></div>
+                            <div className="w-[full] h-[2px] sm:w-[1px] sm:h-10 bg-gray-300"></div>
 
                             {/* Guests Section */}
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 pl-[20%] sm:pl-0">
                                 <div className="relative w-10 h-10 rounded-lg flex items-center justify-center">
                                     {/* <Image
                                         className=""
@@ -169,8 +171,8 @@ export default function FloatingSectionDivider() {
                                     )}
                                 </div>
                                 <div>
-                                    <p className="font-poppins font-bold text-[20px] text-[#000000]">{guests}</p>
-                                    <p className="font-poppins font-medium text-[12px] text-[#BEBEBE]">Guests</p>
+                                    <p className="font-poppins font-bold text-[16px] sm:text-[14px] lg:text-[20px] text-[#000000]">{guests}</p>
+                                    <p className="font-poppins font-medium text-[11px] lg:text-sm text-[#BEBEBE]">Guests</p>
                                 </div>
                             </div>
 
@@ -188,8 +190,11 @@ export default function FloatingSectionDivider() {
                             time: time ? time.toISOString() : "",
                             guests: guests.toString(),
                             },
-                        }}>
-                    <button className="bg-[#178893] hover:bg-teal-700 text-white font-semibold px-16 py-3 rounded-full transition-colors cursor-pointer">
+                        }}
+                        className="w-full sm:w-auto"
+                        
+                        >
+                    <button className="bg-[#178893]  hover:bg-teal-700 text-white font-semibold w-[100%] sm:px-10 lg:px-16 py-2 lg:py-3 rounded-full transition-colors cursor-pointer">
                         Book
                     </button>
                     </Link>
