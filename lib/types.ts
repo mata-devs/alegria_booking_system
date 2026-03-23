@@ -42,3 +42,37 @@ export interface OperatorSignUpRequest {
   submittedAt: Date | null;
   reviewedAt: Date | null;
 }
+
+export type BookingStatus = 'reserved' | 'paid' | 'processing' | 'cancelled';
+
+export type PaymentMethod = 'cash' | 'gcash' | 'card';
+
+export interface BookingGuest {
+  name: string;
+  age: string;
+  gender: string;
+}
+
+export interface Booking {
+  id: string;
+  bookingId: string;
+  operatorId: string;
+  representativeName: string;
+  representativeAge: string;
+  representativeGender: string;
+  representativeEmail: string;
+  representativePhone: string;
+  guests: BookingGuest[];
+  schedule: string;
+  scheduleTime: string;
+  numberOfGuests: number;
+  totalPrice: number;
+  paymentMethod: PaymentMethod;
+  status: BookingStatus;
+  specialRequests: string;
+  promoCode: string;
+  maxCapacity: number;
+  currentCapacity: number;
+  requestDate: Date | null;
+  createdAt: Date | null;
+}
