@@ -9,7 +9,6 @@ import { CiCalendar } from "react-icons/ci";
 import { LuClock4 } from "react-icons/lu";
 import { formatBookingDisplayDate, formatBookingDisplayTime } from "@/lib/date-utils";
 
-
 const buildScheduleTime = (hours: 8 | 13, date: Date | null): Date => {
     const base = date ? new Date(date) : new Date();
     base.setHours(hours, 0, 0, 0);
@@ -54,9 +53,9 @@ export default function FloatingSectionDivider() {
 
 
 
-    
+
     return (
-        <div className="relative -mt-60 mb-20 px-4 md:px-8 lg:px-16">
+        <div className="relative -mt-12 mb-20 px-4 md:px-8 lg:px-16">
             <div className="max-w-[99%] mx-auto bg-white rounded-full shadow-lg p-6 md:py-6 md:px-16">
                 <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                     <div
@@ -76,10 +75,10 @@ export default function FloatingSectionDivider() {
                                         height={60}
                                         priority
                                     /> */}
-                                    <button 
-                                    onClick={() => setOpenPopup(openPopup === "date" ? null : "date")} 
-                                    className="cursor-pointer">
-                                    <CiCalendar  color="#AED471" size={40} strokeWidth={1}/>
+                                    <button
+                                        onClick={() => setOpenPopup(openPopup === "date" ? null : "date")}
+                                        className="cursor-pointer">
+                                        <CiCalendar color="#AED471" size={40} strokeWidth={1} />
                                     </button>
                                     {openPopup === "date" && (
                                         <div ref={containerRef} className="absolute top-full left-0 z-50 mt-2 bg-white shadow-lg p-2 rounded">
@@ -102,10 +101,10 @@ export default function FloatingSectionDivider() {
                                 </div>
                                 <div>
                                     <p className="font-poppins font-bold text-[20px] text-[#000000]">
-                                    {startDate ? formatBookingDisplayDate(startDate)
-                                        : "Select Date"}
+                                        {startDate ? formatBookingDisplayDate(startDate)
+                                            : "Select Date"}
                                     </p>
-                            
+
                                     <p className="text-sm text-gray-500">Date</p>
                                 </div>
                             </div>
@@ -125,8 +124,8 @@ export default function FloatingSectionDivider() {
                                         priority
                                     /> */}
                                     <button
-                                    onClick={() => setOpenPopup(openPopup === "time" ? null : "time")}
-                                    className="cursor-pointer">
+                                        onClick={() => setOpenPopup(openPopup === "time" ? null : "time")}
+                                        className="cursor-pointer">
                                         <LuClock4 color="#AED471" size={40} strokeWidth={2} />
                                     </button>
                                     {/* Time picker popup */}
@@ -156,8 +155,8 @@ export default function FloatingSectionDivider() {
                                 </div>
                                 <div>
                                     <p className="w-31 font-poppins font-bold text-[20px] text-[#000000]">
-                                    {time ? formatBookingDisplayTime(time)
-                                        : "--:--"}
+                                        {time ? formatBookingDisplayTime(time)
+                                            : "--:--"}
                                     </p>
                                     <p className="text-sm text-gray-500">Time</p>
                                 </div>
@@ -178,20 +177,20 @@ export default function FloatingSectionDivider() {
                                         priority
                                     /> */}
                                     <button
-                                    // onClick={() => setIsTimeOpen(!isTimeOpen)}
-                                    onClick={() => setOpenPopup(openPopup === "guests" ? null : "guests")}
-                                    className="cursor-pointer">
+                                        // onClick={() => setIsTimeOpen(!isTimeOpen)}
+                                        onClick={() => setOpenPopup(openPopup === "guests" ? null : "guests")}
+                                        className="cursor-pointer">
                                         <BsPersonFillAdd color="#AED471" size={40} />
                                     </button>
                                     {openPopup === "guests" && (
                                         <div ref={containerRef} className="absolute top-full left-0 z-50 mt-2 w-[6vw] bg-white shadow-lg p-2 rounded">
                                             <input
-                                            type="number"
-                                            min={1}
-                                            value={guests ?? ""}
-                                            onChange={(e) => setGuests(Math.max(1, Number(e.target.value) || 1))}
-                                            className="w-full h-10 border border-gray-300 rounded px-2 focus:outline-none"
-                                            placeholder="Guests"
+                                                type="number"
+                                                min={1}
+                                                value={guests ?? ""}
+                                                onChange={(e) => setGuests(Math.max(1, Number(e.target.value) || 1))}
+                                                className="w-full h-10 border border-gray-300 rounded px-2 focus:outline-none"
+                                                placeholder="Guests"
                                             />
                                         </div>
                                     )}
@@ -202,7 +201,7 @@ export default function FloatingSectionDivider() {
                                 </div>
                             </div>
 
-                            
+
                         </div>
                     </div>
 
@@ -212,14 +211,14 @@ export default function FloatingSectionDivider() {
                         href={{
                             pathname: "/booking",
                             query: {
-                            date: startDate ? formatBookingDisplayDate(startDate) : "",
-                            time: time ? formatBookingDisplayTime(time) : "",
-                            guests: guests.toString(),
+                                date: startDate ? formatBookingDisplayDate(startDate) : "",
+                                time: time ? formatBookingDisplayTime(time) : "",
+                                guests: guests.toString(),
                             },
                         }}>
-                    <button className="bg-[#178893] hover:bg-teal-700 text-white font-semibold px-16 py-3 rounded-full transition-colors cursor-pointer">
-                        Book
-                    </button>
+                        <button className="bg-[#178893] hover:bg-teal-700 text-white font-semibold px-16 py-3 rounded-full transition-colors cursor-pointer">
+                            Book
+                        </button>
                     </Link>
                 </div>
             </div>

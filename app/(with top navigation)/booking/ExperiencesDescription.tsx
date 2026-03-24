@@ -1,3 +1,5 @@
+"use client";
+
 export default function ExperiencesDescription() {
     return (
         <div className="w-full flex flex-col gap-[30px] border-[3px] border-[#9F9F9F] rounded-[20px] bg-[#FFFFFF] pt-[3%] pr-[5%] pl-[5%] pb-[5%] ">
