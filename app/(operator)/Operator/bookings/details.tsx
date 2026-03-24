@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
+import { X } from 'lucide-react';
 
 export type BookingStatus =
     | 'Reserved'
@@ -237,7 +238,7 @@ export default function BookingDetailsCard({
 
   if (!booking) {
     return (
-        <div className="h-full min-h-0 w-full rounded-2xl border shadow-sm bg-white flex items-center justify-center text-sm text-neutral-500">
+        <div className="w-full rounded-lg border border-gray-200 bg-white p-5 flex items-center justify-center text-sm text-gray-400">
           Select a booking from the list.
         </div>
     );
@@ -245,54 +246,41 @@ export default function BookingDetailsCard({
 
   return (
       <>
-        <div className="w-full h-full min-h-0 rounded-2xl bg-white border shadow-sm overflow-hidden flex flex-col">
+        <div className="w-full rounded-lg border border-gray-200 bg-white overflow-hidden flex flex-col">
           {/* Header */}
-          <div className="bg-white flex py-1">
-            <div className="w-[132px] py-2 shrink-0 flex justify-end">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+            <button
+                type="button"
+                onClick={() => setIsPrintPreviewOpen(true)}
+                className="inline-flex h-7 items-center justify-center rounded-full border border-[#558B2F] bg-green-50 px-4 text-[11px] font-medium text-[#558B2F] hover:bg-green-100 transition-colors"
+            >
+              Preview printable
+            </button>
+
+            <p className="text-xs text-gray-500">
+              Booking ID: <span className="font-medium text-gray-700">{booking.bookingIdLabel ?? booking.id}</span>
+            </p>
+
+            {onClose && (
               <button
                   type="button"
-                  onClick={() => setIsPrintPreviewOpen(true)}
-                  className="inline-flex h-7 items-center justify-center rounded-full border border-lime-300 bg-lime-200 px-4 text-[11px] font-medium text-lime-900 hover:bg-lime-300"
+                  onClick={onClose}
+                  aria-label="Close booking details"
+                  className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
               >
-                preview printable
+                <X size={16} />
               </button>
-            </div>
-            <div className="flex items-center w-[100%] pl-55 justify-center">
-
-              <div className="text-[15px] text-gray-500 leading-tight">
-                Booking Id:{' '}
-                <div className="flex items-center w-[100%] justify-center">
-                <span className="font-medium text-gray-500">
-                  {booking.bookingIdLabel ?? booking.id}
-                </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="w-full flex items-center justify-end py-1 px-2 gap-2">
-
-
-              {onClose ? (
-                  <button
-                      type="button"
-                      onClick={onClose}
-                      aria-label="Close booking details"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-neutral-200 bg-gray-100 text-neutral-600 hover:bg-neutral-100 shrink-0"
-                  >
-                    ✕
-                  </button>
-              ) : null}
-            </div>
+            )}
           </div>
 
           {/* Body */}
-          <div className="flex-1 min-h-0 overflow-y-auto px-12 pb-5">
+          <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5">
             {/* Schedule + Representative */}
-            <div className="mt-2 space-y-2 text-[18px] text-neutral-700">
+            <div className="mt-3 space-y-1.5 text-sm text-gray-700">
               <Row
                   label="Tour Schedule:"
                   value={
-                    <span className="font-semibold text-neutral-900">
+                    <span className="font-semibold text-gray-900">
                   {booking.scheduleLabel}
                 </span>
                   }
@@ -300,7 +288,7 @@ export default function BookingDetailsCard({
               <Row label="Representative:" value="" />
             </div>
 
-            <div className="mt-2 px-1 text-[18px] text-neutral-700 pl-3">
+            <div className="mt-2 pl-3 space-y-1 text-sm text-gray-700">
               <div className="flex items-center gap-6">
                 <Row
                     label="Name:"
@@ -314,91 +302,91 @@ export default function BookingDetailsCard({
             </div>
 
             {/* Other Guests */}
-            <div className="mt-2 text-lg text-neutral-700 font-semibold">Other Guests</div>
+            <div className="mt-4 text-sm font-bold text-gray-900">Other Guests</div>
 
-            <div className="mt-2 overflow-hidden">
-              <div className="grid grid-cols-6 gap-2 px-3 py-2 text-sm text-neutral-800 font-medium">
-                <div className="col-span-3 text-center md:text-left">Name</div>
+            <div className="mt-2 rounded-lg border border-gray-200 overflow-hidden">
+              <div className="grid grid-cols-6 gap-2 px-3 py-2 text-xs text-gray-500 font-medium bg-gray-50">
+                <div className="col-span-3">Name</div>
                 <div className="col-span-1 text-center">Age</div>
-                <div className="col-span-2 text-center md:text-right">Gender</div>
+                <div className="col-span-2 text-right">Gender</div>
               </div>
-              <div>
+              <div className="divide-y divide-gray-100">
                 {booking.otherGuests.map((g, idx) => (
                     <div
                         key={idx}
-                        className="grid grid-cols-6 gap-2 px-3 py-1 text-sm text-neutral-800"
+                        className="grid grid-cols-6 gap-2 px-3 py-1.5 text-sm text-gray-700"
                     >
-                      <div className="col-span-3 font-semibold truncate">{g.name}</div>
-                      <div className="col-span-1 font-semibold text-center">{g.age}</div>
-                      <div className="col-span-2 text-right font-semibold">{g.gender}</div>
+                      <div className="col-span-3 font-medium truncate">{g.name}</div>
+                      <div className="col-span-1 text-center">{g.age}</div>
+                      <div className="col-span-2 text-right">{g.gender}</div>
                     </div>
                 ))}
               </div>
             </div>
 
             {/* Payment */}
-            <div className="mt-5 text-lg text-neutral-800 font-semibold">Payment</div>
+            <div className="mt-4 text-sm font-bold text-gray-900">Payment</div>
 
-            <div className="mt-2 text-[12px] text-neutral-800 space-y-4 px-10">
+            <div className="mt-2 text-sm text-gray-700 space-y-3 px-2">
               <div className="flex items-center justify-between">
-              <span className="text-lg font-semibold text-neutral-800">
+              <span className="text-sm font-medium text-gray-700">
                 {`₱${booking.payment.pricePerPerson} x ${booking.payment.qty}`}
               </span>
-                <span className="text-lg font-semibold text-neutral-800">
+                <span className="text-sm font-medium text-gray-700">
                 {peso(totals?.subtotal ?? 0)}
               </span>
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-lg font-semibold text-neutral-800">Service charge</span>
-                <span className="text-lg font-semibold text-neutral-800">
+                <span className="text-sm font-medium text-gray-700">Service charge</span>
+                <span className="text-sm font-medium text-gray-700">
                 {peso(booking.payment.serviceCharge)}
               </span>
               </div>
 
-              <div className="h-px bg-neutral-200" />
+              <div className="h-px bg-gray-200" />
 
               <div className="flex items-center justify-between">
-                <span className="text-lg font-semibold text-neutral-800">Total</span>
-                <span className="text-lg font-semibold text-neutral-800">
+                <span className="text-sm font-bold text-gray-900">Total</span>
+                <span className="text-sm font-bold text-gray-900">
                 {peso(totals?.total ?? 0)}
               </span>
               </div>
 
-              <div className="mt-2">
-                <span className="text-[12px] text-neutral-800">Payment Option: </span>
-                <span className="font-semibold text-neutral-800">{booking.payment.option}</span>
+              <div className="mt-1">
+                <span className="text-xs text-gray-500">Payment Option: </span>
+                <span className="text-xs font-semibold text-gray-700">{booking.payment.option}</span>
               </div>
             </div>
 
             {/* File Upload */}
-            <div className="mt-5 text-lg text-neutral-800 font-semibold">File Upload</div>
+            <div className="mt-4 text-sm font-bold text-gray-900">File Upload</div>
 
-            <div className="mt-2 rounded-xl border border-neutral-200 overflow-hidden bg-white">
+            <div className="mt-2 rounded-lg border border-gray-200 overflow-hidden bg-white divide-y divide-gray-200">
               {visibleUploads.length === 0 ? (
-                  <div className="px-2 py-2 text-[11px] text-neutral-500">
+                  <div className="px-3 py-2 text-xs text-gray-400">
                     No files uploaded yet.
                   </div>
               ) : (
                   visibleUploads.map((f) => (
                       <div
                           key={f.id}
-                          className="flex items-center justify-between px-3 py-2 text-[12px] border-b last:border-b-0 border-neutral-200"
+                          className="flex items-center justify-between px-3 py-2 text-sm hover:bg-gray-50 transition-colors"
                       >
-                        <div className="flex items-center gap-2 text-neutral-700">
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-neutral-100 border border-neutral-200">
+                        <div className="flex items-center gap-2 text-gray-700">
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-gray-100 border border-gray-200">
                       <Image src="/photos.png" alt="" width={25} height={2} />
                     </span>
-                          <span className="font-medium">{f.name}</span>
+                          <span className="font-medium text-sm">{f.name}</span>
                         </div>
 
                         <button
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-red-500 hover:bg-red-50"
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-red-500 hover:bg-red-50 transition-colors"
                             type="button"
                             aria-label="Delete file"
                             onClick={() => removeUpload(f.id)}
                         >
-                          <Image src="/trash.png" alt="" width={25} height={2} />
+                          <Image src="/trash.png" alt="" width={20} height={2} />
                         </button>
                       </div>
                   ))
@@ -408,8 +396,8 @@ export default function BookingDetailsCard({
             {/* Dropzone */}
             <div
                 className={[
-                  'mt-4 rounded-xl border-2 border-dashed bg-lime-50 px-4 py-2',
-                  isDragOver ? 'border-lime-600' : 'border-lime-400',
+                  'mt-3 rounded-lg border-2 border-dashed bg-green-50 px-4 py-2',
+                  isDragOver ? 'border-[#558B2F]' : 'border-green-300',
                 ].join(' ')}
                 onDragOver={onDragOver}
                 onDragLeave={onDragLeave}
@@ -438,7 +426,7 @@ export default function BookingDetailsCard({
 
             {/* Status */}
             <div className="mt-4 flex items-center justify-center">
-              <div className="relative inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-[12px] text-neutral-700">
+              <div className="relative inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-1.5 text-sm text-gray-700">
                 <span className={`h-2 w-2 rounded-full ${statusDot[status]}`} />
 
                 <select

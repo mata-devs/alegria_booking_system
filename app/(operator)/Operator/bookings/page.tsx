@@ -552,10 +552,9 @@ const filteredBookings = useMemo(() => {
 }, [bookings, query, searchBy, filtersApplied]);
 
   return (
-  <div className="h-full w-full bg-gray-200 flex items-center justify-center hide-scrollbar">
-    <div className="h-[95%] w-[95%] bg-gray-200 flex flex-col md:flex-row gap-5 min-w-0">
-      
-      <div className="h-full flex-[1.9] min-w-0 bg-gray-200">
+    <div className="flex flex-col lg:flex-row gap-4">
+      {/* Left panel — Booking List */}
+      <div className="flex-1 min-w-0">
         <BookingRequestsPanel
           bookings={filteredBookings}
           selectedId={selectedId}
@@ -568,16 +567,13 @@ const filteredBookings = useMemo(() => {
         />
       </div>
 
-      <div className="h-full flex-1 min-w-0 bg-gray-200">
-        <div className="h-full w-full bg-gray-200 flex flex-col gap-5">
-          <div className="h-110 w-full bg-gray-200">
-            <BookingDetailsCard booking={selectedBooking} />
-          </div>
-
-          <div className="h-105 w-full bg-gray-200">
-            <CalendarAvailability />
-          </div>
-        </div>
+      {/* Right panel — Details + Calendar */}
+      <div className="w-full lg:w-96 shrink-0 flex flex-col gap-4">
+        <BookingDetailsCard
+          booking={selectedBooking}
+          onClose={selectedBooking ? () => setSelectedId(undefined) : undefined}
+        />
+        <CalendarAvailability />
       </div>
 
       <FilterModal
@@ -592,6 +588,5 @@ const filteredBookings = useMemo(() => {
         }}
       />
     </div>
-  </div>
-);
+  );
 }
