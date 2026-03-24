@@ -9,7 +9,7 @@ export default function Navbar(){
     const pathname = usePathname();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-    const showNavbar = ["/", "/booking", "/guestbooking", "/tourguides"];
+    const showNavbar = ["/", "/booking", "/guestbooking", "/tourguides", "/complete"];
 
     if (!showNavbar.includes(pathname)) return null;
 

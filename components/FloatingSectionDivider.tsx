@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
 import DatePicker from "react-datepicker";
@@ -8,6 +7,19 @@ import "react-datepicker/dist/react-datepicker.css";
 import { BsPersonFillAdd } from "react-icons/bs";
 import { CiCalendar } from "react-icons/ci";
 import { LuClock4 } from "react-icons/lu";
+import { formatBookingDisplayDate, formatBookingDisplayTime } from "@/lib/date-utils";
+
+
+const buildScheduleTime = (hours: 8 | 13, date: Date | null): Date => {
+    const base = date ? new Date(date) : new Date();
+    base.setHours(hours, 0, 0, 0);
+    return base;
+};
+
+const TIME_OPTIONS = [
+    { label: "8:00 AM", hours: 8 as const },
+    { label: "1:00 PM", hours: 13 as const },
+];
 
 export default function FloatingSectionDivider() {
     const [startDate, setStartDate] = useState<Date | null>(null);
@@ -18,20 +30,25 @@ export default function FloatingSectionDivider() {
 
     const [openPopup, setOpenPopup] = useState<string | null>(null);
 
+    const handleTimeSelection = (hours: 8 | 13) => {
+        setTime(buildScheduleTime(hours, startDate));
+        setOpenPopup(null);
+    };
+
     useEffect(() => {
-            if (!openPopup) return;
-    
-            const handleClickOutside = (event: MouseEvent) => {
-                if (containerRef.current &&
-                    !containerRef.current.contains(event.target as Node)) {
+        if (!openPopup) return;
+
+        const handleClickOutside = (event: MouseEvent) => {
+            if (containerRef.current &&
+                !containerRef.current.contains(event.target as Node)) {
                 setOpenPopup(null);
-                }
-            };
-    
-            document.addEventListener("mousedown", handleClickOutside);
-            return () =>
-                document.removeEventListener("mousedown", handleClickOutside);
-        }, [openPopup]);
+            }
+        };
+
+        document.addEventListener("mousedown", handleClickOutside);
+        return () =>
+            document.removeEventListener("mousedown", handleClickOutside);
+    }, [openPopup]);
 
 
 
@@ -72,8 +89,13 @@ export default function FloatingSectionDivider() {
                                                 key={openPopup}
                                                 selected={startDate}
                                                 onChange={(date: Date | null) => {
-                                                setStartDate(date);
-                                                setOpenPopup(null); // close after selecting
+                                                    setStartDate(date);
+                                                    if (date && time) {
+                                                        const nextTime = new Date(date);
+                                                        nextTime.setHours(time.getHours(), time.getMinutes(), 0, 0);
+                                                        setTime(nextTime);
+                                                    }
+                                                    setOpenPopup(null); // close after selecting
                                                 }}
                                                 inline // forces calendar to render here, not as input popup
                                             />
@@ -112,19 +134,25 @@ export default function FloatingSectionDivider() {
                                     {/* Time picker popup */}
                                     {openPopup === "time" && (
                                         <div ref={containerRef} className="absolute top-full left-0 z-50 mt-2 bg-white shadow-lg p-2 rounded">
-                                        <DatePicker
-                                            selected={time}
-                                            onChange={(date: Date | null) => {
-                                            setTime(date);
-                                            setOpenPopup(null); // close after selecting
-                                            }}
-                                            showTimeSelect
-                                            showTimeSelectOnly
-                                            timeIntervals={15} // choose 15-minute steps
-                                            timeCaption="Time"
-                                            dateFormat="h:mm aa" // renders as 8:00 AM format
-                                            inline
-                                        />
+                                            <div className="flex w-40 flex-col gap-2">
+                                                {TIME_OPTIONS.map((option) => {
+                                                    const isSelected = time?.getHours() === option.hours && time.getMinutes() === 0;
+
+                                                    return (
+                                                        <button
+                                                            key={option.label}
+                                                            type="button"
+                                                            onClick={() => handleTimeSelection(option.hours)}
+                                                            className={`rounded-lg px-4 py-2 text-left text-sm font-medium transition-colors ${isSelected
+                                                                    ? "bg-[#178893] text-white"
+                                                                    : "bg-white text-gray-700 hover:bg-[#F5FFE6]"
+                                                                }`}
+                                                        >
+                                                            {option.label}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -163,7 +191,7 @@ export default function FloatingSectionDivider() {
                                             type="number"
                                             min={1}
                                             value={guests ?? ""}
-                                            onChange={(e) => setGuests(Number(e.target.value))}
+                                            onChange={(e) => setGuests(Math.max(1, Number(e.target.value) || 1))}
                                             className="w-full h-10 border border-gray-300 rounded px-2 focus:outline-none"
                                             placeholder="Guests"
                                             />
@@ -186,8 +214,8 @@ export default function FloatingSectionDivider() {
                         href={{
                             pathname: "/booking",
                             query: {
-                            date: startDate ? startDate.toISOString() : "",
-                            time: time ? time.toISOString() : "",
+                            date: startDate ? formatBookingDisplayDate(startDate) : "",
+                            time: time ? formatBookingDisplayTime(time) : "",
                             guests: guests.toString(),
                             },
                         }}

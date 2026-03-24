@@ -1,23 +1,7 @@
-# Settings for Backend (on Cloud Run).
-# See https://firebase.google.com/docs/app-hosting/configure#cloud-run
-runConfig:
-  minInstances: 0
-  # maxInstances: 100
-  # concurrency: 80
-  # cpu: 1
-  # memoryMiB: 512
-
-# Environment variables and secrets.
-# env:
-  # Configure environment variables.
-  # See https://firebase.google.com/docs/app-hosting/configure#user-defined-environment
-  # - variable: MESSAGE
-  #   value: Hello world!
-  #   availability:
-  #     - BUILD
-  #     - RUNTIME
-
-  # Grant access to secrets in Cloud Secret Manager.
-  # See https://firebase.google.com/docs/app-hosting/configure#secret-parameters
-  # - variable: MY_SECRET
-  #   secret: mySecretRef
+# the NEXT_PUBLIC_FUNCTIONS_BASE_URL is for the booking and hello endpoint
+env:
+  - variable: NEXT_PUBLIC_FUNCTIONS_BASE_URL
+    value: https://api-tpqgsum4ra-as.a.run.app
+# if you want to add a new NEXT_PUBLIC variable
+#  - variable: NEXT_PUBLIC_FUNCTIONS_BASE_URL_<function-name>
+#    value: https://<function-name>-tpqgsum4ra-as.a.run.app

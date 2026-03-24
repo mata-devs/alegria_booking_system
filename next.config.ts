@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  /* Legacy /operator/* → /Operator/* redirects: see middleware.ts (exact paths only). */
 };
 
 export default nextConfig;

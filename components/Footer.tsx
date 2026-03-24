@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 
 export default function Footer() {
     const pathname = usePathname();
-    const showNavbar = ["/", "/booking", "/guestbooking", "/tourguides"];
+    const showNavbar = ["/", "/booking", "/guestbooking", "/tourguides", "/complete"];
 
     if (!showNavbar.includes(pathname)) return null;
 
