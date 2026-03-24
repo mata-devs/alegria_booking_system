@@ -20,6 +20,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Users,
+  X,
 } from 'lucide-react';
 import type { Booking, BookingStatus } from '@/lib/types';
 
@@ -290,18 +291,129 @@ export default function OperatorBookingsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* ── Stats Header ────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row items-stretch rounded-lg border border-gray-200 bg-white">
-        <div className="flex-1 px-6 py-4">
+      {/* ── Stats + Calendar Row ─────────────────────────────────── */}
+      <div className="flex flex-col xl:flex-row gap-4">
+        {/* ── Stats Card ─────────────────────────────────── */}
+        <div className="rounded-lg border border-gray-200 bg-white p-5">
           <h1 className="text-lg font-bold text-gray-900">Booking Requests</h1>
+          <div className="mt-4 flex flex-col sm:flex-row gap-6">
+            <div>
+              <span className="text-2xl font-bold text-gray-900">{newBookingsCount}</span>
+              <p className="text-sm text-gray-500">New Bookings last 24 hours</p>
+            </div>
+            <div>
+              <span className="text-2xl font-bold text-gray-900">{bookings.length}</span>
+              <p className="text-sm text-gray-500">Total booking requests</p>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center border-t sm:border-t-0 sm:border-l border-gray-200 px-6 py-4 gap-3">
-          <span className="text-2xl font-bold text-gray-900">{newBookingsCount}</span>
-          <span className="text-sm text-gray-500">New Bookings last 24 hours</span>
-        </div>
-        <div className="flex items-center border-t sm:border-t-0 sm:border-l border-gray-200 px-6 py-4 gap-3">
-          <span className="text-2xl font-bold text-gray-900">{bookings.length}</span>
-          <span className="text-sm text-gray-500">Total booking requests</span>
+
+        {/* ── Calendar Availability Card ──────────────────── */}
+        <div className="rounded-lg border border-gray-200 bg-white p-5 xl:w-[22rem] shrink-0">
+          <h3 className="text-center text-lg font-bold text-gray-900">Calendar Availability</h3>
+
+          {/* Month dropdown */}
+          <div className="mt-2 flex justify-end">
+            <span className="inline-flex items-center gap-1 rounded border border-gray-300 px-3 py-1 text-xs text-gray-600">
+              Month
+              <ChevronDown size={12} />
+            </span>
+          </div>
+
+          <div className="mt-3 flex flex-col sm:flex-row gap-4">
+            {/* Calendar grid */}
+            <div className="flex-1 min-w-0">
+              {/* Month navigation */}
+              <div className="flex items-center justify-center gap-2 rounded-full bg-[#558B2F] py-1.5 text-white">
+                <button onClick={() => navigateMonth(-1)} className="px-2 hover:opacity-80">
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="text-sm font-semibold">
+                  {MONTH_NAMES[calMonth]}, {calYear}
+                </span>
+                <button onClick={() => navigateMonth(1)} className="px-2 hover:opacity-80">
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+
+              {/* Day headers */}
+              <div className="mt-2 grid grid-cols-7 text-center text-[10px] font-semibold text-gray-500">
+                {DAY_HEADERS.map((d) => (
+                  <span key={d} className="py-1">{d}</span>
+                ))}
+              </div>
+
+              {/* Day cells */}
+              <div className="grid grid-cols-7 text-center text-xs">
+                {calendarDays.map((cell, i) => {
+                  const dateKey = `${calYear}-${calMonth}-${cell.day}`;
+                  const hasBooking = cell.inMonth && bookingDateSet.has(dateKey);
+                  return (
+                    <span
+                      key={i}
+                      className={`py-1 rounded-full ${
+                        cell.isHighlighted
+                          ? 'bg-[#558B2F] text-white font-bold'
+                          : hasBooking
+                            ? 'bg-orange-400 text-white font-semibold'
+                            : cell.inMonth
+                              ? 'text-gray-700'
+                              : 'text-gray-300'
+                      }`}
+                    >
+                      {cell.day}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Right: Day + Capacity donut */}
+            <div className="flex w-full sm:w-24 flex-row sm:flex-col items-center justify-center gap-4 sm:gap-2">
+              <div className="text-center">
+                <p className="text-sm font-semibold text-gray-700">
+                  {selectedScheduleDate
+                    ? MONTH_NAMES[selectedScheduleDate.getMonth()]
+                    : MONTH_NAMES[calMonth]}
+                </p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {selectedScheduleDate
+                    ? selectedScheduleDate.getDate()
+                    : new Date().getDate()}
+                </p>
+              </div>
+
+              {/* Donut chart */}
+              <div className="relative h-20 w-20">
+                <svg viewBox="0 0 36 36" className="h-full w-full -rotate-90">
+                  <circle
+                    cx="18"
+                    cy="18"
+                    r="15.5"
+                    fill="none"
+                    stroke="#e5e7eb"
+                    strokeWidth="3"
+                  />
+                  <circle
+                    cx="18"
+                    cy="18"
+                    r="15.5"
+                    fill="none"
+                    stroke="#F59E0B"
+                    strokeWidth="3"
+                    strokeDasharray={`${capacityPct} ${100 - capacityPct}`}
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-xs font-bold text-gray-900 leading-none">
+                    {capacity.current}/{capacity.max}
+                  </span>
+                  <Users size={14} className="mt-0.5 text-gray-400" />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -540,34 +652,27 @@ export default function OperatorBookingsPage() {
           `}>
             {/* ── Booking Info Card ────────────────────────────── */}
             <div className="rounded-lg border border-gray-200 bg-white p-5">
-              {/* Close button (mobile only) */}
-              <button
-                onClick={() => setMobileDetailOpen(false)}
-                className="mb-3 flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 xl:hidden"
-              >
-                <ChevronLeft size={16} />
-                Back to list
-              </button>
               {/* Header row */}
               <div className="flex items-center justify-between gap-3">
+                <span />
                 <div className="text-xs text-gray-400 leading-tight min-w-0">
                   <span>Booking Id:</span><br />
                   <span className="font-semibold text-gray-700 break-all">{selectedBooking.bookingId}</span>
                 </div>
-                <button
-                  onClick={() => window.print()}
-                  className="shrink-0 rounded-full bg-[#558B2F] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#4a7a28] transition-colors"
-                >
-                  preview printable
-                </button>
-              </div>
-
-              {/* Tour Schedule */}
-              <div className="mt-4">
-                <span className="text-sm text-gray-500">Tour Schedule: </span>
-                <span className="text-sm font-bold text-gray-900">
-                  {selectedBooking.schedule} {selectedBooking.scheduleTime}
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => window.print()}
+                    className="shrink-0 rounded-full bg-[#558B2F] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#4a7a28] transition-colors"
+                  >
+                    preview printable
+                  </button>
+                  <button
+                    onClick={() => { setSelectedId(null); setMobileDetailOpen(false); }}
+                    className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
               </div>
 
               {/* Representative */}
@@ -619,114 +724,6 @@ export default function OperatorBookingsPage() {
                   ))}
                 </div>
               )}
-            </div>
-
-            {/* ── Calendar Availability Card ──────────────────── */}
-            <div className="rounded-lg border border-gray-200 bg-white p-5">
-              <h3 className="text-center text-lg font-bold text-gray-900">Calendar Availability</h3>
-
-              {/* Month dropdown */}
-              <div className="mt-2 flex justify-end">
-                <span className="inline-flex items-center gap-1 rounded border border-gray-300 px-3 py-1 text-xs text-gray-600">
-                  Month
-                  <ChevronDown size={12} />
-                </span>
-              </div>
-
-              <div className="mt-3 flex flex-col sm:flex-row gap-4">
-                {/* Calendar grid */}
-                <div className="flex-1 min-w-0">
-                  {/* Month navigation */}
-                  <div className="flex items-center justify-center gap-2 rounded-full bg-[#558B2F] py-1.5 text-white">
-                    <button onClick={() => navigateMonth(-1)} className="px-2 hover:opacity-80">
-                      <ChevronLeft size={16} />
-                    </button>
-                    <span className="text-sm font-semibold">
-                      {MONTH_NAMES[calMonth]}, {calYear}
-                    </span>
-                    <button onClick={() => navigateMonth(1)} className="px-2 hover:opacity-80">
-                      <ChevronRight size={16} />
-                    </button>
-                  </div>
-
-                  {/* Day headers */}
-                  <div className="mt-2 grid grid-cols-7 text-center text-[10px] font-semibold text-gray-500">
-                    {DAY_HEADERS.map((d) => (
-                      <span key={d} className="py-1">{d}</span>
-                    ))}
-                  </div>
-
-                  {/* Day cells */}
-                  <div className="grid grid-cols-7 text-center text-xs">
-                    {calendarDays.map((cell, i) => {
-                      const dateKey = `${calYear}-${calMonth}-${cell.day}`;
-                      const hasBooking = cell.inMonth && bookingDateSet.has(dateKey);
-                      return (
-                        <span
-                          key={i}
-                          className={`py-1 rounded-full ${
-                            cell.isHighlighted
-                              ? 'bg-[#558B2F] text-white font-bold'
-                              : hasBooking
-                                ? 'bg-orange-400 text-white font-semibold'
-                                : cell.inMonth
-                                  ? 'text-gray-700'
-                                  : 'text-gray-300'
-                          }`}
-                        >
-                          {cell.day}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Right: Day + Capacity donut */}
-                <div className="flex w-full sm:w-24 flex-row sm:flex-col items-center justify-center gap-4 sm:gap-2">
-                  <div className="text-center">
-                    <p className="text-sm font-semibold text-gray-700">
-                      {selectedScheduleDate
-                        ? MONTH_NAMES[selectedScheduleDate.getMonth()]
-                        : MONTH_NAMES[calMonth]}
-                    </p>
-                    <p className="text-3xl font-bold text-gray-900">
-                      {selectedScheduleDate
-                        ? selectedScheduleDate.getDate()
-                        : new Date().getDate()}
-                    </p>
-                  </div>
-
-                  {/* Donut chart */}
-                  <div className="relative h-20 w-20">
-                    <svg viewBox="0 0 36 36" className="h-full w-full -rotate-90">
-                      <circle
-                        cx="18"
-                        cy="18"
-                        r="15.5"
-                        fill="none"
-                        stroke="#e5e7eb"
-                        strokeWidth="3"
-                      />
-                      <circle
-                        cx="18"
-                        cy="18"
-                        r="15.5"
-                        fill="none"
-                        stroke="#F59E0B"
-                        strokeWidth="3"
-                        strokeDasharray={`${capacityPct} ${100 - capacityPct}`}
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-xs font-bold text-gray-900 leading-none">
-                        {capacity.current}/{capacity.max}
-                      </span>
-                      <Users size={14} className="mt-0.5 text-gray-400" />
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
           </>
