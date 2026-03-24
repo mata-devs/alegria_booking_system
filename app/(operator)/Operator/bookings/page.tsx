@@ -567,14 +567,37 @@ const filteredBookings = useMemo(() => {
         />
       </div>
 
-      {/* Right panel — Details + Calendar */}
-      <div className="w-full lg:w-96 shrink-0 flex flex-col gap-4">
+      {/* Right panel — Details + Calendar (desktop) */}
+      <div className="hidden lg:flex w-96 shrink-0 flex-col gap-4">
         <BookingDetailsCard
           booking={selectedBooking}
           onClose={selectedBooking ? () => setSelectedId(undefined) : undefined}
         />
         <CalendarAvailability />
       </div>
+
+      {/* Calendar on mobile (always visible) */}
+      <div className="lg:hidden">
+        <CalendarAvailability />
+      </div>
+
+      {/* Mobile slide-in details panel */}
+      {selectedBooking && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setSelectedId(undefined)}
+          />
+          {/* Panel */}
+          <div className="absolute inset-y-0 right-0 w-full max-w-sm bg-white shadow-xl overflow-y-auto">
+            <BookingDetailsCard
+              booking={selectedBooking}
+              onClose={() => setSelectedId(undefined)}
+            />
+          </div>
+        </div>
+      )}
 
       <FilterModal
         open={isFilterOpen}
