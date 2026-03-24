@@ -10,6 +10,7 @@ import CustomerReview from "./CustomerReview";
 import LandingCarousel from "./LandingCarousel";
 import LandingCarouselV2 from "./LandingCarouselV2";
 import ReviewCarousel from "./ReviewCarousel";
+import CallToActionSection from "./CallToActionSection";
 
 export default function Landing() {
   return (
@@ -53,6 +54,7 @@ export default function Landing() {
         <FrequentQuestions/>
         {/* <CustomerReview/> */}
         <ReviewCarousel/> 
+        <CallToActionSection/>
       </div>
 
     </div>
