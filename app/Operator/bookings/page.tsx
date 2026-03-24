@@ -361,14 +361,14 @@ export default function OperatorBookingsPage() {
           </div>
 
           {/* Column headers */}
-          <div className="mt-5 hidden lg:grid grid-cols-[1fr_0.8fr_1.2fr_1.6fr_0.6fr_0.7fr_1.1fr] gap-0 border-b border-gray-200 pb-2">
-            <span className="px-3 text-xs font-bold text-gray-900">Booking Id</span>
-            <span className="px-3 text-xs font-bold text-gray-900">Request Date</span>
-            <span className="px-3 text-xs font-bold text-gray-900">Representative</span>
-            <span className="px-3 text-xs font-bold text-gray-900">Schedule</span>
-            <span className="px-3 text-xs font-bold text-gray-900 text-center">No. of Guests</span>
-            <span className="px-3 text-xs font-bold text-gray-900">Total</span>
-            <span className="px-3 text-xs font-bold text-gray-900">Status</span>
+          <div className="mt-5 hidden lg:grid grid-cols-[1fr_0.9fr_1.2fr_1.5fr_0.8fr_0.7fr_1.1fr] gap-0 border-b border-gray-200 pb-2">
+            <span className="whitespace-nowrap px-4 text-xs font-bold text-gray-900">Booking Id</span>
+            <span className="whitespace-nowrap px-4 text-xs font-bold text-gray-900">Request Date</span>
+            <span className="whitespace-nowrap px-4 text-xs font-bold text-gray-900">Representative</span>
+            <span className="whitespace-nowrap px-4 text-xs font-bold text-gray-900">Schedule</span>
+            <span className="whitespace-nowrap px-4 text-xs font-bold text-gray-900 text-center">No. of Guests</span>
+            <span className="whitespace-nowrap px-4 text-xs font-bold text-gray-900">Total</span>
+            <span className="whitespace-nowrap px-4 text-xs font-bold text-gray-900">Status</span>
           </div>
 
           {/* Rows */}
@@ -391,33 +391,33 @@ export default function OperatorBookingsPage() {
                     setStatusDropdownId(null);
                     setMobileDetailOpen(true);
                   }}
-                  className={`rounded-lg text-left transition-colors ${
+                  className={`rounded-lg text-left transition-colors ring-1 ${
                     selectedId === booking.id
-                      ? 'bg-green-100 ring-1 ring-green-300'
-                      : 'bg-gray-100 hover:bg-gray-200'
+                      ? 'bg-green-100 ring-green-300'
+                      : 'bg-gray-100 ring-transparent hover:bg-gray-200'
                   }`}
                 >
                   {/* Desktop row */}
-                  <div className="hidden lg:grid grid-cols-[1fr_0.8fr_1.2fr_1.6fr_0.6fr_0.7fr_1.1fr] items-center gap-0">
-                    <span className="border-r border-gray-200 px-3 py-3 text-xs text-gray-700">
+                  <div className="hidden lg:grid grid-cols-[1fr_0.9fr_1.2fr_1.5fr_0.8fr_0.7fr_1.1fr] items-center gap-0">
+                    <span className="border-r border-gray-200 px-4 py-3 text-xs text-gray-700">
                       {booking.bookingId}
                     </span>
-                    <span className="border-r border-gray-200 px-3 py-3 text-xs text-gray-700">
+                    <span className="border-r border-gray-200 px-4 py-3 text-xs text-gray-700">
                       {formatRequestDate(booking.requestDate ?? booking.createdAt)}
                     </span>
-                    <span className="border-r border-gray-200 px-3 py-3 text-xs text-gray-700 truncate">
+                    <span className="border-r border-gray-200 px-4 py-3 text-xs text-gray-700 truncate">
                       {booking.representativeName}
                     </span>
-                    <span className="border-r border-gray-200 px-3 py-3 text-xs text-gray-700">
+                    <span className="border-r border-gray-200 px-4 py-3 text-xs text-gray-700">
                       {booking.schedule} {booking.scheduleTime}
                     </span>
-                    <span className="border-r border-gray-200 px-3 py-3 text-xs text-gray-700 text-center">
+                    <span className="border-r border-gray-200 px-4 py-3 text-xs text-gray-700 text-center">
                       {booking.numberOfGuests}
                     </span>
-                    <span className="border-r border-gray-200 px-3 py-3 text-xs text-gray-700">
+                    <span className="border-r border-gray-200 px-4 py-3 text-xs text-gray-700">
                       ₱{booking.totalPrice.toLocaleString()}
                     </span>
-                    <span className="flex items-center gap-2 px-3 py-3 text-xs text-gray-700">
+                    <span className="relative flex items-center gap-2 px-4 py-3 text-xs text-gray-700">
                       <span className={`h-2.5 w-2.5 rounded-full ${STATUS_DOT[booking.status]}`} />
                       {STATUS_LABEL[booking.status]}
                       {/* Inline status dropdown toggle */}
@@ -435,7 +435,7 @@ export default function OperatorBookingsPage() {
                       {/* Status dropdown */}
                       {statusDropdownId === booking.id && (
                         <div
-                          className="absolute right-4 z-20 mt-28 w-36 rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+                          className="absolute right-0 top-full z-20 w-36 rounded-md border border-gray-200 bg-white py-1 shadow-lg"
                           onClick={(e) => e.stopPropagation()}
                         >
                           {(Object.keys(STATUS_LABEL) as BookingStatus[]).map((s) => (
