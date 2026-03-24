@@ -1,0 +1,7 @@
+# the NEXT_PUBLIC_FUNCTIONS_BASE_URL is for the booking and hello endpoint
+env:
+  - variable: NEXT_PUBLIC_FUNCTIONS_BASE_URL
+    value: https://api-tpqgsum4ra-as.a.run.app
+# if you want to add a new NEXT_PUBLIC variable
+#  - variable: NEXT_PUBLIC_FUNCTIONS_BASE_URL_<function-name>
+#    value: https://<function-name>-tpqgsum4ra-as.a.run.app
