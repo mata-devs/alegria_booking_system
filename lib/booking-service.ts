@@ -30,6 +30,16 @@ export interface BookingPayload {
     idempotencyKey?: string;
 }
 
+export interface PricingResponse {
+    pricePerGuest: number;
+    subtotal: number;
+    serviceCharge: number;
+    lguServiceFee: number;
+    mataServiceFee: number;
+    discount?: number;
+    total: number;
+    promoCode?: string;
+}
 const createIdempotencyKey = () => crypto.randomUUID();
 
 /**
