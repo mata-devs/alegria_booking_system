@@ -74,6 +74,7 @@ export default function OperatorBookingsPage() {
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [page, setPage] = useState(1);
   const [newBookingsCount, setNewBookingsCount] = useState(0);
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
 
   // Calendar state
   const [calMonth, setCalMonth] = useState(() => new Date().getMonth());
@@ -294,34 +295,34 @@ export default function OperatorBookingsPage() {
         <div className="flex-1 px-6 py-4">
           <h1 className="text-lg font-bold text-gray-900">Booking Requests</h1>
         </div>
-        <div className="flex items-center border-l border-gray-200 px-6 py-4 gap-3">
+        <div className="flex items-center border-t sm:border-t-0 sm:border-l border-gray-200 px-6 py-4 gap-3">
           <span className="text-2xl font-bold text-gray-900">{newBookingsCount}</span>
           <span className="text-sm text-gray-500">New Bookings last 24 hours</span>
         </div>
-        <div className="flex items-center border-l border-gray-200 px-6 py-4 gap-3">
+        <div className="flex items-center border-t sm:border-t-0 sm:border-l border-gray-200 px-6 py-4 gap-3">
           <span className="text-2xl font-bold text-gray-900">{bookings.length}</span>
           <span className="text-sm text-gray-500">Total booking requests</span>
         </div>
       </div>
 
       {/* ── Main Content ────────────────────────────────────────── */}
-      <div className="flex flex-col lg:flex-row gap-4">
+      <div className="flex flex-col xl:flex-row gap-4">
         {/* ── Left: Table ─────────────────────────────────────── */}
         <div className="flex-1 min-w-0 rounded-lg border border-gray-200 bg-white p-4">
           {/* Toolbar */}
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
             <button className="inline-flex items-center gap-2 rounded-md bg-[#558B2F] px-4 py-2 text-sm font-medium text-white hover:bg-[#4a7a28] transition-colors">
               <Filter size={16} />
               Filters
             </button>
 
-            <span className="text-sm font-medium text-gray-700">Search by:</span>
+            <span className="hidden sm:inline text-sm font-medium text-gray-700">Search by:</span>
 
             {/* Search field dropdown */}
             <div className="relative">
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-[#558B2F] px-4 py-1.5 text-sm font-medium text-[#558B2F] hover:bg-green-50 transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-full border border-[#558B2F] px-3 sm:px-4 py-1.5 text-sm font-medium text-[#558B2F] hover:bg-green-50 transition-colors"
               >
                 {SEARCH_FIELD_LABELS[searchField]}
                 <ChevronDown size={14} />
@@ -347,25 +348,25 @@ export default function OperatorBookingsPage() {
             </div>
 
             {/* Search input */}
-            <div className="relative">
+            <div className="relative w-full sm:w-auto">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="rounded-md border border-gray-300 py-1.5 pl-9 pr-4 text-sm text-gray-700 placeholder:text-gray-400 focus:border-[#558B2F] focus:outline-none focus:ring-1 focus:ring-[#558B2F]"
+                className="w-full sm:w-auto rounded-md border border-gray-300 py-1.5 pl-9 pr-4 text-sm text-gray-700 placeholder:text-gray-400 focus:border-[#558B2F] focus:outline-none focus:ring-1 focus:ring-[#558B2F]"
               />
             </div>
           </div>
 
           {/* Column headers */}
-          <div className="mt-5 hidden lg:grid grid-cols-[1fr_1fr_1.2fr_1.5fr_0.8fr_0.8fr_1fr] gap-0">
+          <div className="mt-5 hidden lg:grid grid-cols-[1fr_0.8fr_1.2fr_1.6fr_0.6fr_0.7fr_1.1fr] gap-0 border-b border-gray-200 pb-2">
             <span className="px-3 text-xs font-bold text-gray-900">Booking Id</span>
             <span className="px-3 text-xs font-bold text-gray-900">Request Date</span>
             <span className="px-3 text-xs font-bold text-gray-900">Representative</span>
             <span className="px-3 text-xs font-bold text-gray-900">Schedule</span>
-            <span className="px-3 text-xs font-bold text-gray-900">No. of Guests</span>
+            <span className="px-3 text-xs font-bold text-gray-900 text-center">No. of Guests</span>
             <span className="px-3 text-xs font-bold text-gray-900">Total</span>
             <span className="px-3 text-xs font-bold text-gray-900">Status</span>
           </div>
@@ -388,6 +389,7 @@ export default function OperatorBookingsPage() {
                   onClick={() => {
                     setSelectedId(booking.id);
                     setStatusDropdownId(null);
+                    setMobileDetailOpen(true);
                   }}
                   className={`rounded-lg text-left transition-colors ${
                     selectedId === booking.id
@@ -396,26 +398,26 @@ export default function OperatorBookingsPage() {
                   }`}
                 >
                   {/* Desktop row */}
-                  <div className="hidden lg:grid grid-cols-[1fr_1fr_1.2fr_1.5fr_0.8fr_0.8fr_1fr] items-center gap-0">
-                    <span className="border-r border-gray-300 px-3 py-3 text-sm text-gray-700">
+                  <div className="hidden lg:grid grid-cols-[1fr_0.8fr_1.2fr_1.6fr_0.6fr_0.7fr_1.1fr] items-center gap-0">
+                    <span className="border-r border-gray-200 px-3 py-3 text-xs text-gray-700">
                       {booking.bookingId}
                     </span>
-                    <span className="border-r border-gray-300 px-3 py-3 text-sm text-gray-700">
+                    <span className="border-r border-gray-200 px-3 py-3 text-xs text-gray-700">
                       {formatRequestDate(booking.requestDate ?? booking.createdAt)}
                     </span>
-                    <span className="border-r border-gray-300 px-3 py-3 text-sm text-gray-700 truncate">
+                    <span className="border-r border-gray-200 px-3 py-3 text-xs text-gray-700 truncate">
                       {booking.representativeName}
                     </span>
-                    <span className="border-r border-gray-300 px-3 py-3 text-sm text-gray-700">
+                    <span className="border-r border-gray-200 px-3 py-3 text-xs text-gray-700">
                       {booking.schedule} {booking.scheduleTime}
                     </span>
-                    <span className="border-r border-gray-300 px-3 py-3 text-sm text-gray-700 text-center">
+                    <span className="border-r border-gray-200 px-3 py-3 text-xs text-gray-700 text-center">
                       {booking.numberOfGuests}
                     </span>
-                    <span className="border-r border-gray-300 px-3 py-3 text-sm text-gray-700">
+                    <span className="border-r border-gray-200 px-3 py-3 text-xs text-gray-700">
                       ₱{booking.totalPrice.toLocaleString()}
                     </span>
-                    <span className="flex items-center gap-2 px-3 py-3 text-sm text-gray-700">
+                    <span className="flex items-center gap-2 px-3 py-3 text-xs text-gray-700">
                       <span className={`h-2.5 w-2.5 rounded-full ${STATUS_DOT[booking.status]}`} />
                       {STATUS_LABEL[booking.status]}
                       {/* Inline status dropdown toggle */}
@@ -466,6 +468,7 @@ export default function OperatorBookingsPage() {
                       <span className="flex items-center gap-1.5 text-xs text-gray-600 shrink-0 ml-2">
                         <span className={`h-2 w-2 rounded-full ${STATUS_DOT[booking.status]}`} />
                         {STATUS_LABEL[booking.status]}
+                        <ChevronDown size={12} className="text-gray-400" />
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-xs text-gray-500">
@@ -522,18 +525,38 @@ export default function OperatorBookingsPage() {
 
         {/* ── Right: Detail Panel ─────────────────────────────── */}
         {selectedBooking && (
-          <div className="w-full lg:w-[22rem] shrink-0 flex flex-col gap-4">
+          <>
+          {/* Mobile overlay backdrop */}
+          <div
+            className={`fixed inset-0 z-40 bg-black/40 transition-opacity xl:hidden ${
+              mobileDetailOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            }`}
+            onClick={() => setMobileDetailOpen(false)}
+          />
+          <div className={`
+            fixed inset-y-0 right-0 z-50 w-full max-w-sm overflow-y-auto bg-gray-50 shadow-xl transition-transform duration-300 xl:relative xl:inset-auto xl:z-auto xl:w-[22rem] xl:max-w-none xl:translate-x-0 xl:shadow-none xl:bg-transparent
+            ${mobileDetailOpen ? 'translate-x-0' : 'translate-x-full xl:translate-x-0'}
+            shrink-0 flex flex-col gap-4 p-4 xl:p-0
+          `}>
             {/* ── Booking Info Card ────────────────────────────── */}
             <div className="rounded-lg border border-gray-200 bg-white p-5">
+              {/* Close button (mobile only) */}
+              <button
+                onClick={() => setMobileDetailOpen(false)}
+                className="mb-3 flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 xl:hidden"
+              >
+                <ChevronLeft size={16} />
+                Back to list
+              </button>
               {/* Header row */}
-              <div className="flex items-center justify-between">
-                <div className="text-xs text-gray-400 leading-tight">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-xs text-gray-400 leading-tight min-w-0">
                   <span>Booking Id:</span><br />
-                  <span className="font-semibold text-gray-700">TOUR-{selectedBooking.bookingId}</span>
+                  <span className="font-semibold text-gray-700 break-all">{selectedBooking.bookingId}</span>
                 </div>
                 <button
                   onClick={() => window.print()}
-                  className="rounded-full bg-[#558B2F] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#4a7a28] transition-colors"
+                  className="shrink-0 rounded-full bg-[#558B2F] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#4a7a28] transition-colors"
                 >
                   preview printable
                 </button>
@@ -610,7 +633,7 @@ export default function OperatorBookingsPage() {
                 </span>
               </div>
 
-              <div className="mt-3 flex gap-4">
+              <div className="mt-3 flex flex-col sm:flex-row gap-4">
                 {/* Calendar grid */}
                 <div className="flex-1 min-w-0">
                   {/* Month navigation */}
@@ -659,7 +682,7 @@ export default function OperatorBookingsPage() {
                 </div>
 
                 {/* Right: Day + Capacity donut */}
-                <div className="flex w-24 flex-col items-center justify-center gap-2">
+                <div className="flex w-full sm:w-24 flex-row sm:flex-col items-center justify-center gap-4 sm:gap-2">
                   <div className="text-center">
                     <p className="text-sm font-semibold text-gray-700">
                       {selectedScheduleDate
@@ -706,6 +729,7 @@ export default function OperatorBookingsPage() {
               </div>
             </div>
           </div>
+          </>
         )}
       </div>
     </div>
