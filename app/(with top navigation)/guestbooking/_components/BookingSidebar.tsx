@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 import { Calendar, Clock, ChevronDown, X, Users } from "lucide-react";
-import type { CalendarSlotStatus } from "@/lib/types";
+import type { CalendarSlotStatus } from "@/lib/calendar-types";
 
 // ─── Constants , should be transfered to `activities` collection (fetch, need further research as it may cause additional reads)
 const SERVICE_CHARGE = 500; //should be transfered to `activities` collection

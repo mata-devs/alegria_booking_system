@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 import { Calendar, Clock, ChevronDown, X, Users } from "lucide-react";
-import type { CalendarSlotStatus } from "@/app/(with top navigation)/booking/_components/types";
+import type { CalendarSlotStatus } from "@/lib/calendar-types";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const SERVICE_CHARGE = 500;

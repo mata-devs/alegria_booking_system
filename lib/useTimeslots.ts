@@ -11,7 +11,7 @@ import {
     Timestamp,
 } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
-import { CalendarEvent } from "./types";
+import type { CalendarEvent } from "./calendar-types";
 
 /**
  * useTimeslots
