@@ -36,8 +36,8 @@ export default function SideNav() {
   };
 
   const navItems = [
-    { name: 'Bookings', href: '/Operator/Booking', icon: '/booking.png' },
-    { name: 'Booking History', href: '/Operator/BookingHistory', icon: '/history.png' },
+    { name: 'Bookings', href: '/Operator/bookings', icon: '/booking.png' },
+    { name: 'Booking History', href: '/Operator/history', icon: '/history.png' },
     { name: 'Analytics', href: '/Operator/Analytics', icon: '/analytics.png' },
   ];
 

@@ -19,6 +19,8 @@ export const firebaseApp: FirebaseApp =
 
 export const firebaseAuth: Auth = getAuth(firebaseApp);
 export const firebaseDb: Firestore = getFirestore(firebaseApp);
+/** Alias for code that imports `firestore` from `@/lib/firebase` */
+export const firestore: Firestore = firebaseDb;
 export const firebaseStorage: FirebaseStorage = getStorage(firebaseApp);
 export const firebaseFunctions: Functions = getFunctions(firebaseApp, 'us-central1');
 export const googleAuthProvider = new GoogleAuthProvider();
