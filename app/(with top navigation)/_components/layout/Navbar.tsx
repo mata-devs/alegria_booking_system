@@ -9,13 +9,13 @@ export default function Navbar(){
     const pathname = usePathname();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-    const showNavbar = ["/", "/booking", "/guestbooking", "/tourguides", "/complete"];
+    const showNavbar = ["/", "/booking", "/guestbooking", "/Booking", "/complete"];
 
     if (!showNavbar.includes(pathname)) return null;
 
     return (
         <nav className="bg-white shadow-sm sticky top-0 z-50">
-            <div className="flex items-center justify-between p-4 px-20 max-w-[100%] mx-auto">
+            <div className="flex items-center justify-between p-4 max-w-[95%] mx-auto">
                 {/* Logo */}
                 <div className="shrink-0">
                     <Image
@@ -28,26 +28,18 @@ export default function Navbar(){
                     />
                 </div>
 
-                <div className="hidden lg:flex items-center gap-6 xl:gap-20 text-black font-poppins">
-                    <Link href="/" className="hover:text-[#45A80A] transition-colors font-medium font-poppins text-[20px]">
+                <div className="hidden lg:flex items-center gap-6 xl:gap-15 text-black font-poppins font-medium">
+                    <Link href="/" className="hover:text-[#45A80A] transition-colors">
                         Home
                     </Link>
-                    <Link href="/tourguides" className="hover:text-[#45A80A] transition-colors font-medium font-poppins text-[20px]">
+                    <Link href="/TourGuides" className="hover:text-[#45A80A] transition-colors">
                         Tour Guides
                     </Link>
                     <Link href="/booking">
-                        <button className="bg-[#45A80A] hover:bg-[#3a8c08] rounded-lg px-6 xl:px-10 py-2.5 xl:py-3 text-white transition-colors font-medium font-poppins text-[20px] cursor-pointer">
+                        <button className="bg-[#45A80A] hover:bg-[#3a8c08] rounded px-6 xl:px-10 py-2.5 xl:py-3 text-white transition-colors">
                             Book Now
                         </button>
                     </Link>
-                    {/* <Image
-                        src="/user-icon.png"
-                        alt="user icon"
-                        width={50}
-                        height={50}
-                        className="w-10 h-10 xl:w-12 xl:h-12 cursor-pointer hover:opacity-80 transition-opacity"
-                        priority
-                    /> */}
                 </div>
 
                 <button
@@ -84,11 +76,11 @@ export default function Navbar(){
                             Home
                         </Link>
                         <Link 
-                            href="/" 
+                            href="/TourGuides" 
                             className="hover:text-[#45A80A] transition-colors py-2"
                             onClick={() => setIsMenuOpen(false)}
                         >
-                            Tour Packages
+                            Tour Guides
                         </Link>
                         <Link 
                             href="/" 
@@ -98,7 +90,7 @@ export default function Navbar(){
                             More Tours
                         </Link>
                         <Link href="/booking" onClick={() => setIsMenuOpen(false)}>
-                            <button className="w-full bg-[#45A80A] hover:bg-[#3a8c08] rounded-lg px-6 py-3 text-white transition-colors cursor-pointer">
+                            <button className="w-full bg-[#45A80A] hover:bg-[#3a8c08] rounded-full px-6 py-3 text-white transition-colors cursor-pointer">
                                 Book Now
                             </button>
                         </Link>

@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 
 export default function Footer() {
     const pathname = usePathname();
-    const showNavbar = ["/", "/booking", "/guestbooking", "/tourguides", "/complete"];
+    const showNavbar = ["/", "/booking", "/guestbooking"];
 
     if (!showNavbar.includes(pathname)) return null;
 
@@ -90,7 +90,7 @@ export default function Footer() {
 
             <div className="bg-black py-4">
                 <p className="text-white text-center text-sm">
-                    © 2025 Alegria Canyoneering
+                    © 2026 Alegria Canyoneering
                 </p>
             </div>
         </footer>
