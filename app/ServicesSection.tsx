@@ -36,7 +36,7 @@ export default function ServicesSection(){
 
             <div className="flex flex-col w-full justify-center items-center h-auto w-full sm:w-[80%] md:w-[70%] md:mt-16  mb-8 md:mb-12 ">
                 <h1
-                    className=" text-[#3F8814] font-extrabold lg:text-[48px] md:text-3xl text-center px-4"
+                    className=" text-[#3F8814] leading-loose font-extrabold lg:text-[48px] md:text-3xl text-center px-4"
                 >
                     What you’ll expect and experience during this activity
                 </h1>
