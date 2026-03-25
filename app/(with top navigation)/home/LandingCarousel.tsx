@@ -171,10 +171,10 @@ export default function LandingCarousel() {
     };
 
 return (
-<div className="relative w-full flex flex-col items-center pb-20 mt-[10vh] mb-[10vh] lg:mt-[20vh] lg:mb-[15vh]">
+<div className="relative w-full flex flex-col items-center pb-20 mt-[10vh] mb-[5vh] lg:mt-[15vh] lg:mb-[5vh]">
 
     <div className="flex items-center w-full justify-center p-15 mb-5">
-        <h2 className="lg:text-[60px] text-[24px] sm:text-3xl md:text-4xl font-bold text-center text-[#3F8814]">
+        <h2 className="lg:text-[60px] lg:leading-normal text-[24px] sm:text-3xl md:text-4xl font-bold text-center text-[#3F8814]">
             The Canyoneering Experience
         </h2>
     </div>

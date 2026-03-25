@@ -34,13 +34,14 @@ export default function ServicesSection(){
                 {/* <div className="h-5"></div> */}
             </div>
 
-            <div className="flex flex-col w-full justify-center items-center h-auto w-full sm:w-[80%] md:w-[70%] md:mt-16  mb-8 md:mb-12 ">
+            <div className="flex flex-row w-full justify-center items-center h-auto w-full sm:w-[80%] md:w-[70%] md:mt-16  mb-8 md:mb-12">
                 <h1
-                    className=" text-[#3F8814] leading-loose font-extrabold lg:text-[48px] md:text-3xl text-center px-4"
+                    className="text-[#3F8814] font-extrabold lg:leading-[1.2] lg:text-[48px] md:text-3xl text-center px-4 leading-normal"
                 >
                     What you’ll expect and experience during this activity
                 </h1>
             </div>
+
 
             <div className="w-full lg:px-10 ">
                 <ServicesSectionCards

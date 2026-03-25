@@ -8,7 +8,7 @@ export default function FrequentQuestions() {
 
 
     return (
-        <div className="flex flex-col w-full min-h-[80vh] gap-[3%] mt-[15vh] pt-[3%] px-[5%] pb-[5%] ">
+        <div className="flex flex-col w-full min-h-[50vh] gap-[3%] mt-[10vh] pt-[3%] px-[5%] pb-[5%] ">
             <div className="flex flex-row justify-center lg:justify-start">
                 <h1 className="font-poppins font-bold text-[#3F8814] text-[24px] sm:text-[32px] lg:text-[60px] pt-[1%] pb-[1%]">
                     Frequntly Asked Questions 

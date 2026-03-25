@@ -141,7 +141,7 @@ export default function ReviewCarousel() {
     }, []);
 
     return (
-        <div className="relative w-full flex flex-col gap-5 sm:gap-10 lg:gap-30 items-center mt-[10vh] lg:mt-[20vh] lg:mb-[15vh]">
+        <div className="relative w-full flex flex-col gap-5 sm:gap-10 lg:gap-30 items-center mt-[15vh] lg:mt-[20vh] lg:mb-[15vh]">
             <div className=" flex flex-row px-[10%] lg:px-[10%] w-full">
                 <h2 className="lg:text-[60px] text-[20px] sm:text-[32px] font-bold text-center text-[#3F8814] mb-10">
                     What our happy customers are saying about Canyoneering in Alegria

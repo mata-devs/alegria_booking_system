@@ -3,9 +3,13 @@ import Link from "next/link";
 export default function CallToActionSection() {
     return (
         <div className="w-full h-[90vh] sm:h-[70vh] lg:h-[90vh] 
+        lg:bg-[linear-gradient(to_right,rgba(0,0,0,0.7),rgba(0,0,0,0)),url('/call-to-action-bg.png')] 
+        lg:bg-[position:0%_55%]
+        lg:bg-[size:140%]
+
         sm:bg-[linear-gradient(to_right,rgba(0,0,0,0.7),rgba(0,0,0,0)),url('/call-to-action-bg.png')] 
         sm:bg-[position:0%_55%]
-        sm:bg-[size:140%]
+        sm:bg-[size:155%]
         bg-no-repeat
 
         bg-[linear-gradient(to_bottom,rgba(0,0,0,0.7),rgba(0,0,0,0)),url('/call-to-action-bg.png')] 
