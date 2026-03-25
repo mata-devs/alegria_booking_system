@@ -12,37 +12,41 @@ export default function Footer() {
 
     return (
         <footer className="bg-[#F5FFE6] w-full font-poppins">
-            <div className="px-6 py-12 flex flex-col md:flex-row justify-center md:justify-around gap-4 md:gap-0">
-                <div className="flex items-center justify-center">
+            <div className="px-2 py-12 sm:px-3 sm:py-5 lg:py-12 flex flex-col sm:flex-row justify-center md:justify-around gap-8 sm:gap-2 md:gap-0">
+                <div className=" w-[70%] sm:w-[20%] flex items-center justify-center px-[10%] sm:px-0 sm:self-center">
                     <Image 
                         src="/alegria_logo.png"
                         alt="Alegria logo"
                         width={300}
                         height={300}
                         priority
+                        
                     />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 items-start">
-                    <div>
-                        <h3 className="text-xl font-bold text-gray-900 mb-3">Location</h3>
-                        <p className="text-gray-700">
-                            Alegria Barangay Rd,<br />
-                            Alegria, Cebu
+                <div className="w-full sm:w-[60%] grid grid-cols-1 sm:grid-cols-3 gap-10 sm:gap-5 lg:gap-12 items-start px-[10%] sm:px-0">
+                    <div className="w-full flex flex-col items-start">
+                        <div className="w-full sm:w-[80%] gap-10">
+                        <h3 className="text-2xl sm:text-lg lg:text-xl font-bold text-gray-900 mb-0 sm:mb-3 align-self-start">Location</h3>
+                        <p className="text-base lg:text-[16px] text-gray-700">
+                            Alegria Barangay Rd, Alegria, Cebu
                         </p>
+                        </div>
                     </div>
 
-                    <div>
-                        <h3 className="text-xl font-bold text-gray-900 mb-3">Contact Us</h3>
-                        <p className="text-gray-700">
-                            +63968-733-9577<br />
-                            (WhatsApp)
-                        </p>
+                    <div className="w-full flex flex-col items-start">
+                        <div className="w-full sm:w-[100%]">
+                            <h3 className="text-2xl sm:text-lg lg:text-xl font-bold text-gray-900 mb-0 sm:mb-3">Contact Us</h3>
+                            <p className="text-base lg:text-[16px] text-gray-700">
+                                +63968-733-9577 (WhatsApp)
+                            </p>
+                        </div>
                     </div>
 
-                    <div>
-                        <h3 className="text-xl font-bold text-gray-900 mb-3">Follow Us</h3>
-                        <div className="flex gap-4">
+                    <div className="w-full flex flex-col items-start">
+                        <div className="w-full">
+                        <h3 className="text-2xl sm:text-lg lg:text-xl font-bold text-gray-900 mb-0 sm:mb-3">Follow Us</h3>
+                        <div className="flex w-full justify-between gap-8 sm:gap-4">
                             <a href="#" className="text-gray-700 hover:text-lime-500 transition-colors">
                                 <Image
                                     className=""
@@ -83,6 +87,7 @@ export default function Footer() {
                                     priority
                                 />
                             </a>
+                        </div>
                         </div>
                     </div>
                 </div>

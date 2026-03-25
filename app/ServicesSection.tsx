@@ -16,9 +16,9 @@ export default function ServicesSection(){
 
     return (
         <div
-            className="flex flex-col gap-5 min-h-max items-center mt-5 md:mt-10 justify-center font-poppins p-4"
+            className="flex flex-col gap-5 min-h-max items-center mt-5 mt-[90%] sm:mt-[20%] lg:mt-10 justify-center font-poppins p-4"
         >
-            <div className="flex flex-col justify-center items-center h-auto w-full sm:w-[80%] md:w-[70%] lg:w-[50%] mb-6 md:mb-8">
+            <div className="flex flex-col justify-center items-center h-auto w-full sm:w-[80%] md:w-[70%] lg:w-[50%] mb-20 sm:mb-25 lg:mb-50">
                 <h1
                     className="text-[#75C308] font-black text-4xl sm:text-5xl md:text-6xl lg:text-7xl text-center"
                 >
@@ -26,7 +26,7 @@ export default function ServicesSection(){
                 </h1>
                 {/* hidden div */}
                 <h2
-                    className="text-[#535353] font-medium text-4xl sm:text-5xl md:text-6xl lg:text-7xl text-center"
+                    className="text-[#535353] font-medium text-4xl sm:text-5xl md:text-6xl lg:text-8xl text-center"
                 >
                     Canyoneering
                 </h2>
@@ -34,15 +34,16 @@ export default function ServicesSection(){
                 {/* <div className="h-5"></div> */}
             </div>
 
-            <div className="flex flex-col justify-center items-center h-auto w-full sm:w-[80%] md:w-[70%] md:mt-16  mb-8 md:mb-12">
+            <div className="flex flex-row w-full justify-center items-center h-auto w-full sm:w-[80%] md:w-[70%] md:mt-16  mb-8 md:mb-12">
                 <h1
-                    className="text-[#3F8814] font-extrabold text-2xl sm:text-3xl md:text-4xl text-center px-4"
+                    className="text-[#3F8814] font-extrabold lg:leading-[1.2] lg:text-[48px] md:text-3xl text-center px-4 leading-normal"
                 >
                     What you’ll expect and experience during this activity
                 </h1>
             </div>
 
-            <div className="w-full ">
+
+            <div className="w-full lg:px-10 ">
                 <ServicesSectionCards
                     serviceCards={serviceCards}
                 />

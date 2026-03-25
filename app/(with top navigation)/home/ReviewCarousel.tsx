@@ -21,7 +21,29 @@ export default function ReviewCarousel() {
         { id: 6, name: "Li Wei", nationality: "CN", rating: "5", review: "Totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo." },
     ];
 
-    const visible = 2;
+    
+
+    const [cardsPerView, setCardsPerView] = useState(2);
+
+    useEffect(() => {
+        const updateView = () => {
+            if (window.innerWidth < 640) {
+                setCardsPerView(1); // mobile
+            } else if (window.innerWidth < 1024) {
+                setCardsPerView(2); // tablet (you can change to 2 if you want)
+            } else {
+                setCardsPerView(2); // desktop
+            }
+        };
+
+        updateView();
+        window.addEventListener("resize", updateView);
+
+        return () => window.removeEventListener("resize", updateView);
+    }, []);
+
+    // const visible = 2;
+    const visible = cardsPerView;
 
     // Clone slides for infinite loop
     const clonedSlides: Review[] = [
@@ -119,16 +141,16 @@ export default function ReviewCarousel() {
     }, []);
 
     return (
-        <div className="relative w-full flex flex-col gap-30 items-center pb-20 mt-[20vh] mb-[15vh]">
-            <div className=" flex flex-row px-[20%] w-full">
-                <h2 className="lg:text-[60px] md:text-4xl font-bold text-center text-[#3F8814] mb-10">
+        <div className="relative w-full flex flex-col gap-5 sm:gap-10 lg:gap-30 items-center mt-[15vh] lg:mt-[20vh] lg:mb-[15vh]">
+            <div className=" flex flex-row px-[10%] lg:px-[10%] w-full">
+                <h2 className="lg:text-[60px] text-[20px] sm:text-[32px] font-bold text-center text-[#3F8814] mb-10">
                     What our happy customers are saying about Canyoneering in Alegria
                 </h2>
             </div>
 
             <div className="relative w-[100vw] flex">
                 {/* Slider */}
-                <div className="overflow-hidden w-full h-[50vh]">
+                <div className="overflow-hidden w-full h-[40vh] lg:h-[50vh]">
                     <div
                         onTransitionEnd={() => {
                             handleTransitionEnd();
@@ -136,30 +158,34 @@ export default function ReviewCarousel() {
                             }}
                         className={`flex ${transition ? "transition-transform duration-500 ease-in-out" : ""}`}
                         style={{
-                        transform: `translateX(-${index * 50}%)`, // slide 50% per card
+                        // transform: `translateX(-${index * 50}%)`, // slide 50% per card
+                        transform: `translateX(-${index * (100 / cardsPerView)}%)`,
                         }}
                     >
                         {clonedSlides.map((review, i) => (
                         <div
                             key={`${review.id}-${i}`}
-                            className="flex-shrink-0 px-40" // horizontal padding for spacing
-                            style={{ flex: "0 0 calc(50%)" }} // 50% width minus half padding
+                            //className="flex-shrink-0 px-40" // horizontal padding for spacing
+                            className="flex-shrink-0 px-[8%] sm:px-[2%] lg:px-[4%] xl:px-[8%]"
+                            //style={{ flex: "0 0 calc(50%)" }} // 50% width minus half padding
+                            style={{ flex: `0 0 ${100 / cardsPerView}%` }}
                         >
-                            <div className="h-[300px] bg-[#F5FFE6] rounded-[30px] shadow-[0_4px_4px_rgba(0,0,0,0.25)] p-6 px-8 pt-10 flex flex-col">
+                            {/* THE CARD */}
+                            <div className="h-[220px] lg:h-[300px] bg-[#F5FFE6] rounded-[15px] lg:rounded-[30px] shadow-[0_4px_4px_rgba(0,0,0,0.25)] pb-4 px-4 pt-5 lg:pb-6 lg:px-8 lg:pt-10 flex flex-col">
                             {/* Upper */}
                                 <div className="flex justify-between items-center">
                                         <div className="flex items-center gap-4">
-                                        <CircleFlag countryCode={review.nationality.toLowerCase()} className="w-15 h-15" />
-                                        <p className="font-poppins font-semibold text-[24px] text-[#000000]">{review.name}</p>
+                                        <CircleFlag countryCode={review.nationality.toLowerCase()} className="w-10 h-10 lg:w-15 lg:h-15" />
+                                        <p className="font-poppins font-semibold text-[16px] lg:text-[24px] text-[#000000]">{review.name}</p>
                                         </div>
                                         <div className="flex items-center gap-2">
                                         <span className="text-[#F0A822] font-poppins text-4xl">★</span>
-                                        <span className="text-[#898989] font-poppins font-semibold text-[20px]">{review.rating}/5</span>
+                                        <span className="text-[#898989] font-poppins font-semibold text-[12px] lg:text-[20px]">{review.rating}/5</span>
                                         </div>
                                 </div>
                                     {/* Lower */}
-                                    <div className="flex w-full h-[70%] pl-4 pr-4 pt-8">
-                                        <p className="mt-4 font-poppins font-regular text-[20px] text-[#000000] line-clamp-4">"{review.review}"</p>
+                                    <div className="flex w-full h-[60%] lg:h-[70%] px-2 pt-5 lg:px-4 lg:pt-8">
+                                        <p className="lg:mt-4 font-poppins font-regular text-[15px] lg:text-[20px] text-[#000000] line-clamp-4">"{review.review}"</p>
                                     </div>
                             </div>
                         </div>

@@ -10,14 +10,15 @@ import CustomerReview from "./CustomerReview";
 import LandingCarousel from "./LandingCarousel";
 import LandingCarouselV2 from "./LandingCarouselV2";
 import ReviewCarousel from "./ReviewCarousel";
+import CallToActionSection from "./CallToActionSection";
 
 export default function Landing() {
   return (
-    <div className="flex min-h-screen  items-center justify-center bg-zinc-50 font-sans flex-col">
-      <div
+    <div className="flex w-full min-h-screen  items-center justify-center bg-zinc-50 font-sans flex-col">
+      {/* <div
         className="w-full h-[90%] z-50"
       >
-      </div>
+      </div> */}
       {/* first section of hero page */}
         <div
           className="h-full w-full "
@@ -30,10 +31,10 @@ export default function Landing() {
               height={1080}
               priority
             /> */}
-            <div className="w-full h-full aspect-video">
+            <div className="w-full h-full lg:aspect-video">
               <iframe
-                className="w-full h-[81%] border-0"
-                src="https://www.mata.ph/cebu/alegria/"
+                className="w-[100%] h-[90vh] sm:h-[94vh] lg:h-[75%] border-0"
+                src="https://www.mata.ph/bookingsystem"
                 title="Alegria Virtual Tour"
                 
               />
@@ -41,7 +42,7 @@ export default function Landing() {
         </div>
 
       <div
-        className="hidden md:block w-full h-16"
+        className="md:block w-full h-16"
       >
         <FloatingSectionDivider />
       </div>
@@ -53,6 +54,7 @@ export default function Landing() {
         <FrequentQuestions/>
         {/* <CustomerReview/> */}
         <ReviewCarousel/> 
+        <CallToActionSection/>
       </div>
 
     </div>

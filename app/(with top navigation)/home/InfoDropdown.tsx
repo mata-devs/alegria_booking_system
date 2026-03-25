@@ -15,9 +15,9 @@ export default function InfoDropdown({ title, description }: FAQItemProps) {
 
             <div
                 onClick={() => setOpen(!open)}
-                className="flex flex-row justify-between w-full items-center h-[60px] p-8 cursor-pointer"
+                className="flex flex-row justify-between w-full items-center h-[60px] p-4 lg:p-4 lg:p-8 cursor-pointer"
             >
-                <p className="font-poppins font-semibold text-[#3F3F3F] text-[24px]">
+                <p className="font-poppins font-semibold text-[#3F3F3F] text-[15px] lg:text-[24px]">
                 {title}
                 </p>
 
@@ -31,7 +31,7 @@ export default function InfoDropdown({ title, description }: FAQItemProps) {
                 open ? "max-h-60 pb-6 pr-6 pl-6 pt-4" : "max-h-0"
                 }`}
             >
-                <p className="font-poppins font-medium text-[#3F3F3F] text-[20px]">
+                <p className="font-poppins font-medium text-[#3F3F3F] text-[13px] lg:text-[20px]">
                 {description}
                 </p>
             </div>

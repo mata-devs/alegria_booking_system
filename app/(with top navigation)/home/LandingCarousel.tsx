@@ -15,15 +15,39 @@ export default function LandingCarousel() {
         { id: 6, image: "/booking-page-image-2.png", alt: "Boulder rocks adventure 6" },
     ];
 
-    const visibleImages = 4;
+    // const visibleImages = 4;
+
+    const [visibleImages, setVisibleImages] = useState(4);
+
+    useEffect(() => {
+        const updateVisibleImages = () => {
+            if (window.innerWidth < 768) {
+            setVisibleImages(2); // mobile
+            } else if (window.innerWidth < 1024) {
+            setVisibleImages(3); // tablet
+            } else {
+            setVisibleImages(4); // desktop
+            }
+        };
+
+        updateVisibleImages();
+        window.addEventListener("resize", updateVisibleImages);
+
+        return () => window.removeEventListener("resize", updateVisibleImages);
+    }, []);
+
 
     const clonedSlides = [
         ...galleryImages.slice(-visibleImages),
         ...galleryImages,
-        ...galleryImages.slice(0, visibleImages)
+        ...galleryImages.slice(0, visibleImages),
     ];
 
     const [index, setIndex] = useState(visibleImages);
+    useEffect(() => {
+        setIndex(visibleImages);
+    }, [visibleImages]);
+
     const [transition, setTransition] = useState(true);
     const maxIndex = galleryImages.length - visibleImages;
 
@@ -147,10 +171,10 @@ export default function LandingCarousel() {
     };
 
 return (
-<div className="relative w-full flex flex-col items-center pb-20 mt-[20vh] mb-[15vh]">
+<div className="relative w-full flex flex-col items-center pb-20 mt-[10vh] mb-[5vh] lg:mt-[15vh] lg:mb-[5vh]">
 
-    <div className="flex items-center w-full justify-center p-15">
-        <h2 className="lg:text-[60px] md:text-4xl font-bold text-center text-[#3F8814]">
+    <div className="flex items-center w-full justify-center p-15 mb-5">
+        <h2 className="lg:text-[60px] lg:leading-normal text-[24px] sm:text-3xl md:text-4xl font-bold text-center text-[#3F8814]">
             The Canyoneering Experience
         </h2>
     </div>
@@ -171,12 +195,15 @@ return (
                     }}
                     className={`flex ${transition ? "transition-transform duration-500 ease-in-out" : ""}`}
                     style={{
-                    transform: `translateX(-${index * 25}%)`,
+                    // transform: `translateX(-${index * 25}%)`,
+                    transform: `translateX(-${index * (100 / visibleImages)}%)`,
                     }}
                     >
 
                     {clonedSlides.map((img, i) => (
-                    <div key={i} className="w-1/4 flex-shrink-0 p-6">
+                    <div key={i} className="flex-shrink-0 p-1 sm:p-3 lg:p-6"
+                        style={{ width: `${100 / visibleImages}%` }}
+                    >
 
                         <div
                         className="relative w-full aspect-square cursor-pointer"
