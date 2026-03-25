@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
+import { Users } from 'lucide-react';
 
 // TODO: update calendar slots view
 
@@ -103,8 +104,8 @@ type DayStatus = 'none' | 'green' | 'orange' | 'red';
 
 type DayInfo = {
   dateKey: string; // YYYY-MM-DD
-  used: number;
-  capacity: number;
+  morning: { used: number; capacity: number };
+  afternoon: { used: number; capacity: number };
   status: DayStatus;
 };
 
@@ -161,45 +162,50 @@ function SmallRing({
   const dash = c * pct;
 
   return (
-    <svg width={size} height={size} className="block">
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        strokeWidth={stroke}
-        className="stroke-neutral-200"
-        fill="none"
-      />
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        strokeWidth={stroke}
-        className="stroke-orange-400"
-        fill="none"
-        strokeLinecap="round"
-        strokeDasharray={`${dash} ${c - dash}`}
-        transform={`rotate(-90 ${size / 2} ${size / 2})`}
-      />
-    </svg>
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="block">
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          strokeWidth={stroke}
+          className="stroke-neutral-200"
+          fill="none"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          strokeWidth={stroke}
+          className="stroke-orange-400"
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={`${dash} ${c - dash}`}
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center text-neutral-400">
+        <Users size={size * 0.4} />
+      </div>
+    </div>
   );
 }
 
 // ---------- demo data ----------
 function makeDemoData(year: number, monthIndex: number) {
   // just mock a few colored days similar to your image
-  const mk = (day: number, used: number, cap: number, status: DayStatus): DayInfo => ({
+  const mk = (day: number, mUsed: number, mCap: number, aUsed: number, aCap: number, status: DayStatus): DayInfo => ({
     dateKey: `${year}-${pad2(monthIndex + 1)}-${pad2(day)}`,
-    used,
-    capacity: cap,
+    morning: { used: mUsed, capacity: mCap },
+    afternoon: { used: aUsed, capacity: aCap },
     status,
   });
 
   return [
-    mk(6, 20, 70, 'orange'),
-    mk(7, 18, 70, 'orange'),
-    mk(11, 22, 70, 'orange'),
-    mk(12, 45, 70, 'red'),
+    mk(6, 20, 30, 15, 40, 'orange'),
+    mk(7, 18, 30, 12, 40, 'orange'),
+    mk(11, 22, 30, 18, 40, 'orange'),
+    mk(12, 30, 30, 40, 40, 'red'),
   ];
 }
 
@@ -358,13 +364,27 @@ export default function CalendarAvailability() {
               const selDate = new Date(selectedKey);
               const dayLabel = selDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
               return (
-                <div className="mt-3 flex items-center gap-3 rounded-lg bg-gray-50 px-3 py-2">
-                  <SmallRing value={selInfo.used} max={selInfo.capacity} />
-                  <div className="flex flex-col leading-tight">
-                    <span className="text-xs font-bold text-gray-800">{dayLabel}</span>
-                    <span className="text-[11px] text-gray-500">
-                      {selInfo.used}/{selInfo.capacity} guests
-                    </span>
+                <div className="mt-3 space-y-1.5">
+                  <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider px-1">{dayLabel}</div>
+                  <div className="flex gap-2">
+                    <div className="flex-1 flex items-center gap-2 rounded-lg bg-gray-50 px-2 py-2">
+                      <SmallRing value={selInfo.morning.used} max={selInfo.morning.capacity} size={32} stroke={3} />
+                      <div className="flex flex-col leading-tight">
+                        <span className="text-[11px] font-bold text-gray-800">Morning</span>
+                        <span className="text-[10px] text-gray-500">
+                          {selInfo.morning.used}/{selInfo.morning.capacity}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex-1 flex items-center gap-2 rounded-lg bg-gray-50 px-2 py-2">
+                      <SmallRing value={selInfo.afternoon.used} max={selInfo.afternoon.capacity} size={32} stroke={3} />
+                      <div className="flex flex-col leading-tight">
+                        <span className="text-[11px] font-bold text-gray-800">Afternoon</span>
+                        <span className="text-[10px] text-gray-500">
+                          {selInfo.afternoon.used}/{selInfo.afternoon.capacity}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               );
