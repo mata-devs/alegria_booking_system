@@ -136,7 +136,7 @@ export default function BookingHistoryPanel({
   const [openSearchBy, setOpenSearchBy] = React.useState(false);
   const [currentPage, setCurrentPage] = React.useState(1);
 
-  const ITEMS_PER_PAGE = 10;
+  const ITEMS_PER_PAGE = 12;
 
   React.useEffect(() => {
     setCurrentPage(1);

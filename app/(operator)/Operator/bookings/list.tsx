@@ -20,7 +20,7 @@ const statusStyles: Record<
   Cancelled: { dot: 'bg-red-500', text: 'text-red-700' },
 };
 
-const ROWS_PER_PAGE = 10;
+const ROWS_PER_PAGE = 11;
 
 function pesoShort(n: number) {
   return new Intl.NumberFormat('en-PH', {
@@ -68,7 +68,7 @@ export default function BookingRequestsPanel({
   const paginatedBookings = bookings.slice(startIndex, endIndex);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 h-full">
       {/* Stats card */}
       <div className="rounded-lg border border-gray-200 bg-white p-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -91,7 +91,7 @@ export default function BookingRequestsPanel({
       </div>
 
       {/* Table panel */}
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <div className="rounded-lg border border-gray-200 bg-white p-4 flex-1 min-h-0 flex flex-col">
         {/* Toolbar */}
         <div className="flex items-center gap-3 flex-wrap">
           <button
@@ -164,7 +164,7 @@ export default function BookingRequestsPanel({
         </div>
 
         {/* Rows */}
-        <div className="mt-3 flex flex-col gap-2">
+        <div className="mt-3 flex flex-col gap-2 flex-1 min-h-0 overflow-y-auto">
           {bookings.length === 0 ? (
             <div className="rounded-lg bg-gray-100 px-4 py-4 text-center text-sm text-gray-400">
               No bookings found.
@@ -188,25 +188,25 @@ export default function BookingRequestsPanel({
                 >
                   {/* Desktop row */}
                   <div className="hidden md:grid grid-cols-[1fr_0.9fr_1.3fr_1.2fr_0.5fr_0.7fr_0.8fr] items-center gap-0">
-                    <span className="border-r border-gray-300 px-3 py-3 text-xs text-gray-700 truncate">
+                    <span className="border-r border-gray-300 px-4 text-xs text-gray-700 truncate">
                       {b.bookingIdLabel ?? b.id}
                     </span>
-                    <span className="border-r border-gray-300 px-3 py-3 text-xs text-gray-700 truncate">
+                    <span className="border-r border-gray-300 px-4 text-xs text-gray-700 truncate">
                       {b.requestDate}
                     </span>
-                    <span className="border-r border-gray-300 px-3 py-3 text-xs text-gray-700 truncate">
+                    <span className="border-r border-gray-300 px-4 text-xs text-gray-700 truncate">
                       {b.representative.name}
                     </span>
-                    <span className="border-r border-gray-300 px-3 py-3 text-xs text-gray-700 truncate">
+                    <span className="border-r border-gray-300 px-4 text-xs text-gray-700 truncate">
                       {b.scheduleLabel}
                     </span>
-                    <span className="border-r border-gray-300 px-3 py-3 text-xs text-gray-700 text-center truncate">
+                    <span className="border-r border-gray-300 px-4 py-3 text-xs text-gray-700 text-center truncate">
                       {b.payment.qty}
                     </span>
-                    <span className="border-r border-gray-300 px-3 py-3 text-xs text-gray-700 truncate">
+                    <span className="border-r border-gray-300 px-4 text-xs text-gray-700 truncate">
                       {pesoShort(total)}
                     </span>
-                    <span className="flex items-center gap-1.5 px-3 py-3 text-xs">
+                    <span className="flex items-center gap-1.5 px-3 py-1 text-xs">
                       <span className={`h-2 w-2 rounded-full shrink-0 ${s.dot}`} />
                       <span className={`truncate ${s.text}`}>{b.status}</span>
                     </span>

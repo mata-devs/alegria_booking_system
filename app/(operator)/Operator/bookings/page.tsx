@@ -552,9 +552,9 @@ const filteredBookings = useMemo(() => {
 }, [bookings, query, searchBy, filtersApplied]);
 
   return (
-    <div className="flex flex-col lg:flex-row lg:items-start gap-4">
+    <div className="flex flex-col lg:flex-row lg:items-stretch gap-4 lg:h-[calc(100vh-3rem)]">
       {/* Left panel — Booking List */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 min-h-0">
         <BookingRequestsPanel
           bookings={filteredBookings}
           selectedId={selectedId}
@@ -568,7 +568,7 @@ const filteredBookings = useMemo(() => {
       </div>
 
       {/* Right panel — Details + Calendar (desktop) */}
-      <div className="hidden lg:flex w-96 shrink-0 flex-col gap-4">
+      <div className="hidden lg:flex w-96 shrink-0 flex-col gap-4 overflow-y-auto">
         <BookingDetailsCard
           booking={selectedBooking}
           onClose={selectedBooking ? () => setSelectedId(undefined) : undefined}

@@ -266,34 +266,34 @@ export default function CalendarAvailability() {
   };
 
   return (
-    <div className="w-full rounded-lg border border-gray-200 bg-white py-5 px-5">
+    <div className="w-full rounded-lg border border-gray-200 bg-white py-3 px-4">
       {/* Title row */}
-      <div className="text-center text-lg font-bold text-gray-900">
+      <div className="text-center text-sm font-bold text-gray-900">
         Calendar Availability
       </div>
 
       {/* Main content */}
-      <div className="mt-4 flex flex-col gap-4">
+      <div className="mt-2 flex flex-col gap-2">
         {/* Calendar */}
         <div>
           {/* Month nav bar */}
-          <div className="w-full rounded-md bg-[#558B2F] px-3 py-2">
+          <div className="w-full rounded-md bg-[#558B2F] px-2 py-1.5">
             <div className="flex items-center justify-between text-white">
               <button
                 type="button"
                 onClick={goPrevMonth}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-white/15 transition-colors"
+                className="inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-white/15 transition-colors text-sm"
                 aria-label="Previous month"
               >
                 ‹
               </button>
 
-              <div className="text-sm font-semibold">{monthLabel(year, monthIndex)}</div>
+              <div className="text-xs font-semibold">{monthLabel(year, monthIndex)}</div>
 
               <button
                 type="button"
                 onClick={goNextMonth}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-white/15 transition-colors"
+                className="inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-white/15 transition-colors text-sm"
                 aria-label="Next month"
               >
                 ›
@@ -302,17 +302,17 @@ export default function CalendarAvailability() {
           </div>
 
           {/* Weekday header */}
-          <div className="mt-3 w-full">
-            <div className="grid grid-cols-7 text-center text-xs font-semibold text-[#558B2F]">
+          <div className="mt-2 w-full">
+            <div className="grid grid-cols-7 text-center text-[11px] font-semibold text-[#558B2F]">
               {WEEKDAYS.map((d) => (
-                <div key={d} className="py-1">
+                <div key={d} className="py-0.5">
                   {d}
                 </div>
               ))}
             </div>
 
             {/* Days grid */}
-            <div className="grid grid-cols-7 gap-y-1 text-center text-sm">
+            <div className="grid grid-cols-7 gap-y-0 text-center text-xs">
               {days.map((d) => {
                 const inMonth = d >= monthStart && d <= monthEnd;
                 const key = toKey(d);
@@ -328,7 +328,7 @@ export default function CalendarAvailability() {
                     type="button"
                     onClick={() => setSelectedKey(key)}
                     className={[
-                      'relative mx-auto flex h-9 w-9 items-center justify-center rounded-full',
+                      'relative mx-auto flex h-7 w-7 items-center justify-center rounded-full',
                       inMonth ? 'text-neutral-900' : 'text-neutral-400',
                       isSelected ? 'bg-orange-100 ring-2 ring-orange-300' : 'hover:bg-neutral-100',
                     ].join(' ')}
@@ -338,7 +338,7 @@ export default function CalendarAvailability() {
                     {dot !== 'none' && (
                       <span
                         className={[
-                          'absolute -top-1 right-1 h-3 w-3 rounded-full ring-2 ring-white',
+                          'absolute -top-0.5 right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-white',
                           statusDotClass[dot],
                         ].join(' ')}
                         aria-hidden="true"
