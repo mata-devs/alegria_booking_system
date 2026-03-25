@@ -12,8 +12,8 @@ export default function Footer() {
 
     return (
         <footer className="bg-[#F5FFE6] w-full font-poppins">
-            <div className="px-2 py-12 sm:px-6 sm:py-6 lg:py-12 flex flex-col sm:flex-row justify-center md:justify-around gap-8 sm:gap-4 md:gap-0">
-                <div className=" w-[70%] sm:w-[20%] flex items-center justify-center px-[10%] sm:self-center">
+            <div className="px-2 py-12 sm:px-3 sm:py-5 lg:py-12 flex flex-col sm:flex-row justify-center md:justify-around gap-8 sm:gap-2 md:gap-0">
+                <div className=" w-[70%] sm:w-[20%] flex items-center justify-center px-[10%] sm:px-0 sm:self-center">
                     <Image 
                         src="/alegria_logo.png"
                         alt="Alegria logo"
