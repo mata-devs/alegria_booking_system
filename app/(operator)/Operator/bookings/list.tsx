@@ -72,12 +72,25 @@ export default function BookingRequestsPanel({
       {/* Stats card */}
       <div className="rounded-lg border border-gray-200 bg-white p-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Booking Requests</h2>
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Booking Requests</h2>
+            <p className="text-xs text-gray-500">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            </p>
+          </div>
 
           <div className="flex items-center gap-6">
             <div className="text-center">
+              <div className="text-2xl font-bold text-red-600">32<span>/30</span></div>
+              <div className="text-sm font-medium text-gray-900">Morning Slot</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-gray-600">{newBookings24h}<span>/30</span></div>
+              <div className="text-sm font-medium text-gray-900">Afternoon Slot</div>
+            </div>
+            <div className="text-center">
               <div className="text-2xl font-bold text-gray-600">{newBookings24h}</div>
-              <div className="text-sm font-medium text-gray-900">New Bookings (24h)</div>
+              <div className="text-sm font-medium text-gray-900">New Bookings</div>
             </div>
 
             <div className="h-10 w-px bg-gray-300" />

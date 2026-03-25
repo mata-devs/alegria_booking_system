@@ -2,6 +2,8 @@
 
 import React, { useMemo, useState } from 'react';
 
+// TODO: update calendar slots view
+
 type SlotStatus = 'green' | 'red' | 'orange';
 
 type WeekSlot = {

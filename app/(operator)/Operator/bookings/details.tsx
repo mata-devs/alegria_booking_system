@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
-import { X } from 'lucide-react';
+import { X, Printer } from 'lucide-react';
 
 export type BookingStatus =
     | 'Reserved'
@@ -249,28 +249,30 @@ export default function BookingDetailsCard({
         <div className="w-full rounded-lg border border-gray-200 bg-white overflow-hidden flex flex-col">
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-            <button
-                type="button"
-                onClick={() => setIsPrintPreviewOpen(true)}
-                className="inline-flex h-7 items-center justify-center rounded-full border border-[#558B2F] bg-green-50 px-4 text-[11px] font-medium text-[#558B2F] hover:bg-green-100 transition-colors"
-            >
-              Preview printable
-            </button>
-
             <p className="text-xs text-gray-500">
               Booking ID: <span className="font-medium text-gray-700">{booking.bookingIdLabel ?? booking.id}</span>
             </p>
 
-            {onClose && (
+            <div className="flex items-center gap-1">
               <button
                   type="button"
-                  onClick={onClose}
-                  aria-label="Close booking details"
-                  className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+                  onClick={() => setIsPrintPreviewOpen(true)}
+                  className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-[#558B2F] transition-colors"
+                  title="Print preview"
               >
-                <X size={16} />
+                <Printer size={16} />
               </button>
-            )}
+              {onClose && (
+                <button
+                    type="button"
+                    onClick={onClose}
+                    aria-label="Close booking details"
+                    className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Body */}
@@ -448,131 +450,147 @@ export default function BookingDetailsCard({
         {/* Print Preview Modal */}
         {isPrintPreviewOpen && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 p-4">
-              <div className="relative w-full max-w-[400px] sm:max-w-[600px]">
+              <div className="relative w-full max-w-[420px] sm:max-w-[540px] max-h-[90vh] flex flex-col rounded-lg bg-white shadow-2xl overflow-hidden">
+                {/* Modal close */}
                 <button
                     type="button"
                     onClick={() => setIsPrintPreviewOpen(false)}
-                    className="absolute -top-3 -right-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-neutral-700 shadow-md hover:bg-neutral-100"
+                    className="absolute top-3 right-3 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors"
                 >
-                  ✕
+                  <X size={16} />
                 </button>
 
-                <div className="h-[87vh] overflow-y-auto rounded-sm bg-[#f6f6f6] shadow-2xl">
+                {/* Scrollable content */}
+                <div className="flex-1 min-h-0 overflow-y-auto">
                   <div
                       ref={printSheetRef}
-                      className="px-6 pt-6 pb-8 text-[15px] text-black"
+                      className="px-8 pt-8 pb-6 text-[13px] text-neutral-800"
                   >
-                    <div className="mb-5 h-[5px] w-full bg-black" />
-
-                    <div className="space-y-2">
-                      <div className="flex gap-2">
-                        <span className="w-[70px] shrink-0">Booking ID:</span>
-                        <span className="font-medium">{booking.bookingIdLabel ?? booking.id}</span>
-                      </div>
-
-                      <div className="mt-4 font-medium">Representative:</div>
-
-                      <div className="grid grid-cols-[60px_1fr_35px_1fr] gap-x-2 gap-y-1 pl-2">
-                        <span>Name:</span>
-                        <span className="font-medium">{booking.representative.name}</span>
-                        <span>Age:</span>
-                        <span className="font-medium">{booking.representative.age}</span>
-
-                        <span>Email:</span>
-                        <span className="font-medium break-all">{booking.representative.email}</span>
-                        <span></span>
-                        <span></span>
-
-                        <span>Mobile Number:</span>
-                        <span className="font-medium break-all">{booking.representative.mobile}</span>
-                        <span></span>
-                        <span></span>
-                      </div>
-
-                      <div className="mt-6 font-medium">Other Guests</div>
-
-                      <div className="pl-2">
-                        <div className="grid grid-cols-[1.6fr_0.5fr_0.8fr] gap-2 pb-1 text-center">
-                          <div>Name</div>
-                          <div>Age</div>
-                          <div>Gender</div>
+                    {/* Header */}
+                    <div className="border-b-2 border-[#558B2F] pb-4 mb-5">
+                      <h3 className="text-lg font-bold text-[#558B2F] tracking-tight">Booking Confirmation</h3>
+                      <div className="mt-2 flex items-center justify-between">
+                        <div className="text-xs text-neutral-500">
+                          Booking ID: <span className="font-semibold text-neutral-800">{booking.bookingIdLabel ?? booking.id}</span>
                         </div>
-
-                        <div className="space-y-1">
-                          {booking.otherGuests.map((guest, idx) => (
-                              <div
-                                  key={`${guest.name}-${idx}`}
-                                  className="grid grid-cols-[1.6fr_0.5fr_0.8fr] gap-2 text-center"
-                              >
-                                <div className="text-left font-medium">{guest.name}</div>
-                                <div className="font-medium">{guest.age}</div>
-                                <div className="font-medium">{guest.gender}</div>
-                              </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="mt-6 font-medium">Payment</div>
-
-                      <div className="space-y-2 pl-2">
-                        <div className="flex items-center justify-between gap-4">
-                      <span className="font-medium">
-                        ₱{booking.payment.pricePerPerson} x {booking.payment.qty}
-                      </span>
-                          <span className="font-medium">{peso(totals?.subtotal ?? 0)}</span>
-                        </div>
-
-                        <div className="flex items-center justify-between gap-4">
-                          <span className="font-medium">Service charge</span>
-                          <span className="font-medium">{peso(booking.payment.serviceCharge)}</span>
-                        </div>
-
-                        <div className="flex items-center justify-between gap-4 pt-1">
-                          <span className="font-medium">Total</span>
-                          <span className="font-medium">{peso(totals?.total ?? 0)}</span>
-                        </div>
-                      </div>
-
-                      <div className="mt-8 pl-2">
-                        <div className="flex gap-2">
-                          <span>Payment Option:</span>
-                          <span className="font-medium">{booking.payment.option}</span>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 pl-2 space-y-1">
-                        <div className="flex gap-2">
-                          <span className="w-[70px] shrink-0">Tour Operator:</span>
-                          <span className="font-medium">Operator 1</span>
-                        </div>
-                        <div className="flex gap-2">
-                          <span className="w-[70px] shrink-0">email:</span>
-                          <span className="font-medium">tourop1@email.com</span>
-                        </div>
-                        <div className="flex gap-2">
-                          <span className="w-[70px] shrink-0">phone number:</span>
-                          <span className="font-medium">0932221458</span>
+                        <div className="text-xs text-neutral-500">
+                          Date: <span className="font-semibold text-neutral-800">{booking.requestDate}</span>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex items-center justify-end gap-2 border-t border-neutral-200 bg-white px-4 py-4">
-                    <button
-                        type="button"
-                        onClick={() => setIsPrintPreviewOpen(false)}
-                        className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
-                    >
-                      Close
-                    </button>
-                    <button
-                        type="button"
-                        onClick={handlePrint}
-                        className="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800"
-                    >
-                      Print
-                    </button>
+                    {/* Tour Schedule */}
+                    <div className="mb-5 rounded-md bg-green-50 border border-green-100 px-4 py-3">
+                      <div className="text-[11px] font-medium uppercase tracking-wider text-[#558B2F]">Tour Schedule</div>
+                      <div className="mt-1 text-sm font-bold text-neutral-900">{booking.scheduleLabel}</div>
+                    </div>
+
+                    {/* Representative */}
+                    <div className="mb-5">
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-neutral-500 mb-2">Representative</div>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[13px]">
+                        <div>
+                          <span className="text-neutral-500">Name:</span>{' '}
+                          <span className="font-medium">{booking.representative.name}</span>
+                        </div>
+                        <div>
+                          <span className="text-neutral-500">Age:</span>{' '}
+                          <span className="font-medium">{booking.representative.age}</span>
+                        </div>
+                        <div>
+                          <span className="text-neutral-500">Gender:</span>{' '}
+                          <span className="font-medium">{booking.representative.gender}</span>
+                        </div>
+                        <div>
+                          <span className="text-neutral-500">Email:</span>{' '}
+                          <span className="font-medium break-all">{booking.representative.email}</span>
+                        </div>
+                        <div className="col-span-2">
+                          <span className="text-neutral-500">Mobile:</span>{' '}
+                          <span className="font-medium">{booking.representative.mobile}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Other Guests */}
+                    {booking.otherGuests.length > 0 && (
+                      <div className="mb-5">
+                        <div className="text-[11px] font-bold uppercase tracking-wider text-neutral-500 mb-2">
+                          Other Guests ({booking.otherGuests.length})
+                        </div>
+                        <table className="w-full text-[13px]">
+                          <thead>
+                            <tr className="border-b border-neutral-200">
+                              <th className="py-1.5 text-left font-semibold text-neutral-600">#</th>
+                              <th className="py-1.5 text-left font-semibold text-neutral-600">Name</th>
+                              <th className="py-1.5 text-center font-semibold text-neutral-600">Age</th>
+                              <th className="py-1.5 text-right font-semibold text-neutral-600">Gender</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {booking.otherGuests.map((guest, idx) => (
+                              <tr key={`${guest.name}-${idx}`} className="border-b border-neutral-100">
+                                <td className="py-1.5 text-neutral-400">{idx + 1}</td>
+                                <td className="py-1.5 font-medium">{guest.name}</td>
+                                <td className="py-1.5 text-center">{guest.age}</td>
+                                <td className="py-1.5 text-right">{guest.gender}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {/* Payment */}
+                    <div className="mb-5">
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-neutral-500 mb-2">Payment Summary</div>
+                      <div className="rounded-md border border-neutral-200 overflow-hidden">
+                        <div className="flex items-center justify-between px-4 py-2 text-[13px]">
+                          <span className="text-neutral-600">₱{booking.payment.pricePerPerson} × {booking.payment.qty} guest{booking.payment.qty !== 1 ? 's' : ''}</span>
+                          <span className="font-medium">{peso(totals?.subtotal ?? 0)}</span>
+                        </div>
+                        <div className="flex items-center justify-between px-4 py-2 text-[13px] border-t border-neutral-100">
+                          <span className="text-neutral-600">Service charge</span>
+                          <span className="font-medium">{peso(booking.payment.serviceCharge)}</span>
+                        </div>
+                        <div className="flex items-center justify-between px-4 py-2.5 text-sm font-bold border-t border-neutral-200 bg-neutral-50">
+                          <span>Total</span>
+                          <span>{peso(totals?.total ?? 0)}</span>
+                        </div>
+                      </div>
+                      <div className="mt-2 text-[13px] text-neutral-500">
+                        Payment Option: <span className="font-medium text-neutral-800">{booking.payment.option}</span>
+                      </div>
+                    </div>
+
+                    {/* Operator Info */}
+                    <div className="border-t border-neutral-200 pt-4">
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-neutral-500 mb-2">Tour Operator</div>
+                      <div className="text-[13px] space-y-0.5">
+                        <div className="font-medium">Operator 1</div>
+                        <div className="text-neutral-500">tourop1@email.com</div>
+                        <div className="text-neutral-500">0932221458</div>
+                      </div>
+                    </div>
                   </div>
+                </div>
+
+                {/* Footer */}
+                <div className="flex items-center justify-end gap-2 border-t border-neutral-200 px-6 py-3 shrink-0">
+                  <button
+                      type="button"
+                      onClick={() => setIsPrintPreviewOpen(false)}
+                      className="rounded-md border border-neutral-300 px-4 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
+                  >
+                    Close
+                  </button>
+                  <button
+                      type="button"
+                      onClick={handlePrint}
+                      className="rounded-md bg-[#558B2F] px-4 py-1.5 text-xs font-medium text-white hover:bg-[#4a7a28] transition-colors"
+                  >
+                    Print
+                  </button>
                 </div>
               </div>
             </div>
