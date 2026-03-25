@@ -1,6 +1,19 @@
+"use client";
+
+import Image from "next/image";
 import Link from "next/link";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { AlertCircle, Loader2, Upload } from "lucide-react";
+
+const ALLOWED_EXTENSIONS = new Set(["jpg", "jpeg", "png"]);
+const ALLOWED_MIME = new Set(["image/jpeg", "image/png"]);
+
+function isAllowedReceiptImage(file: File): boolean {
+    const ext = file.name.split(".").pop()?.toLowerCase();
+    if (!ext || !ALLOWED_EXTENSIONS.has(ext)) return false;
+    if (file.type && !ALLOWED_MIME.has(file.type)) return false;
+    return true;
+}
 
 interface UploadProofOfPaymentProps {
     draft: {
@@ -26,18 +39,64 @@ export function UploadPayment({
     onFileChange,
     onSubmitPayment,
 }: UploadProofOfPaymentProps) {
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [formatError, setFormatError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!selectedFile) {
+            setPreviewUrl(null);
+            return;
+        }
+        const url = URL.createObjectURL(selectedFile);
+        setPreviewUrl(url);
+        return () => URL.revokeObjectURL(url);
+    }, [selectedFile]);
+
+    const handleFileInput = (event: React.ChangeEvent<HTMLInputElement>) => {
+        setFormatError(null);
+        const file = event.target.files?.[0];
+        if (!file) {
+            onFileChange(event);
+            return;
+        }
+        if (!isAllowedReceiptImage(file)) {
+            setFormatError("Please choose a .jpg, .jpeg, or .png file.");
+            event.target.value = "";
+            return;
+        }
+        onFileChange(event);
+    };
+
     return (
         <section className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm md:p-8">
             <h2 className="text-lg font-bold text-gray-900">Upload proof of payment</h2>
-            <p className="mt-2 text-sm text-gray-600">PNG or JPG, up to 5MB.</p>
-            <label className="mt-6 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-[#F9FAFB] px-6 py-12 transition hover:border-[#74C00F]/50 hover:bg-white">
-                <Upload className="mb-3 h-10 w-10 text-[#74C00F]" />
-                <span className="text-sm font-semibold text-gray-900">Tap to choose a screenshot</span>
-                <span className="mt-1 text-xs text-gray-500">Image files only</span>
+            <p className="mt-2 text-sm text-gray-600">JPG or PNG, up to 5MB.</p>
+            <label className="mt-6 flex min-h-[12rem] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-gray-200 bg-[#F9FAFB] px-6 py-8 transition hover:border-[#74C00F]/50 hover:bg-white md:min-h-[14rem] md:py-10">
+                {previewUrl ? (
+                    <>
+                        <div className="relative h-40 w-full max-w-md md:h-44">
+                            <Image
+                                src={previewUrl}
+                                alt="Payment screenshot preview"
+                                fill
+                                unoptimized
+                                className="object-contain"
+                                sizes="(max-width: 768px) 100vw, 28rem"
+                            />
+                        </div>
+                        <span className="mt-2 text-xs text-gray-500">Tap to replace</span>
+                    </>
+                ) : (
+                    <>
+                        <Upload className="mb-3 h-10 w-10 text-[#74C00F]" />
+                        <span className="text-sm font-semibold text-gray-900">Tap to choose a screenshot</span>
+                        <span className="mt-1 text-xs text-gray-500">JPG or PNG only</span>
+                    </>
+                )}
                 <input
                     type="file"
-                    accept="image/*"
-                    onChange={onFileChange}
+                    accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                    onChange={handleFileInput}
                     className="sr-only"
                 />
             </label>
@@ -45,6 +104,13 @@ export function UploadPayment({
                 <p className="mt-4 text-center text-sm font-medium text-gray-900">
                     Selected: <span className="text-[#74C00F]">{selectedFile.name}</span>
                 </p>
+            )}
+
+            {formatError && (
+                <div className="mt-4 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3">
+                    <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
+                    <p className="text-sm text-red-700">{formatError}</p>
+                </div>
             )}
 
             {error && (

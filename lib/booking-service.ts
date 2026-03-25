@@ -1,5 +1,5 @@
 const API_URL = process.env.NEXT_PUBLIC_FUNCTIONS_BASE_URL
-    ?? "http://localhost:5001/alegria-booking-system/asia-southeast1/booking";
+    ?? "http://localhost:5001/alegria-booking-system/asia-southeast1/api";
 
 export type PaymentMethod = "Gcash / Maya" | "BDO" | "BPI";
 export type BookingGender = "Male" | "Female" | "Prefer not to say";

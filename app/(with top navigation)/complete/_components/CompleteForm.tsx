@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
-import { doc, getDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 import { createBooking, type PaymentMethod } from "@/lib/booking-service";
 import { TripDetails } from "@/app/(with top navigation)/complete/_components/TripDetails";
@@ -52,63 +52,53 @@ function readFileAsDataUrl(file: File) {
     });
 }
 
+function parseTimeSlot(display: string): "AM" | "PM" {
+    return display.trim().toUpperCase().includes("PM") ? "PM" : "AM";
+}
+
+type OperatorPaymentInfo = { imageUrl: string | null; accountName: string | null; accountNumber: string | null };
+type PricingInfo = { totalAmount: number | null };
+type OperatorMeta = { companyName: string | null; phoneNumber: string | null };
+
+const SERVICE_CHARGE = 500;
+const MATA_SERVICE_FEE = 500;
+const LGU_SERVICE_FEE = 500;
+
 function asRecord(value: unknown): UnknownRecord | null {
     return typeof value === "object" && value !== null ? (value as UnknownRecord) : null;
 }
 
-function getPaymentInstruction(activityData: UnknownRecord | undefined, paymentMethod: PaymentMethod) {
-    const normalizedKeys: Record<PaymentMethod, string[]> = {
-        "Gcash / Maya": ["Gcash / Maya", "gcashMaya", "gcash_maya", "gcashmaya"],
-        BDO: ["BDO", "bdo"],
-        BPI: ["BPI", "bpi"],
+function getOperatorPaymentInfoFromUserDoc(userData: UnknownRecord | undefined, method: PaymentMethod): OperatorPaymentInfo {
+    const methods = userData?.paymentMethods;
+    if (!Array.isArray(methods)) return { imageUrl: null, accountName: null, accountNumber: null };
+
+    const indexByMethod: Record<PaymentMethod, number> = {
+        "Gcash / Maya": 0,
+        BDO: 1,
+        BPI: 2,
     };
+    const entry = asRecord(methods[indexByMethod[method]]);
+    if (!entry) return { imageUrl: null, accountName: null, accountNumber: null };
 
-    const sources = [
-        asRecord(activityData?.paymentInstructions),
-        asRecord(activityData?.paymentMethods),
-        asRecord(activityData?.paymentInstructionImages),
-    ].filter((source): source is UnknownRecord => Boolean(source));
-
-    for (const source of sources) {
-        for (const key of normalizedKeys[paymentMethod]) {
-            const value = source[key];
-            if (!value) continue;
-            if (typeof value === "string") {
-                return { imageUrl: value, notes: null };
-            }
-            const valueRecord = asRecord(value);
-            if (!valueRecord) continue;
-            return {
-                imageUrl: typeof valueRecord.imageUrl === "string"
-                    ? valueRecord.imageUrl
-                    : typeof valueRecord.image === "string"
-                        ? valueRecord.image
-                        : typeof valueRecord.qrImageUrl === "string"
-                            ? valueRecord.qrImageUrl
-                            : null,
-                notes: typeof valueRecord.notes === "string"
-                    ? valueRecord.notes
-                    : typeof valueRecord.instructions === "string"
-                        ? valueRecord.instructions
-                        : null,
-            };
-        }
+    if (method === "Gcash / Maya") {
+        return {
+            imageUrl: typeof entry.gcashMayaImageUrl === "string" ? entry.gcashMayaImageUrl : null,
+            accountName: typeof entry.gcashMayaAccountName === "string" ? entry.gcashMayaAccountName : null,
+            accountNumber: typeof entry.gcashMayaAccountNumber === "string" ? entry.gcashMayaAccountNumber : null,
+        };
     }
-
-    const directImageMap: Record<PaymentMethod, string | null | undefined> = {
-        "Gcash / Maya": typeof activityData?.gcashMayaImageUrl === "string" ? activityData.gcashMayaImageUrl : null,
-        BDO: typeof activityData?.bdoImageUrl === "string" ? activityData.bdoImageUrl : null,
-        BPI: typeof activityData?.bpiImageUrl === "string" ? activityData.bpiImageUrl : null,
-    };
-
+    if (method === "BDO") {
+        return {
+            imageUrl: typeof entry.bdoImageUrl === "string" ? entry.bdoImageUrl : null,
+            accountName: typeof entry.bdoAccountName === "string" ? entry.bdoAccountName : null,
+            accountNumber: typeof entry.bdoAccountNumber === "string" ? entry.bdoAccountNumber : null,
+        };
+    }
     return {
-        imageUrl: directImageMap[paymentMethod] || null,
-        notes: typeof activityData?.paymentInstructionNote === "string" ? activityData.paymentInstructionNote : null,
+        imageUrl: typeof entry.bpiImageUrl === "string" ? entry.bpiImageUrl : null,
+        accountName: typeof entry.bpiAccountName === "string" ? entry.bpiAccountName : null,
+        accountNumber: typeof entry.bpiAccountNumber === "string" ? entry.bpiAccountNumber : null,
     };
-}
-
-function parseTimeSlot(display: string): "AM" | "PM" {
-    return display.trim().toUpperCase().includes("PM") ? "PM" : "AM";
 }
 
 function loadSessionData(): { context: BookingContext; formData: GuestFormData; guests: AdditionalGuest[] } | null {
@@ -138,37 +128,105 @@ export function CompleteForm() {
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [submittedBookingId, setSubmittedBookingId] = useState<string | null>(null);
-    const [paymentImageUrl, setPaymentImageUrl] = useState<string | null>(null);
-    const [paymentNotes, setPaymentNotes] = useState<string | null>(null);
+    const [operatorPayment, setOperatorPayment] = useState<OperatorPaymentInfo>({ imageUrl: null, accountName: null, accountNumber: null });
+    const [operatorMeta, setOperatorMeta] = useState<OperatorMeta>({ companyName: null, phoneNumber: null });
+    const [pricingInfo, setPricingInfo] = useState<PricingInfo>({ totalAmount: null });
 
     useEffect(() => {
         setSessionData(loadSessionData());
         setLoading(false);
     }, []);
 
+    const handlePaymentMethodChange = (nextMethod: PaymentMethod) => {
+        setSessionData((prev) => {
+            if (!prev) return prev;
+            const updated = {
+                ...prev,
+                context: {
+                    ...prev.context,
+                    paymentMethod: nextMethod,
+                },
+            };
+            // Keep the data source-of-truth in sync so refresh/back navigation stays consistent.
+            sessionStorage.setItem("bookingContext", JSON.stringify(updated.context));
+            return updated;
+        });
+    };
+
     useEffect(() => {
-        if (!sessionData?.context.selectedActivityId) return;
+        if (!sessionData?.context.tourOperatorUid) {
+            setOperatorPayment({ imageUrl: null, accountName: null, accountNumber: null });
+            setOperatorMeta({ companyName: null, phoneNumber: null });
+            return;
+        }
         let cancelled = false;
 
         (async () => {
             try {
-                const snap = await getDoc(doc(firestore, "activities", sessionData.context.selectedActivityId));
+                const snap = await getDoc(doc(firestore, "users", sessionData.context.tourOperatorUid!));
                 if (!snap.exists() || cancelled) return;
-                const instruction = getPaymentInstruction(snap.data() as UnknownRecord, sessionData.context.paymentMethod);
+                const userData = snap.data() as UnknownRecord;
+                const info = getOperatorPaymentInfoFromUserDoc(userData, sessionData.context.paymentMethod);
                 if (!cancelled) {
-                    setPaymentImageUrl(instruction.imageUrl);
-                    setPaymentNotes(instruction.notes);
+                    setOperatorPayment(info);
+                    setOperatorMeta({
+                        companyName: typeof userData.companyName === "string" ? userData.companyName : null,
+                        phoneNumber: typeof userData.phoneNumber === "string" ? userData.phoneNumber : null,
+                    });
                 }
             } catch {
                 if (!cancelled) {
-                    setPaymentImageUrl(null);
-                    setPaymentNotes(null);
+                    setOperatorPayment({ imageUrl: null, accountName: null, accountNumber: null });
+                    setOperatorMeta({ companyName: null, phoneNumber: null });
                 }
             }
         })();
 
         return () => { cancelled = true; };
-    }, [sessionData]);
+    }, [sessionData?.context.tourOperatorUid, sessionData?.context.paymentMethod]);
+
+    useEffect(() => {
+        if (!sessionData?.context.selectedActivityId || !sessionData?.context.guestCount) {
+            setPricingInfo({ totalAmount: null });
+            return;
+        }
+
+        let cancelled = false;
+        (async () => {
+            try {
+                const activitySnap = await getDoc(doc(firestore, "activities", sessionData.context.selectedActivityId));
+                if (!activitySnap.exists() || cancelled) return;
+                const activity = activitySnap.data() as Record<string, unknown>;
+                const pricePerGuest = typeof activity.pricePerGuest === "number" ? activity.pricePerGuest : null;
+                if (!pricePerGuest) {
+                    setPricingInfo({ totalAmount: null });
+                    return;
+                }
+
+                let discountPercent: number | null = null;
+                if (sessionData.context.promoCode) {
+                    const codeUpper = sessionData.context.promoCode.trim().toUpperCase();
+                    const q = query(collection(firestore, "voucherCodes"), where("code", "==", codeUpper));
+                    const snap = await getDocs(q);
+                    if (!snap.empty) {
+                        const voucher = snap.docs[0].data() as Record<string, unknown>;
+                        discountPercent = typeof voucher.discount === "number" ? voucher.discount : null;
+                    }
+                }
+
+                const baseSubtotal = pricePerGuest * sessionData.context.guestCount;
+                const discountAmount = discountPercent ? (baseSubtotal * (discountPercent / 100)) : 0;
+                const subtotal = baseSubtotal - discountAmount;
+                const total = subtotal + SERVICE_CHARGE + MATA_SERVICE_FEE + LGU_SERVICE_FEE;
+
+                if (!cancelled) setPricingInfo({ totalAmount: total });
+            } catch {
+                if (!cancelled) setPricingInfo({ totalAmount: null });
+            }
+        })();
+
+        return () => { cancelled = true; };
+    }, [sessionData?.context.selectedActivityId, sessionData?.context.guestCount, sessionData?.context.promoCode]);
 
     const summary = useMemo(() => {
         if (!sessionData) return null;
@@ -188,10 +246,10 @@ export function CompleteForm() {
             return;
         }
 
-        const allowedMimes = ["image/jpeg", "image/png", "image/webp"];
+        const allowedMimes = ["image/jpeg", "image/png"];
         if (!allowedMimes.includes(file.type)) {
             setSelectedFile(null);
-            setError("Please upload a JPG/PNG image file only.");
+            setError("Please upload a JPG or PNG image file only.");
             event.target.value = "";
             return;
         }
@@ -257,7 +315,7 @@ export function CompleteForm() {
             setSubmitting(false);
         }
     };
-
+    //this will delete the guest session data from session storage after tapping the "Submit Payment"
     if (submittedBookingId) {
         const clearGuestSession = () => {
             sessionStorage.removeItem("guestFormData");
@@ -298,6 +356,22 @@ export function CompleteForm() {
 
                         <div className="mt-6 rounded-2xl border border-emerald-100 bg-emerald-50/90 px-5 py-4 text-center text-sm leading-relaxed text-emerald-900">
                             Please keep this booking ID handy, as our team may ask for it while your payment is under review. We’ve also sent a confirmation email with your reservation details and instructions on how to contact us.
+                            {(operatorMeta.companyName || operatorMeta.phoneNumber) && (
+                                <div className="mt-3 border-t border-emerald-200/70 pt-3 text-emerald-950">
+                                    {operatorMeta.companyName && (
+                                        <p>
+                                            <span className="font-bold">Operator:</span>{" "}
+                                            <span className="font-semibold">{operatorMeta.companyName}</span>
+                                        </p>
+                                    )}
+                                    {operatorMeta.phoneNumber && (
+                                        <p className="mt-1">
+                                            <span className="font-bold">Contact:</span>{" "}
+                                            <span className="font-semibold">{operatorMeta.phoneNumber}</span>
+                                        </p>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         <Link
@@ -336,10 +410,10 @@ export function CompleteForm() {
                         Start from guest booking and continue to payment — your details are saved in this browser session.
                     </p>
                     <Link
-                        href="/guestbooking"
+                        href="/booking"
                         className="mt-8 inline-flex w-full items-center justify-center rounded-xl bg-[#74C00F] px-6 py-3.5 text-base font-bold text-white shadow-md shadow-[#74C00F]/20 transition hover:bg-[#62a30d]"
                     >
-                        Back to guest booking
+                        Back to Booking
                     </Link>
                 </div>
             </div>
@@ -361,17 +435,23 @@ export function CompleteForm() {
 
                 <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-12">
                     <div className="order-2 flex flex-col gap-8 lg:order-1 lg:col-span-7">
+                        {/*
                         <TripDetails
-                            bookingDate={context.bookingDate}
-                            bookingTime={context.bookingTime}
-                            guestTotal={summary?.guestTotal}
-                            paymentMethod={summary?.paymentMethod}
+                          bookingDate={context.bookingDate}
+                          bookingTime={context.bookingTime}
+                          guestTotal={summary?.guestTotal}
+                          paymentMethod={summary?.paymentMethod}
+                          onPaymentMethodChange={handlePaymentMethodChange}
                         />
+                        */}
 
                         <PaymentInstructions
                             paymentMethod={context.paymentMethod}
-                            paymentImageUrl={paymentImageUrl}
-                            paymentNotes={paymentNotes}
+                            paymentImageUrl={operatorPayment.imageUrl}
+                            accountName={operatorPayment.accountName}
+                            accountNumber={operatorPayment.accountNumber}
+                            onPaymentMethodChange={handlePaymentMethodChange}
+                            totalAmount={pricingInfo.totalAmount}
                         />
 
                         <UploadPayment
@@ -394,10 +474,14 @@ export function CompleteForm() {
                     <div className="order-1 min-w-0 w-full lg:order-2 lg:col-span-5 lg:flex lg:justify-center lg:self-start lg:sticky lg:top-28 lg:z-10 lg:h-fit">
                         <BookingSummary
                             activityId={summary?.activityId}
+                            bookingDate={context.bookingDate}
+                            bookingTime={context.bookingTime}
+                            guestTotal={summary?.guestTotal}
                             representativeName={formData.repName}
                             representativeEmail={formData.repEmail}
                             representativePhone={formData.repPhone}
                             appliedPromo={context.promoCode}
+                            paymentMethod={context.paymentMethod}
                         />
                     </div>
                 </div>
