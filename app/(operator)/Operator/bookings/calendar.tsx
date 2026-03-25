@@ -141,12 +141,12 @@ function monthOnlyLabel(year: number, monthIndex: number) {
   return new Date(year, monthIndex, 1).toLocaleString('en-US', { month: 'long' });
 }
 
-// ---------- ring ----------
-function ProgressRing({
+// ---------- small ring for bubble ----------
+function SmallRing({
   value,
   max,
-  size = 120,
-  stroke = 10,
+  size = 40,
+  stroke = 4,
 }: {
   value: number;
   max: number;
@@ -159,38 +159,27 @@ function ProgressRing({
   const dash = c * pct;
 
   return (
-    <div className="relative" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="block">
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          strokeWidth={stroke}
-          className="stroke-neutral-200"
-          fill="none"
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          strokeWidth={stroke}
-          className="stroke-orange-400"
-          fill="none"
-          strokeLinecap="round"
-          strokeDasharray={`${dash} ${c - dash}`}
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        />
-      </svg>
-
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="flex flex-col items-center leading-tight">
-          <div className="text-xl font-semibold text-neutral-700">
-            {value}/{max}
-          </div>
-          <div className="text-3xl">👥</div>
-        </div>
-      </div>
-    </div>
+    <svg width={size} height={size} className="block">
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        strokeWidth={stroke}
+        className="stroke-neutral-200"
+        fill="none"
+      />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        strokeWidth={stroke}
+        className="stroke-orange-400"
+        fill="none"
+        strokeLinecap="round"
+        strokeDasharray={`${dash} ${c - dash}`}
+        transform={`rotate(-90 ${size / 2} ${size / 2})`}
+      />
+    </svg>
   );
 }
 
@@ -214,7 +203,6 @@ function makeDemoData(year: number, monthIndex: number) {
 
 export default function CalendarAvailability() {
   const today = new Date();
-  const [view, setView] = useState<ViewMode>('Month');
 
   const [year, setYear] = useState(today.getFullYear());
   const [monthIndex, setMonthIndex] = useState(today.getMonth());
@@ -249,9 +237,6 @@ export default function CalendarAvailability() {
     // 6 rows * 7 cols = 42
     return Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
   }, [gridStart]);
-
-  const selected = byKey.get(selectedKey);
-  const selectedDate = new Date(selectedKey);
 
   const goPrevMonth = () => {
     const m = monthIndex - 1;
@@ -363,33 +348,28 @@ export default function CalendarAvailability() {
                 );
               })}
             </div>
-          </div>
-        </div>
 
-        {/* Summary card */}
-        <div>
-          <div className="w-full rounded-lg border border-gray-200 p-6">
-            <div className="text-center text-sm font-semibold text-gray-700">
-              {monthOnlyLabel(year, monthIndex)}
-            </div>
-
-            <div className="mt-2 text-center text-4xl font-extrabold text-gray-900">
-              {selectedDate.getDate()}
-            </div>
-
-            <div className="mt-5 flex items-center justify-center">
-              <ProgressRing value={selected?.used ?? 0} max={selected?.capacity ?? 70} />
-            </div>
+            {/* Selected date capacity bar */}
+            {(() => {
+              const selInfo = byKey.get(selectedKey);
+              if (!selInfo) return null;
+              const selDate = new Date(selectedKey);
+              const dayLabel = selDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+              return (
+                <div className="mt-3 flex items-center gap-3 rounded-lg bg-gray-50 px-3 py-2">
+                  <SmallRing value={selInfo.used} max={selInfo.capacity} />
+                  <div className="flex flex-col leading-tight">
+                    <span className="text-xs font-bold text-gray-800">{dayLabel}</span>
+                    <span className="text-[11px] text-gray-500">
+                      {selInfo.used}/{selInfo.capacity} guests
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>
-
-      {/* View mode note (optional, remove if you want) */}
-      {view !== 'Month' && (
-        <div className="mt-6 text-sm text-neutral-500">
-          (UI only) View mode: <span className="font-semibold">{view}</span>
-        </div>
-      )}
     </div>
   );
 }
