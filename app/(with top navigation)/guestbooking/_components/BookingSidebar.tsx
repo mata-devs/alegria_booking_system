@@ -2,10 +2,12 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 import { Calendar, Clock, ChevronDown, X, Users } from "lucide-react";
 import type { CalendarSlotStatus } from "@/lib/calendar-types";
+import type { PaymentMethod } from "@/lib/booking-service";
 
 // ─── Constants , should be transfered to `activities` collection (fetch, need further research as it may cause additional reads)
 const SERVICE_CHARGE = 500; //should be transfered to `activities` collection
@@ -13,6 +15,7 @@ const MATA_SERVICE_FEE = 500; //should be transfered to `activities` collection
 const LGU_SERVICE_FEE = 500; //should be transfered to `activities` collection
 const PRESET_GUESTS = [1, 2, 3, 4, 5] as const; //dropdown
 const MAX_GUESTS = 30; // hard cap — matches activity timeslot AM or PM for a total of 60
+const PAYMENT_METHODS: PaymentMethod[] = ["Gcash / Maya", "BDO", "BPI"];
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const peso = (n: number) =>
     `₱ ${n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -36,10 +39,13 @@ interface BookingSidebarProps {
     selectedSlotStatus?: CalendarSlotStatus | null;
     showPaymentMethods?: boolean;
     onGuestCountChange?: (count: number) => void;
-    onPaymentMethodChange?: (method: string) => void;
+    paymentMethod?: PaymentMethod;
+    onPaymentMethodChange?: (method: PaymentMethod) => void;
     onContinue?: () => void;
     initialPromoCode?: string;
     onPromoApplied?: (promo: { code: string; discount: number; operatorUid?: string }) => void;
+    /** Fired when the user clears the promo (e.g. unlocks tour operator locked by voucher). */
+    onPromoRemoved?: () => void;
 }
 
 // ─── BookingSidebar ───────────────────────────────────────────────────────────
@@ -63,10 +69,12 @@ export function BookingSidebar({
     selectedSlotStatus = null,
     showPaymentMethods = false,
     onGuestCountChange,
+    paymentMethod,
     onPaymentMethodChange,
     onContinue,
     initialPromoCode,
     onPromoApplied,
+    onPromoRemoved,
 }: BookingSidebarProps) {
     const router = useRouter();
 
@@ -74,7 +82,16 @@ export function BookingSidebar({
     const [pricePerGuest, setPricePerGuest] = useState<number | null>(null);
     const [priceLoading, setPriceLoading] = useState(true);
 
-    const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("Gcash / Maya");
+    const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>(paymentMethod ?? "Gcash / Maya");
+
+    useEffect(() => {
+        // If parent updates the selected method (e.g. returning from /complete), sync our internal UI state.
+        if (!paymentMethod) return;
+        if (PAYMENT_METHODS.includes(paymentMethod) && paymentMethod !== selectedPaymentMethod) {
+            setSelectedPaymentMethod(paymentMethod);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [paymentMethod]);
 
     // ── Promo Code state ──────────────────────────────────────────────────────
     const [promoInput, setPromoInput] = useState(initialPromoCode || "");
@@ -83,9 +100,7 @@ export function BookingSidebar({
     const [promoError, setPromoError] = useState("");
 
     useEffect(() => {
-        if (onPaymentMethodChange) {
-            onPaymentMethodChange(selectedPaymentMethod);
-        }
+        if (onPaymentMethodChange) onPaymentMethodChange(selectedPaymentMethod);
     }, [selectedPaymentMethod, onPaymentMethodChange]);
 
     useEffect(() => {
@@ -277,7 +292,10 @@ export function BookingSidebar({
                     throw new Error("The associated operator for this voucher was not found.");
                 }
                 const opData = opSnap.data();
-                if (!opData.isActive) {
+                const operatorLooksActive =
+                    opData.isActive === true ||
+                    (typeof opData.status === "string" && opData.status.toLowerCase() === "active");
+                if (!operatorLooksActive) {
                     throw new Error("The operator associated with this voucher is currently inactive.");
                 }
                 // Automatically assign it to the operator in the users collection?
@@ -309,6 +327,7 @@ export function BookingSidebar({
         setAppliedPromo(null);
         setPromoInput("");
         setPromoError("");
+        onPromoRemoved?.();
     };
 
     // ── Auto-apply initial promo ──────────────────────────────────────────────
@@ -542,12 +561,12 @@ export function BookingSidebar({
                         <div className="mt-6 border-t border-gray-100 pt-6">
                             <label className="block font-bold text-black mb-3">Select Payment Method</label>
                             <div className="space-y-3">
-                                {["Gcash / Maya", "BDO", "BPI"].map((method) => (
+                                {PAYMENT_METHODS.map((method) => (
                                     <button
                                         type="button"
                                         key={method}
                                         onClick={() => setSelectedPaymentMethod(method)}
-                                        className={`flex items-center justify-between p-4 rounded-2xl border cursor-pointer transition
+                                        className={`w-full flex items-center justify-between p-4 rounded-2xl border cursor-pointer transition
                                         ${selectedPaymentMethod === method
                                                 ? "border-[#74C00F] bg-[#f0fce0] ring-1 ring-[#74C00F]"
                                                 : "border-gray-200 hover:border-gray-300 bg-white"
@@ -561,7 +580,51 @@ export function BookingSidebar({
                                                 )}
                                             </div>
                                             <span className={`font-semibold ${selectedPaymentMethod === method ? "text-black" : "text-gray-600"}`}>
-                                                {method}
+                                                {method === "Gcash / Maya" ? (
+                                                    <span className="inline-flex items-center gap-2">
+                                                        <span className="inline-flex items-center gap-1.5">
+                                                            <Image
+                                                                src="/gcashIcon.png"
+                                                                alt="GCash"
+                                                                width={18}
+                                                                height={18}
+                                                                className="h-[18px] w-[18px] object-contain"
+                                                            />
+                                                            <Image
+                                                                src="/mayaIcon.png"
+                                                                alt="Maya"
+                                                                width={18}
+                                                                height={18}
+                                                                className="h-[18px] w-[18px] object-contain"
+                                                            />
+                                                        </span>
+                                                        <span>{method}</span>
+                                                    </span>
+                                                ) : method === "BDO" ? (
+                                                    <span className="inline-flex items-center gap-2">
+                                                        <Image
+                                                            src="/BDOIcon.png"
+                                                            alt="BDO"
+                                                            width={24}
+                                                            height={24}
+                                                            className="h-[18px] w-[18px] object-contain"
+                                                        />
+                                                        <span>{method}</span>
+                                                    </span>
+                                                ) : method === "BPI" ? (
+                                                    <span className="inline-flex items-center gap-2">
+                                                        <Image
+                                                            src="/BPIIcon.png"
+                                                            alt="BPI"
+                                                            width={24}
+                                                            height={24}
+                                                            className="h-[18px] w-[18px] object-contain"
+                                                        />
+                                                        <span>{method}</span>
+                                                    </span>
+                                                ) : (
+                                                    method
+                                                )}
                                             </span>
                                         </div>
                                     </button>

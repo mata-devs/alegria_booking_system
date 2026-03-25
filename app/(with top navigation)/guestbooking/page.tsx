@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 import { representativeFormSchema, guestSchema } from "@/lib/schema";
+import type { PaymentMethod } from "@/lib/booking-service";
 
 // Components
 /*import { ProgressIndicator } from "./_components/ProgressIndicator";*/
@@ -19,6 +20,7 @@ import { Loader2 } from "lucide-react";
 import { useSessionStorage } from "@/hooks/useSessionStorage";
 
 const MAX_GUESTS = 30;
+const PAYMENT_METHODS: PaymentMethod[] = ["Gcash / Maya", "BDO", "BPI"];
 
 interface GuestFormData {
     repName: string;
@@ -49,8 +51,9 @@ interface GuestBookingMainProps {
     guests: AdditionalGuest[];
     setGuests: (val: AdditionalGuest[] | ((prev: AdditionalGuest[]) => AdditionalGuest[])) => void;
     appliedPromo: string;
-    paymentMethod: string;
-    setPaymentMethod: (val: string) => void;
+    setAppliedPromo: (val: string) => void;
+    paymentMethod: PaymentMethod;
+    setPaymentMethod: (val: PaymentMethod) => void;
 }
 
 const createEmptyGuest = (): AdditionalGuest => ({
@@ -95,9 +98,11 @@ const GuestBookingMain = ({
     bookingDate, bookingTime, guestCount, selectedActivityId, selectedTimeSlotId,
     formData, setFormData, guests, setGuests,
     appliedPromo,
+    setAppliedPromo,
     paymentMethod, setPaymentMethod,
 }: GuestBookingMainProps) => {
     const router = useRouter();
+    const [promoOperatorUid, setPromoOperatorUid] = useState<string | null>(null);
     const [continuing, setContinuing] = useState(false);
     const [continueError, setContinueError] = useState<string | null>(null);
     const [submitted, setSubmitted] = useState(false);
@@ -220,7 +225,11 @@ const GuestBookingMain = ({
                         guestErrors={guestErrors}
                         submitted={submitted}
                     />
-                    <TourOperatorDropdown value={formData.tourOperator} onChange={(val) => setFormData((prev: typeof formData) => ({ ...prev, tourOperator: val }))} />
+                    <TourOperatorDropdown
+                        value={formData.tourOperator}
+                        onChange={(val) => setFormData((prev: typeof formData) => ({ ...prev, tourOperator: val }))}
+                        lockedByPromo={!!promoOperatorUid}
+                    />
                 </div>
             </div>
 
@@ -234,13 +243,24 @@ const GuestBookingMain = ({
                     slotsAvailable={null}
                     showPaymentMethods={true}
                     onGuestCountChange={handleGuestCountChange}
+                    paymentMethod={paymentMethod}
                     onPaymentMethodChange={setPaymentMethod}
                     onContinue={handleSubmit}
                     initialPromoCode={appliedPromo}
                     onPromoApplied={(promo) => {
+                        // Keep parent source-of-truth in sync for /complete -> createBooking(payload)
+                        setAppliedPromo(promo.code);
                         if (promo.operatorUid) {
-                            setFormData(prev => ({ ...prev, tourOperator: promo.operatorUid || "" }));
+                            setFormData((prev) => ({ ...prev, tourOperator: promo.operatorUid || "" }));
+                            setPromoOperatorUid(promo.operatorUid);
+                        } else {
+                            setPromoOperatorUid(null);
                         }
+                    }}
+                    onPromoRemoved={() => {
+                        setAppliedPromo("");
+                        setPromoOperatorUid(null);
+                        setFormData((prev) => ({ ...prev, tourOperator: "" }));
                     }}
                 />
             </div>
@@ -274,11 +294,28 @@ function GuestBookingContent() {
     });
     const [guests, setGuests] = useState<AdditionalGuest[]>(() => getInitialGuests(requestedGuestCount));
     const [appliedPromo, setAppliedPromo] = useState<string>(searchParams.get("promoCode") || "");
-    const [paymentMethod, setPaymentMethod] = useState("Gcash / Maya");
+    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("Gcash / Maya");
     const guestCount = guests.length + 1;
 
     useEffect(() => {
         setIsMounted(true);
+    }, []);
+
+    // Restore payment method when the user navigates back from /complete.
+    useEffect(() => {
+        try {
+            const ctxRaw = window.sessionStorage.getItem("bookingContext");
+            if (!ctxRaw) return;
+
+            const ctx = JSON.parse(ctxRaw) as { paymentMethod?: unknown };
+            if (typeof ctx.paymentMethod !== "string") return;
+
+            if (PAYMENT_METHODS.includes(ctx.paymentMethod as PaymentMethod)) {
+                setPaymentMethod(ctx.paymentMethod as PaymentMethod);
+            }
+        } catch {
+            // Ignore sessionStorage parsing issues.
+        }
     }, []);
 
     // ── Idempotency key: generate once per booking session, client-side only ──
@@ -310,6 +347,7 @@ function GuestBookingContent() {
                 formData={formData} setFormData={setFormData}
                 guests={guests} setGuests={setGuests}
                 appliedPromo={appliedPromo}
+                setAppliedPromo={setAppliedPromo}
                 paymentMethod={paymentMethod} setPaymentMethod={setPaymentMethod}
             />
         </div>

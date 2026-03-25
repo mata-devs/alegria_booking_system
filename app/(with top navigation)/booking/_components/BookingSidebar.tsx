@@ -277,7 +277,10 @@ export function BookingSidebar({
                     throw new Error("The associated operator for this voucher was not found.");
                 }
                 const opData = opSnap.data();
-                if (!opData.isActive) {
+                const operatorLooksActive =
+                    opData.isActive === true ||
+                    (typeof opData.status === "string" && opData.status.toLowerCase() === "active");
+                if (!operatorLooksActive) {
                     throw new Error("The operator associated with this voucher is currently inactive.");
                 }
                 // Automatically assign it to the operator in the users collection?
