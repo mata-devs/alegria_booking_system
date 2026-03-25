@@ -283,26 +283,8 @@ export default function CalendarAvailability() {
   return (
     <div className="w-full rounded-lg border border-gray-200 bg-white py-5 px-5">
       {/* Title row */}
-      <div className="flex items-start justify-between">
-        <div className="w-full text-center text-lg font-bold text-gray-900">
-          Calendar Availability
-        </div>
-
-        <div className="ml-4">
-          <div className="relative">
-            <select
-              value={view}
-              onChange={(e) => setView(e.target.value as ViewMode)}
-              className="appearance-none rounded-md border border-gray-300 bg-white px-3 py-1.5 pr-8 text-sm font-medium text-gray-700 outline-none hover:bg-gray-50 transition-colors"
-            >
-              <option>Month</option>
-              <option>Week</option>
-            </select>
-            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-neutral-600">
-              ▾
-            </span>
-          </div>
-        </div>
+      <div className="text-center text-lg font-bold text-gray-900">
+        Calendar Availability
       </div>
 
       {/* Main content */}

@@ -238,7 +238,7 @@ export default function BookingDetailsCard({
 
   if (!booking) {
     return (
-        <div className="w-full rounded-lg border border-gray-200 bg-white p-5 flex items-center justify-center text-sm text-gray-400">
+        <div className="w-full rounded-lg border border-gray-200 bg-white p-8 flex items-center justify-center text-sm text-gray-400">
           Select a booking from the list.
         </div>
     );
