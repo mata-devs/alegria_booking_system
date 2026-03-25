@@ -25,12 +25,12 @@ export function GuideList() {
         <div className="w-full">
 
             {/* GRID */}
-            <div className="grid grid-cols-2 gap-15">
+            <div className="grid grid-cols-1 place-items-center sm:grid-cols-2 gap-[2rem] lg:gap-[4rem]">
                 
                     {tourGuides.map((guide) => (
-                        <div key={guide.id} className="flex flex-row w-[750px] h-[340px] bg-[#F5FFE6] rounded-[30px] shadow-[0_4px_4px_rgba(0,0,0,0.25)]">
-                            <div className="flex justify-center items-center h-[100%] w-[30%] pl-[3%]">
-                                <div className="w-[170px] h-[170px] rounded-full overflow-hidden">
+                        <div key={guide.id} className="flex flex-row w-[90%] sm:w-full h-[9rem] lg:h-[13rem] xl:h-[18rem] bg-[#F5FFE6] rounded-[15px] lg:rounded-[30px] shadow-[0_4px_4px_rgba(0,0,0,0.25)]">
+                            <div className="flex justify-center items-center h-[100%] w-[30%] pl-[5%]">
+                                <div className="w-[170px] aspect-[1/1] rounded-full overflow-hidden">
                                     <Image
                                         src={guide.image}
                                         alt={guide.name}
@@ -41,13 +41,13 @@ export function GuideList() {
                                 </div>
                             </div>
 
-                            <div className="flex flex-col w-[70%] pl-[5%]">
+                            <div className="flex flex-col w-[70%] pl-[5%] pr-[5%]">
                                 <div className="flex items-center h-[40%] w-full">
-                                    <p className="font-poppins font-bold text-[#000000] text-[36px]">{guide.name}</p>
+                                    <p className="font-poppins font-bold text-[#000000] text-[1rem] lg:text-[1.5rem] xl:text-[2rem]">{guide.name}</p>
                                 </div>
 
-                                <div className="flex h-[60%] w-full">
-                                    <p className="font-poppins font-regular text-[#000000] text-[20px]">"{guide.quote}"</p>
+                                <div className="flex h-[60%] w-full pb-[3%]">
+                                    <p className="font-poppins font-regular text-[#000000] text-[0.75rem] lg:text-[1rem] xl:text-[1.25rem]">"{guide.quote}"</p>
 
                                 </div>
 
