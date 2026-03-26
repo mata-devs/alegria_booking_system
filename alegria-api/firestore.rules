@@ -1,0 +1,76 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSuperAdmin() {
+      return request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin';
+    }
+
+    function isOperator() {
+      return request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'operator';
+    }
+
+		// Public booking: catalog + slot availability are readable by anyone (no sign-in).
+    // Writes stay off for clients so only Admin SDK / Cloud Functions / console can change data.
+    match /activities/{activityId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /timeslots/{slotId} {
+      allow read: if true;
+      allow write: if false;
+    }
+		// Promo: client validates by code via query + optional operator lookup.
+    match /voucherCodes/{voucherId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+		
+    // Users collection
+    match /users/{userId} {
+      // Any authenticated user can read their own profile
+      allow read: if request.auth != null && request.auth.uid == userId;
+      // Super admins can read and update any user
+      allow read, update: if isSuperAdmin();
+
+			// Public can read ONLY operator docs that are explicitly public-safe.
+      allow get, list: if resource.data.role == "operator"
+        && resource.data.status == "active";
+
+    }
+
+    // Operator signup requests
+    match /operator_signup_requests/{requestId} {
+      allow read: if isSuperAdmin();
+      // Public create so unauthenticated applicants can submit
+      allow create: if true;
+    }
+
+    // App config
+    match /app_config/{docId} {
+      allow read, write: if isSuperAdmin();
+    }
+
+    // Signup link — public read/delete for token validation & invalidation
+    match /app_config/operator_signup_link {
+      allow read, delete: if true;
+    }
+
+    // ── Bookings ──────────────────────────────────────────────────
+    match /bookings/{bookingId} {
+      // Operators can read/update their own bookings (operatorUid must match uid)
+      allow read: if isOperator()
+        && resource.data.operatorUid == request.auth.uid;
+      allow update: if isOperator()
+        && resource.data.operatorUid == request.auth.uid
+        && request.resource.data.operatorUid == resource.data.operatorUid;
+      // Public create so the guest booking form works without sign-in
+      allow create: if true;
+      // Super admins have full access
+      allow read, write: if isSuperAdmin();
+    }
+  }
+}
