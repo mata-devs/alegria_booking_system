@@ -1,6 +1,9 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
+import { Users } from 'lucide-react';
+
+// TODO: update calendar slots view
 
 type SlotStatus = 'green' | 'red' | 'orange';
 
@@ -101,8 +104,8 @@ type DayStatus = 'none' | 'green' | 'orange' | 'red';
 
 type DayInfo = {
   dateKey: string; // YYYY-MM-DD
-  used: number;
-  capacity: number;
+  morning: { used: number; capacity: number };
+  afternoon: { used: number; capacity: number };
   status: DayStatus;
 };
 
@@ -141,12 +144,12 @@ function monthOnlyLabel(year: number, monthIndex: number) {
   return new Date(year, monthIndex, 1).toLocaleString('en-US', { month: 'long' });
 }
 
-// ---------- ring ----------
-function ProgressRing({
+// ---------- small ring for bubble ----------
+function SmallRing({
   value,
   max,
-  size = 120,
-  stroke = 10,
+  size = 40,
+  stroke = 4,
 }: {
   value: number;
   max: number;
@@ -181,14 +184,8 @@ function ProgressRing({
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
       </svg>
-
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="flex flex-col items-center leading-tight">
-          <div className="text-xl font-semibold text-neutral-700">
-            {value}/{max}
-          </div>
-          <div className="text-3xl">👥</div>
-        </div>
+      <div className="absolute inset-0 flex items-center justify-center text-neutral-400">
+        <Users size={size * 0.4} />
       </div>
     </div>
   );
@@ -197,24 +194,23 @@ function ProgressRing({
 // ---------- demo data ----------
 function makeDemoData(year: number, monthIndex: number) {
   // just mock a few colored days similar to your image
-  const mk = (day: number, used: number, cap: number, status: DayStatus): DayInfo => ({
+  const mk = (day: number, mUsed: number, mCap: number, aUsed: number, aCap: number, status: DayStatus): DayInfo => ({
     dateKey: `${year}-${pad2(monthIndex + 1)}-${pad2(day)}`,
-    used,
-    capacity: cap,
+    morning: { used: mUsed, capacity: mCap },
+    afternoon: { used: aUsed, capacity: aCap },
     status,
   });
 
   return [
-    mk(6, 20, 70, 'orange'),
-    mk(7, 18, 70, 'orange'),
-    mk(11, 22, 70, 'orange'),
-    mk(12, 45, 70, 'red'),
+    mk(6, 20, 30, 15, 40, 'orange'),
+    mk(7, 18, 30, 12, 40, 'orange'),
+    mk(11, 22, 30, 18, 40, 'orange'),
+    mk(12, 30, 30, 40, 40, 'red'),
   ];
 }
 
 export default function CalendarAvailability() {
   const today = new Date();
-  const [view, setView] = useState<ViewMode>('Month');
 
   const [year, setYear] = useState(today.getFullYear());
   const [monthIndex, setMonthIndex] = useState(today.getMonth());
@@ -250,9 +246,6 @@ export default function CalendarAvailability() {
     return Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
   }, [gridStart]);
 
-  const selected = byKey.get(selectedKey);
-  const selectedDate = new Date(selectedKey);
-
   const goPrevMonth = () => {
     const m = monthIndex - 1;
     if (m < 0) {
@@ -281,52 +274,34 @@ export default function CalendarAvailability() {
   };
 
   return (
-    <div className="w-full max-w-5xl rounded-3xl bg-white shadow-sm border border-neutral-200 py-5 px-6">
+    <div className="w-full rounded-lg border border-gray-200 bg-white py-3 px-4">
       {/* Title row */}
-      <div className="flex items-start justify-between">
-        <div className="w-full text-center text-2xl font-extrabold text-neutral-900">
-          Calendar Availability
-        </div>
-
-        <div className="ml-6">
-          <div className="relative">
-            <select
-              value={view}
-              onChange={(e) => setView(e.target.value as ViewMode)}
-              className="appearance-none rounded-xl border border-neutral-300 bg-white px-4 py-2 pr-10 text-sm font-semibold text-neutral-700 shadow-sm outline-none"
-            >
-              <option>Month</option>
-              <option>Week</option>
-            </select>
-            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-neutral-600">
-              ▾
-            </span>
-          </div>
-        </div>
+      <div className="text-center text-sm font-bold text-gray-900">
+        Calendar Availability
       </div>
 
       {/* Main content */}
-      <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-12">
-        {/* Left calendar */}
-        <div className="md:col-span-7">
+      <div className="mt-2 flex flex-col gap-2">
+        {/* Calendar */}
+        <div>
           {/* Month nav bar */}
-          <div className="mx-auto w-full max-w-md rounded-md bg-lime-600 px-3 py-2">
+          <div className="w-full rounded-md bg-[#558B2F] px-2 py-1.5">
             <div className="flex items-center justify-between text-white">
               <button
                 type="button"
                 onClick={goPrevMonth}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-white/15"
+                className="inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-white/15 transition-colors text-sm"
                 aria-label="Previous month"
               >
                 ‹
               </button>
 
-              <div className="text-lg font-semibold">{monthLabel(year, monthIndex)}</div>
+              <div className="text-xs font-semibold">{monthLabel(year, monthIndex)}</div>
 
               <button
                 type="button"
                 onClick={goNextMonth}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-white/15"
+                className="inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-white/15 transition-colors text-sm"
                 aria-label="Next month"
               >
                 ›
@@ -335,17 +310,17 @@ export default function CalendarAvailability() {
           </div>
 
           {/* Weekday header */}
-          <div className="mx-auto mt-3 w-full max-w-md">
-            <div className="grid grid-cols-7 text-center text-sm font-semibold text-lime-700">
+          <div className="mt-2 w-full">
+            <div className="grid grid-cols-7 text-center text-[11px] font-semibold text-[#558B2F]">
               {WEEKDAYS.map((d) => (
-                <div key={d} className="py-1">
+                <div key={d} className="py-0.5">
                   {d}
                 </div>
               ))}
             </div>
 
             {/* Days grid */}
-            <div className="grid grid-cols-7 gap-y-1 text-center text-sm">
+            <div className="grid grid-cols-7 gap-y-0 text-center text-xs">
               {days.map((d) => {
                 const inMonth = d >= monthStart && d <= monthEnd;
                 const key = toKey(d);
@@ -361,7 +336,7 @@ export default function CalendarAvailability() {
                     type="button"
                     onClick={() => setSelectedKey(key)}
                     className={[
-                      'relative mx-auto flex h-9 w-9 items-center justify-center rounded-full',
+                      'relative mx-auto flex h-7 w-7 items-center justify-center rounded-full',
                       inMonth ? 'text-neutral-900' : 'text-neutral-400',
                       isSelected ? 'bg-orange-100 ring-2 ring-orange-300' : 'hover:bg-neutral-100',
                     ].join(' ')}
@@ -371,7 +346,7 @@ export default function CalendarAvailability() {
                     {dot !== 'none' && (
                       <span
                         className={[
-                          'absolute -top-1 right-1 h-3 w-3 rounded-full ring-2 ring-white',
+                          'absolute -top-0.5 right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-white',
                           statusDotClass[dot],
                         ].join(' ')}
                         aria-hidden="true"
@@ -381,33 +356,42 @@ export default function CalendarAvailability() {
                 );
               })}
             </div>
-          </div>
-        </div>
 
-        {/* Right summary card */}
-        <div className="md:col-span-5">
-          <div className="mx-auto w-full max-w-sm rounded-2xl border-2 border-neutral-300 p-10">
-            <div className="text-center text-lg font-semibold text-neutral-800">
-              {monthOnlyLabel(year, monthIndex)}
-            </div>
-
-            <div className="mt-2 text-center text-6xl font-extrabold text-neutral-900">
-              {selectedDate.getDate()}
-            </div>
-
-            <div className="mt-5 flex items-center justify-center">
-              <ProgressRing value={selected?.used ?? 0} max={selected?.capacity ?? 70} />
-            </div>
+            {/* Selected date capacity bar */}
+            {(() => {
+              const selInfo = byKey.get(selectedKey);
+              if (!selInfo) return null;
+              const selDate = new Date(selectedKey);
+              const dayLabel = selDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+              return (
+                <div className="mt-3 space-y-1.5">
+                  <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider px-1">{dayLabel}</div>
+                  <div className="flex gap-2">
+                    <div className="flex-1 flex items-center gap-2 rounded-lg bg-gray-50 px-2 py-2">
+                      <SmallRing value={selInfo.morning.used} max={selInfo.morning.capacity} size={32} stroke={3} />
+                      <div className="flex flex-col leading-tight">
+                        <span className="text-[11px] font-bold text-gray-800">Morning</span>
+                        <span className="text-[10px] text-gray-500">
+                          {selInfo.morning.used}/{selInfo.morning.capacity}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex-1 flex items-center gap-2 rounded-lg bg-gray-50 px-2 py-2">
+                      <SmallRing value={selInfo.afternoon.used} max={selInfo.afternoon.capacity} size={32} stroke={3} />
+                      <div className="flex flex-col leading-tight">
+                        <span className="text-[11px] font-bold text-gray-800">Afternoon</span>
+                        <span className="text-[10px] text-gray-500">
+                          {selInfo.afternoon.used}/{selInfo.afternoon.capacity}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>
-
-      {/* View mode note (optional, remove if you want) */}
-      {view !== 'Month' && (
-        <div className="mt-6 text-sm text-neutral-500">
-          (UI only) View mode: <span className="font-semibold">{view}</span>
-        </div>
-      )}
     </div>
   );
 }

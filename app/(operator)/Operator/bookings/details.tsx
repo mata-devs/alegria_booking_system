@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
+import { X, Printer } from 'lucide-react';
 
 export type BookingStatus =
     | 'Reserved'
@@ -237,7 +238,7 @@ export default function BookingDetailsCard({
 
   if (!booking) {
     return (
-        <div className="h-full min-h-0 w-full rounded-2xl border shadow-sm bg-white flex items-center justify-center text-sm text-neutral-500">
+        <div className="w-full rounded-lg border border-gray-200 bg-white p-8 flex items-center justify-center text-sm text-gray-400">
           Select a booking from the list.
         </div>
     );
@@ -245,54 +246,43 @@ export default function BookingDetailsCard({
 
   return (
       <>
-        <div className="w-full h-full min-h-0 rounded-2xl bg-white border shadow-sm overflow-hidden flex flex-col">
+        <div className="w-full rounded-lg border border-gray-200 bg-white overflow-hidden flex flex-col">
           {/* Header */}
-          <div className="bg-white flex py-1">
-            <div className="w-[132px] py-2 shrink-0 flex justify-end">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+            <p className="text-xs text-gray-500">
+              Booking ID: <span className="font-medium text-gray-700">{booking.bookingIdLabel ?? booking.id}</span>
+            </p>
+
+            <div className="flex items-center gap-1">
               <button
                   type="button"
                   onClick={() => setIsPrintPreviewOpen(true)}
-                  className="inline-flex h-7 items-center justify-center rounded-full border border-lime-300 bg-lime-200 px-4 text-[11px] font-medium text-lime-900 hover:bg-lime-300"
+                  className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-[#558B2F] transition-colors"
+                  title="Print preview"
               >
-                preview printable
+                <Printer size={16} />
               </button>
-            </div>
-            <div className="flex items-center w-[100%] pl-55 justify-center">
-
-              <div className="text-[15px] text-gray-500 leading-tight">
-                Booking Id:{' '}
-                <div className="flex items-center w-[100%] justify-center">
-                <span className="font-medium text-gray-500">
-                  {booking.bookingIdLabel ?? booking.id}
-                </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="w-full flex items-center justify-end py-1 px-2 gap-2">
-
-
-              {onClose ? (
-                  <button
-                      type="button"
-                      onClick={onClose}
-                      aria-label="Close booking details"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-neutral-200 bg-gray-100 text-neutral-600 hover:bg-neutral-100 shrink-0"
-                  >
-                    ✕
-                  </button>
-              ) : null}
+              {onClose && (
+                <button
+                    type="button"
+                    onClick={onClose}
+                    aria-label="Close booking details"
+                    className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              )}
             </div>
           </div>
 
           {/* Body */}
-          <div className="flex-1 min-h-0 overflow-y-auto px-12 pb-5">
+          <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5">
             {/* Schedule + Representative */}
-            <div className="mt-2 space-y-2 text-[18px] text-neutral-700">
+            <div className="mt-3 space-y-1.5 text-sm text-gray-700">
               <Row
                   label="Tour Schedule:"
                   value={
-                    <span className="font-semibold text-neutral-900">
+                    <span className="font-semibold text-gray-900">
                   {booking.scheduleLabel}
                 </span>
                   }
@@ -300,7 +290,7 @@ export default function BookingDetailsCard({
               <Row label="Representative:" value="" />
             </div>
 
-            <div className="mt-2 px-1 text-[18px] text-neutral-700 pl-3">
+            <div className="mt-2 pl-3 space-y-1 text-sm text-gray-700">
               <div className="flex items-center gap-6">
                 <Row
                     label="Name:"
@@ -314,91 +304,91 @@ export default function BookingDetailsCard({
             </div>
 
             {/* Other Guests */}
-            <div className="mt-2 text-lg text-neutral-700 font-semibold">Other Guests</div>
+            <div className="mt-4 text-sm font-bold text-gray-900">Other Guests</div>
 
-            <div className="mt-2 overflow-hidden">
-              <div className="grid grid-cols-6 gap-2 px-3 py-2 text-sm text-neutral-800 font-medium">
-                <div className="col-span-3 text-center md:text-left">Name</div>
+            <div className="mt-2 rounded-lg border border-gray-200 overflow-hidden">
+              <div className="grid grid-cols-6 gap-2 px-3 py-2 text-xs text-gray-500 font-medium bg-gray-50">
+                <div className="col-span-3">Name</div>
                 <div className="col-span-1 text-center">Age</div>
-                <div className="col-span-2 text-center md:text-right">Gender</div>
+                <div className="col-span-2 text-right">Gender</div>
               </div>
-              <div>
+              <div className="divide-y divide-gray-100">
                 {booking.otherGuests.map((g, idx) => (
                     <div
                         key={idx}
-                        className="grid grid-cols-6 gap-2 px-3 py-1 text-sm text-neutral-800"
+                        className="grid grid-cols-6 gap-2 px-3 py-1.5 text-sm text-gray-700"
                     >
-                      <div className="col-span-3 font-semibold truncate">{g.name}</div>
-                      <div className="col-span-1 font-semibold text-center">{g.age}</div>
-                      <div className="col-span-2 text-right font-semibold">{g.gender}</div>
+                      <div className="col-span-3 font-medium truncate">{g.name}</div>
+                      <div className="col-span-1 text-center">{g.age}</div>
+                      <div className="col-span-2 text-right">{g.gender}</div>
                     </div>
                 ))}
               </div>
             </div>
 
             {/* Payment */}
-            <div className="mt-5 text-lg text-neutral-800 font-semibold">Payment</div>
+            <div className="mt-4 text-sm font-bold text-gray-900">Payment</div>
 
-            <div className="mt-2 text-[12px] text-neutral-800 space-y-4 px-10">
+            <div className="mt-2 text-sm text-gray-700 space-y-3 px-2">
               <div className="flex items-center justify-between">
-              <span className="text-lg font-semibold text-neutral-800">
+              <span className="text-sm font-medium text-gray-700">
                 {`₱${booking.payment.pricePerPerson} x ${booking.payment.qty}`}
               </span>
-                <span className="text-lg font-semibold text-neutral-800">
+                <span className="text-sm font-medium text-gray-700">
                 {peso(totals?.subtotal ?? 0)}
               </span>
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-lg font-semibold text-neutral-800">Service charge</span>
-                <span className="text-lg font-semibold text-neutral-800">
+                <span className="text-sm font-medium text-gray-700">Service charge</span>
+                <span className="text-sm font-medium text-gray-700">
                 {peso(booking.payment.serviceCharge)}
               </span>
               </div>
 
-              <div className="h-px bg-neutral-200" />
+              <div className="h-px bg-gray-200" />
 
               <div className="flex items-center justify-between">
-                <span className="text-lg font-semibold text-neutral-800">Total</span>
-                <span className="text-lg font-semibold text-neutral-800">
+                <span className="text-sm font-bold text-gray-900">Total</span>
+                <span className="text-sm font-bold text-gray-900">
                 {peso(totals?.total ?? 0)}
               </span>
               </div>
 
-              <div className="mt-2">
-                <span className="text-[12px] text-neutral-800">Payment Option: </span>
-                <span className="font-semibold text-neutral-800">{booking.payment.option}</span>
+              <div className="mt-1">
+                <span className="text-xs text-gray-500">Payment Option: </span>
+                <span className="text-xs font-semibold text-gray-700">{booking.payment.option}</span>
               </div>
             </div>
 
             {/* File Upload */}
-            <div className="mt-5 text-lg text-neutral-800 font-semibold">File Upload</div>
+            <div className="mt-4 text-sm font-bold text-gray-900">File Upload</div>
 
-            <div className="mt-2 rounded-xl border border-neutral-200 overflow-hidden bg-white">
+            <div className="mt-2 rounded-lg border border-gray-200 overflow-hidden bg-white divide-y divide-gray-200">
               {visibleUploads.length === 0 ? (
-                  <div className="px-2 py-2 text-[11px] text-neutral-500">
+                  <div className="px-3 py-2 text-xs text-gray-400">
                     No files uploaded yet.
                   </div>
               ) : (
                   visibleUploads.map((f) => (
                       <div
                           key={f.id}
-                          className="flex items-center justify-between px-3 py-2 text-[12px] border-b last:border-b-0 border-neutral-200"
+                          className="flex items-center justify-between px-3 py-2 text-sm hover:bg-gray-50 transition-colors"
                       >
-                        <div className="flex items-center gap-2 text-neutral-700">
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-neutral-100 border border-neutral-200">
+                        <div className="flex items-center gap-2 text-gray-700">
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-gray-100 border border-gray-200">
                       <Image src="/photos.png" alt="" width={25} height={2} />
                     </span>
-                          <span className="font-medium">{f.name}</span>
+                          <span className="font-medium text-sm">{f.name}</span>
                         </div>
 
                         <button
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-red-500 hover:bg-red-50"
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-red-500 hover:bg-red-50 transition-colors"
                             type="button"
                             aria-label="Delete file"
                             onClick={() => removeUpload(f.id)}
                         >
-                          <Image src="/trash.png" alt="" width={25} height={2} />
+                          <Image src="/trash.png" alt="" width={20} height={2} />
                         </button>
                       </div>
                   ))
@@ -408,8 +398,8 @@ export default function BookingDetailsCard({
             {/* Dropzone */}
             <div
                 className={[
-                  'mt-4 rounded-xl border-2 border-dashed bg-lime-50 px-4 py-2',
-                  isDragOver ? 'border-lime-600' : 'border-lime-400',
+                  'mt-3 rounded-lg border-2 border-dashed bg-green-50 px-4 py-2',
+                  isDragOver ? 'border-[#558B2F]' : 'border-green-300',
                 ].join(' ')}
                 onDragOver={onDragOver}
                 onDragLeave={onDragLeave}
@@ -438,7 +428,7 @@ export default function BookingDetailsCard({
 
             {/* Status */}
             <div className="mt-4 flex items-center justify-center">
-              <div className="relative inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-[12px] text-neutral-700">
+              <div className="relative inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-1.5 text-sm text-gray-700">
                 <span className={`h-2 w-2 rounded-full ${statusDot[status]}`} />
 
                 <select
@@ -460,131 +450,147 @@ export default function BookingDetailsCard({
         {/* Print Preview Modal */}
         {isPrintPreviewOpen && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 p-4">
-              <div className="relative w-full max-w-[400px] sm:max-w-[600px]">
+              <div className="relative w-full max-w-[420px] sm:max-w-[540px] max-h-[90vh] flex flex-col rounded-lg bg-white shadow-2xl overflow-hidden">
+                {/* Modal close */}
                 <button
                     type="button"
                     onClick={() => setIsPrintPreviewOpen(false)}
-                    className="absolute -top-3 -right-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-neutral-700 shadow-md hover:bg-neutral-100"
+                    className="absolute top-3 right-3 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors"
                 >
-                  ✕
+                  <X size={16} />
                 </button>
 
-                <div className="h-[87vh] overflow-y-auto rounded-sm bg-[#f6f6f6] shadow-2xl">
+                {/* Scrollable content */}
+                <div className="flex-1 min-h-0 overflow-y-auto">
                   <div
                       ref={printSheetRef}
-                      className="px-6 pt-6 pb-8 text-[15px] text-black"
+                      className="px-8 pt-8 pb-6 text-[13px] text-neutral-800"
                   >
-                    <div className="mb-5 h-[5px] w-full bg-black" />
-
-                    <div className="space-y-2">
-                      <div className="flex gap-2">
-                        <span className="w-[70px] shrink-0">Booking ID:</span>
-                        <span className="font-medium">{booking.bookingIdLabel ?? booking.id}</span>
-                      </div>
-
-                      <div className="mt-4 font-medium">Representative:</div>
-
-                      <div className="grid grid-cols-[60px_1fr_35px_1fr] gap-x-2 gap-y-1 pl-2">
-                        <span>Name:</span>
-                        <span className="font-medium">{booking.representative.name}</span>
-                        <span>Age:</span>
-                        <span className="font-medium">{booking.representative.age}</span>
-
-                        <span>Email:</span>
-                        <span className="font-medium break-all">{booking.representative.email}</span>
-                        <span></span>
-                        <span></span>
-
-                        <span>Mobile Number:</span>
-                        <span className="font-medium break-all">{booking.representative.mobile}</span>
-                        <span></span>
-                        <span></span>
-                      </div>
-
-                      <div className="mt-6 font-medium">Other Guests</div>
-
-                      <div className="pl-2">
-                        <div className="grid grid-cols-[1.6fr_0.5fr_0.8fr] gap-2 pb-1 text-center">
-                          <div>Name</div>
-                          <div>Age</div>
-                          <div>Gender</div>
+                    {/* Header */}
+                    <div className="border-b-2 border-[#558B2F] pb-4 mb-5">
+                      <h3 className="text-lg font-bold text-[#558B2F] tracking-tight">Booking Confirmation</h3>
+                      <div className="mt-2 flex items-center justify-between">
+                        <div className="text-xs text-neutral-500">
+                          Booking ID: <span className="font-semibold text-neutral-800">{booking.bookingIdLabel ?? booking.id}</span>
                         </div>
-
-                        <div className="space-y-1">
-                          {booking.otherGuests.map((guest, idx) => (
-                              <div
-                                  key={`${guest.name}-${idx}`}
-                                  className="grid grid-cols-[1.6fr_0.5fr_0.8fr] gap-2 text-center"
-                              >
-                                <div className="text-left font-medium">{guest.name}</div>
-                                <div className="font-medium">{guest.age}</div>
-                                <div className="font-medium">{guest.gender}</div>
-                              </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="mt-6 font-medium">Payment</div>
-
-                      <div className="space-y-2 pl-2">
-                        <div className="flex items-center justify-between gap-4">
-                      <span className="font-medium">
-                        ₱{booking.payment.pricePerPerson} x {booking.payment.qty}
-                      </span>
-                          <span className="font-medium">{peso(totals?.subtotal ?? 0)}</span>
-                        </div>
-
-                        <div className="flex items-center justify-between gap-4">
-                          <span className="font-medium">Service charge</span>
-                          <span className="font-medium">{peso(booking.payment.serviceCharge)}</span>
-                        </div>
-
-                        <div className="flex items-center justify-between gap-4 pt-1">
-                          <span className="font-medium">Total</span>
-                          <span className="font-medium">{peso(totals?.total ?? 0)}</span>
-                        </div>
-                      </div>
-
-                      <div className="mt-8 pl-2">
-                        <div className="flex gap-2">
-                          <span>Payment Option:</span>
-                          <span className="font-medium">{booking.payment.option}</span>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 pl-2 space-y-1">
-                        <div className="flex gap-2">
-                          <span className="w-[70px] shrink-0">Tour Operator:</span>
-                          <span className="font-medium">Operator 1</span>
-                        </div>
-                        <div className="flex gap-2">
-                          <span className="w-[70px] shrink-0">email:</span>
-                          <span className="font-medium">tourop1@email.com</span>
-                        </div>
-                        <div className="flex gap-2">
-                          <span className="w-[70px] shrink-0">phone number:</span>
-                          <span className="font-medium">0932221458</span>
+                        <div className="text-xs text-neutral-500">
+                          Date: <span className="font-semibold text-neutral-800">{booking.requestDate}</span>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex items-center justify-end gap-2 border-t border-neutral-200 bg-white px-4 py-4">
-                    <button
-                        type="button"
-                        onClick={() => setIsPrintPreviewOpen(false)}
-                        className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
-                    >
-                      Close
-                    </button>
-                    <button
-                        type="button"
-                        onClick={handlePrint}
-                        className="rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800"
-                    >
-                      Print
-                    </button>
+                    {/* Tour Schedule */}
+                    <div className="mb-5 rounded-md bg-green-50 border border-green-100 px-4 py-3">
+                      <div className="text-[11px] font-medium uppercase tracking-wider text-[#558B2F]">Tour Schedule</div>
+                      <div className="mt-1 text-sm font-bold text-neutral-900">{booking.scheduleLabel}</div>
+                    </div>
+
+                    {/* Representative */}
+                    <div className="mb-5">
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-neutral-500 mb-2">Representative</div>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[13px]">
+                        <div>
+                          <span className="text-neutral-500">Name:</span>{' '}
+                          <span className="font-medium">{booking.representative.name}</span>
+                        </div>
+                        <div>
+                          <span className="text-neutral-500">Age:</span>{' '}
+                          <span className="font-medium">{booking.representative.age}</span>
+                        </div>
+                        <div>
+                          <span className="text-neutral-500">Gender:</span>{' '}
+                          <span className="font-medium">{booking.representative.gender}</span>
+                        </div>
+                        <div>
+                          <span className="text-neutral-500">Email:</span>{' '}
+                          <span className="font-medium break-all">{booking.representative.email}</span>
+                        </div>
+                        <div className="col-span-2">
+                          <span className="text-neutral-500">Mobile:</span>{' '}
+                          <span className="font-medium">{booking.representative.mobile}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Other Guests */}
+                    {booking.otherGuests.length > 0 && (
+                      <div className="mb-5">
+                        <div className="text-[11px] font-bold uppercase tracking-wider text-neutral-500 mb-2">
+                          Other Guests ({booking.otherGuests.length})
+                        </div>
+                        <table className="w-full text-[13px]">
+                          <thead>
+                            <tr className="border-b border-neutral-200">
+                              <th className="py-1.5 text-left font-semibold text-neutral-600">#</th>
+                              <th className="py-1.5 text-left font-semibold text-neutral-600">Name</th>
+                              <th className="py-1.5 text-center font-semibold text-neutral-600">Age</th>
+                              <th className="py-1.5 text-right font-semibold text-neutral-600">Gender</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {booking.otherGuests.map((guest, idx) => (
+                              <tr key={`${guest.name}-${idx}`} className="border-b border-neutral-100">
+                                <td className="py-1.5 text-neutral-400">{idx + 1}</td>
+                                <td className="py-1.5 font-medium">{guest.name}</td>
+                                <td className="py-1.5 text-center">{guest.age}</td>
+                                <td className="py-1.5 text-right">{guest.gender}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {/* Payment */}
+                    <div className="mb-5">
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-neutral-500 mb-2">Payment Summary</div>
+                      <div className="rounded-md border border-neutral-200 overflow-hidden">
+                        <div className="flex items-center justify-between px-4 py-2 text-[13px]">
+                          <span className="text-neutral-600">₱{booking.payment.pricePerPerson} × {booking.payment.qty} guest{booking.payment.qty !== 1 ? 's' : ''}</span>
+                          <span className="font-medium">{peso(totals?.subtotal ?? 0)}</span>
+                        </div>
+                        <div className="flex items-center justify-between px-4 py-2 text-[13px] border-t border-neutral-100">
+                          <span className="text-neutral-600">Service charge</span>
+                          <span className="font-medium">{peso(booking.payment.serviceCharge)}</span>
+                        </div>
+                        <div className="flex items-center justify-between px-4 py-2.5 text-sm font-bold border-t border-neutral-200 bg-neutral-50">
+                          <span>Total</span>
+                          <span>{peso(totals?.total ?? 0)}</span>
+                        </div>
+                      </div>
+                      <div className="mt-2 text-[13px] text-neutral-500">
+                        Payment Option: <span className="font-medium text-neutral-800">{booking.payment.option}</span>
+                      </div>
+                    </div>
+
+                    {/* Operator Info */}
+                    <div className="border-t border-neutral-200 pt-4">
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-neutral-500 mb-2">Tour Operator</div>
+                      <div className="text-[13px] space-y-0.5">
+                        <div className="font-medium">Operator 1</div>
+                        <div className="text-neutral-500">tourop1@email.com</div>
+                        <div className="text-neutral-500">0932221458</div>
+                      </div>
+                    </div>
                   </div>
+                </div>
+
+                {/* Footer */}
+                <div className="flex items-center justify-end gap-2 border-t border-neutral-200 px-6 py-3 shrink-0">
+                  <button
+                      type="button"
+                      onClick={() => setIsPrintPreviewOpen(false)}
+                      className="rounded-md border border-neutral-300 px-4 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
+                  >
+                    Close
+                  </button>
+                  <button
+                      type="button"
+                      onClick={handlePrint}
+                      className="rounded-md bg-[#558B2F] px-4 py-1.5 text-xs font-medium text-white hover:bg-[#4a7a28] transition-colors"
+                  >
+                    Print
+                  </button>
                 </div>
               </div>
             </div>

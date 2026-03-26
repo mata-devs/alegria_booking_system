@@ -9,8 +9,6 @@ import {
   BarChart3,
   LogOut,
   Settings,
-  ChevronLeft,
-  ChevronRight,
   CircleUserRound,
   Menu,
 } from 'lucide-react';
@@ -25,9 +23,11 @@ const NAV_ITEMS = [
 interface OperatorSidebarProps {
   isCollapsed: boolean;
   onToggleCollapse: () => void;
+  onHoverEnter: () => void;
+  onHoverLeave: () => void;
 }
 
-export default function OperatorSidebar({ isCollapsed, onToggleCollapse }: OperatorSidebarProps) {
+export default function OperatorSidebar({ isCollapsed, onToggleCollapse, onHoverEnter, onHoverLeave }: OperatorSidebarProps) {
   const pathname = usePathname();
   const { signOutUser } = useAuth();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -53,32 +53,22 @@ export default function OperatorSidebar({ isCollapsed, onToggleCollapse }: Opera
 
       {/* Sidebar */}
       <aside
+        onMouseEnter={onHoverEnter}
+        onMouseLeave={onHoverLeave}
         className={`fixed top-0 left-0 z-50 h-full bg-[#558B2F] text-white flex flex-col transition-all duration-200 lg:translate-x-0 ${
           isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         } ${isCollapsed ? 'w-[4.5rem]' : 'w-56'}`}
       >
         {/* Header */}
         <div className={`flex items-center gap-3 py-6 ${isCollapsed ? 'justify-center px-3' : 'px-5'}`}>
-          {!isCollapsed && (
+          {!isCollapsed ? (
             <>
               <CircleUserRound className="h-10 w-10 shrink-0" strokeWidth={1.5} />
               <span className="text-lg font-bold leading-tight">Operator</span>
             </>
+          ) : (
+            <CircleUserRound className="h-8 w-8 shrink-0" strokeWidth={1.5} />
           )}
-          <button
-            onClick={() => {
-              onToggleCollapse();
-              setIsMobileOpen(false);
-            }}
-            className={isCollapsed ? '' : 'ml-auto'}
-            aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            {isCollapsed ? (
-              <ChevronRight className="h-5 w-5" />
-            ) : (
-              <ChevronLeft className="h-5 w-5" />
-            )}
-          </button>
         </div>
 
         <div className={`border-t border-white/30 ${isCollapsed ? 'mx-3' : 'mx-5'}`} />

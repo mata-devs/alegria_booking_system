@@ -35,7 +35,7 @@ const STATUS_LABEL: Record<SignUpRequestStatus, string> = {
   rejected: 'Declined',
 };
 
-const ROWS_PER_PAGE = 10;
+const ROWS_PER_PAGE = 12;
 
 // TODO: update firestore security rules
 

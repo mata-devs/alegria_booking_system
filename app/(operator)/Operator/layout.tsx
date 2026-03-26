@@ -10,7 +10,7 @@ export default function OperatorLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   return (
     <AuthProvider>
@@ -19,11 +19,11 @@ export default function OperatorLayout({
           <OperatorSidebar
             isCollapsed={isCollapsed}
             onToggleCollapse={() => setIsCollapsed((prev) => !prev)}
+            onHoverEnter={() => setIsCollapsed(false)}
+            onHoverLeave={() => setIsCollapsed(true)}
           />
           <main
-            className={`min-h-screen p-6 pt-16 lg:pt-6 transition-all duration-200 ${
-              isCollapsed ? 'lg:ml-[4.5rem]' : 'lg:ml-56'
-            }`}
+            className="min-h-screen p-6 pt-16 lg:pt-6 transition-all duration-200 lg:ml-[4.5rem]"
           >
             {children}
           </main>

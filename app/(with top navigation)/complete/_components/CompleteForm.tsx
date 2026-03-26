@@ -80,24 +80,32 @@ function getOperatorPaymentInfoFromUserDoc(userData: UnknownRecord | undefined, 
     const entry = asRecord(methods[indexByMethod[method]]);
     if (!entry) return { imageUrl: null, accountName: null, accountNumber: null };
 
+    const str = (v: unknown): string | null =>
+        typeof v === "string" && v.trim() !== "" ? v.trim() : null;
+    const url = (v: unknown): string | null => {
+        const s = str(v);
+        if (!s) return null;
+        try { new URL(s); return s; } catch { return null; }
+    };
+
     if (method === "Gcash / Maya") {
         return {
-            imageUrl: typeof entry.gcashMayaImageUrl === "string" ? entry.gcashMayaImageUrl : null,
-            accountName: typeof entry.gcashMayaAccountName === "string" ? entry.gcashMayaAccountName : null,
-            accountNumber: typeof entry.gcashMayaAccountNumber === "string" ? entry.gcashMayaAccountNumber : null,
+            imageUrl: url(entry.gcashMayaImageUrl),
+            accountName: str(entry.gcashMayaAccountName),
+            accountNumber: str(entry.gcashMayaAccountNumber),
         };
     }
     if (method === "BDO") {
         return {
-            imageUrl: typeof entry.bdoImageUrl === "string" ? entry.bdoImageUrl : null,
-            accountName: typeof entry.bdoAccountName === "string" ? entry.bdoAccountName : null,
-            accountNumber: typeof entry.bdoAccountNumber === "string" ? entry.bdoAccountNumber : null,
+            imageUrl: url(entry.bdoImageUrl),
+            accountName: str(entry.bdoAccountName),
+            accountNumber: str(entry.bdoAccountNumber),
         };
     }
     return {
-        imageUrl: typeof entry.bpiImageUrl === "string" ? entry.bpiImageUrl : null,
-        accountName: typeof entry.bpiAccountName === "string" ? entry.bpiAccountName : null,
-        accountNumber: typeof entry.bpiAccountNumber === "string" ? entry.bpiAccountNumber : null,
+        imageUrl: url(entry.bpiImageUrl),
+        accountName: str(entry.bpiAccountName),
+        accountNumber: str(entry.bpiAccountNumber),
     };
 }
 

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Filter, Search, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Booking } from '@/app/(operator)/Operator/bookings/details';
 
 type BookingStatus =
@@ -10,34 +11,16 @@ type BookingStatus =
 
 const statusStyles: Record<
   BookingStatus,
-  { dot: string; pill: string; text: string }
+  { dot: string; text: string }
 > = {
-  Reserved: {
-    dot: 'bg-yellow-300',
-    pill: 'bg-neutral-100',
-    text: 'text-neutral-700',
-  },
-  Paid: {
-    dot: 'bg-green-500',
-    pill: 'bg-neutral-100',
-    text: 'text-neutral-700',
-  },
-  Processing: {
-    dot: 'bg-orange-500',
-    pill: 'bg-neutral-100',
-    text: 'text-neutral-700',
-  },
-  Completed: {
-    dot: 'bg-green-500',
-    pill: 'bg-neutral-100',
-    text: 'text-neutral-700',
-  },
-  Cancelled: {
-    dot: 'bg-orange-500',
-    pill: 'bg-neutral-100',
-    text: 'text-neutral-700',
-  },
+  Reserved: { dot: 'bg-yellow-300', text: 'text-yellow-700' },
+  Paid: { dot: 'bg-green-500', text: 'text-green-700' },
+  Processing: { dot: 'bg-orange-500', text: 'text-orange-700' },
+  Completed: { dot: 'bg-green-500', text: 'text-green-700' },
+  Cancelled: { dot: 'bg-red-500', text: 'text-red-700' },
 };
+
+const ROWS_PER_PAGE = 11;
 
 function pesoShort(n: number) {
   return new Intl.NumberFormat('en-PH', {
@@ -46,73 +29,6 @@ function pesoShort(n: number) {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(n);
-}
-
-function FilterIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
-      <path
-        d="M4 5h16l-6.5 7.4v5.2l-3 1.4v-6.6L4 5Z"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function SearchIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
-      <path
-        d="M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16Z"
-        stroke="currentColor"
-        strokeWidth="2"
-      />
-      <path
-        d="M21 21l-4.3-4.3"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-function ChevronDownIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" {...props}>
-      <path
-        fillRule="evenodd"
-        d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.94l3.71-3.7a.75.75 0 1 1 1.06 1.06l-4.24 4.24a.75.75 0 0 1-1.06 0L5.21 8.29a.75.75 0 0 1 .02-1.08Z"
-        clipRule="evenodd"
-      />
-    </svg>
-  );
-}
-
-function ChevronLeftIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" {...props}>
-      <path
-        fillRule="evenodd"
-        d="M12.78 15.03a.75.75 0 0 1-1.06 0l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 1 1 1.06 1.06L9.06 10l3.72 3.72a.75.75 0 0 1 0 1.06Z"
-        clipRule="evenodd"
-      />
-    </svg>
-  );
-}
-
-function ChevronRightIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" {...props}>
-      <path
-        fillRule="evenodd"
-        d="M7.22 15.03a.75.75 0 0 1 0-1.06L10.94 10 7.22 6.28a.75.75 0 1 1 1.06-1.06l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0Z"
-        clipRule="evenodd"
-      />
-    </svg>
-  );
 }
 
 export default function BookingRequestsPanel({
@@ -140,281 +56,238 @@ export default function BookingRequestsPanel({
   const [openSearchBy, setOpenSearchBy] = React.useState(false);
   const [currentPage, setCurrentPage] = React.useState(1);
 
-  const ITEMS_PER_PAGE = 10;
-
   React.useEffect(() => {
     setCurrentPage(1);
   }, [query, searchBy, bookings.length]);
 
   const totalItems = bookings.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(totalItems / ROWS_PER_PAGE));
   const safeCurrentPage = Math.min(currentPage, totalPages);
-  const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, totalItems);
+  const startIndex = (safeCurrentPage - 1) * ROWS_PER_PAGE;
+  const endIndex = Math.min(startIndex + ROWS_PER_PAGE, totalItems);
   const paginatedBookings = bookings.slice(startIndex, endIndex);
 
-  const pageNumbers = React.useMemo(() => {
-    return Array.from({ length: totalPages }, (_, i) => i + 1);
-  }, [totalPages]);
-
   return (
-    <div className="w-full min-w-0 flex flex-col gap-5">
-      <div className="rounded-xl border border-neutral-200 bg-white px-4 py-3 sm:px-6 sm:py-4">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between md:gap-6">
-          <div className="text-lg font-semibold text-neutral-900">
-            Booking Requests
+    <div className="flex flex-col gap-4 h-full">
+      {/* Stats card */}
+      <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Booking Requests</h2>
+            <p className="text-xs text-gray-500">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            </p>
           </div>
 
-          <div className="w-full md:flex-1 md:flex md:justify-end md:px-20">
-            <div className="flex w-full flex-col items-center gap-4 sm:gap-6 md:w-auto md:flex-row md:gap-20">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-gray-600 sm:text-4xl">
-                  {newBookings24h}
-                </div>
-                <div className="text-base font-medium text-gray-900 sm:text-xl">
-                  New Bookings last 24 hours
-                </div>
-              </div>
+          <div className="flex items-center gap-6">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-red-600">32<span>/30</span></div>
+              <div className="text-sm font-medium text-gray-900">Morning Slot</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-gray-600">{newBookings24h}<span>/30</span></div>
+              <div className="text-sm font-medium text-gray-900">Afternoon Slot</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-gray-600">{newBookings24h}</div>
+              <div className="text-sm font-medium text-gray-900">New Bookings</div>
+            </div>
 
-              <div className="h-px w-full bg-gray-200 md:h-16 md:w-px md:bg-gray-400" />
+            <div className="h-10 w-px bg-gray-300" />
 
-              <div className="text-center">
-                <div className="text-3xl font-bold text-gray-600 sm:text-4xl">
-                  {totalRequests}
-                </div>
-                <div className="text-base font-medium text-gray-900 sm:text-xl">
-                  Total booking requests
-                </div>
-              </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-gray-600">{totalRequests}</div>
+              <div className="text-sm font-medium text-gray-900">Total Requests</div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-neutral-200 bg-white p-4">
-        {/* Filters + Search */}
-        <div className="px-3 pt-1 pb-0">
-          <div className="flex flex-row gap-4">
+      {/* Table panel */}
+      <div className="rounded-lg border border-gray-200 bg-white p-4 flex-1 min-h-0 flex flex-col">
+        {/* Toolbar */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-md bg-[#558B2F] px-4 py-2 text-sm font-medium text-white hover:bg-[#4a7a28] transition-colors"
+            onClick={() => onOpenFilters?.()}
+          >
+            <Filter size={16} />
+            Filters
+          </button>
+
+          <span className="text-sm font-medium text-gray-700">Search by:</span>
+
+          {/* Search-field dropdown */}
+          <div className="relative">
             <button
               type="button"
-              className="inline-flex w-[15%] items-center gap-2 rounded-xl bg-green-600 px-6 py-3 text-[13px] font-semibold text-white hover:bg-green-700"
-              onClick={() => onOpenFilters?.()}
+              onClick={() => setOpenSearchBy((v) => !v)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-[#558B2F] px-4 py-1.5 text-sm font-medium text-[#558B2F] hover:bg-green-50 transition-colors"
             >
-              <FilterIcon className="h-4 w-4" />
-              Filters
+              {searchBy}
+              <ChevronDown size={14} />
             </button>
-
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-              <div className="text-[13px] font-semibold text-neutral-900">
-                Search by:
-              </div>
-
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setOpenSearchBy((v) => !v)}
-                  className={[
-                    'inline-flex items-center justify-between gap-3 rounded-lg border-2 px-4 py-2 text-[13px] font-semibold',
-                    'border-green-600 text-green-700 bg-white',
-                    'min-w-[180px]',
-                  ].join(' ')}
-                >
-                  <span>{searchBy}</span>
-                  <ChevronDownIcon className="h-4 w-4 text-green-700" />
-                </button>
-
-                {openSearchBy && (
-                  <div
-                    className="absolute left-0 top-[calc(100%+8px)] z-50 w-full overflow-hidden rounded-lg border-2 border-green-600 bg-white"
-                    onMouseLeave={() => setOpenSearchBy(false)}
-                  >
-                    {(['Representative', 'Booking ID'] as const).map((opt) => (
-                      <button
-                        key={opt}
-                        type="button"
-                        onClick={() => {
-                          setSearchBy(opt);
-                          setOpenSearchBy(false);
-                        }}
-                        className={[
-                          'w-full px-4 py-3 text-left text-[13px] font-semibold',
-                          'text-green-700 hover:bg-green-50',
-                        ].join(' ')}
-                      >
-                        {opt}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="relative w-full sm:w-[340px]">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500">
-                  <SearchIcon className="h-4 w-4" />
-                </span>
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search"
-                  className="h-10 w-full rounded-lg border-2 border-neutral-400 pl-10 pr-3 text-[13px] text-neutral-600 outline-none focus:border-neutral-500"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="px-3 pb-4 pt-3">
-          <div className="grid grid-cols-7 gap-3 text-[13px] font-semibold text-gray-900">
-            <div className="col-span-1">Booking Id</div>
-            <div className="col-span-1">Request Date</div>
-            <div className="col-span-1">Representative</div>
-            <div className="col-span-1">Schedule</div>
-            <div className="col-span-1 text-center">No. of Guests</div>
-            <div className="col-span-1">Total</div>
-            <div className="col-span-1">Status</div>
-          </div>
-        </div>
-
-        <div className="space-y-2.5 px-2">
-          {paginatedBookings.map((b) => {
-            const s = statusStyles[b.status];
-            const subtotal = b.payment.pricePerPerson * b.payment.qty;
-            const total = subtotal + b.payment.serviceCharge;
-
-            return (
+            {openSearchBy && (
               <div
-                key={b.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => onSelect?.(b.id)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') onSelect?.(b.id);
-                }}
-                className={[
-                  'rounded-xl bg-neutral-100 px-4 py-2 cursor-pointer',
-                  'hover:bg-neutral-200 transition-colors',
-                  selectedId === b.id ? 'ring-2 ring-neutral-400' : '',
-                ].join(' ')}
+                className="absolute left-0 top-full z-10 mt-1 w-44 rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+                onMouseLeave={() => setOpenSearchBy(false)}
               >
-                <div className="grid grid-cols-7 items-center font-semibold gap-3 text-[14px] text-neutral-800">
-                  <div className="col-span-1 truncate">
-                    {b.bookingIdLabel ?? b.id}
-                  </div>
-
-                  <div className="col-span-1">
-                    <div className="flex items-center gap-3">
-                      <span className="inline-block h-7 w-px bg-neutral-300" />
-                      <span className="truncate">{b.requestDate}</span>
-                    </div>
-                  </div>
-
-                  <div className="col-span-1 truncate">
-                    <div className="flex items-center gap-3">
-                      <span className="inline-block h-7 w-px bg-neutral-300" />
-                      <span className="truncate">{b.representative.name}</span>
-                    </div>
-                  </div>
-
-                  <div className="col-span-1 truncate">
-                    <div className="flex items-center gap-3">
-                      <span className="inline-block h-7 w-px bg-neutral-300" />
-                      <span className="truncate">{b.scheduleLabel}</span>
-                    </div>
-                  </div>
-
-                  <div className="col-span-1 text-center">
-                    <div className="flex items-center justify-center gap-3">
-                      <span className="inline-block h-7 w-px bg-neutral-300" />
-                      <span>{b.payment.qty}</span>
-                    </div>
-                  </div>
-
-                  <div className="col-span-1">
-                    <div className="flex items-center gap-3">
-                      <span className="inline-block h-7 w-px bg-neutral-300" />
-                      <span>{pesoShort(total)}</span>
-                    </div>
-                  </div>
-
-                  <div className="col-span-1">
-                    <div className="flex items-center justify-between">
-                      <div
-                        className={[
-                          'inline-flex items-center gap-2 rounded-full px-3 py-1',
-                          s.pill,
-                        ].join(' ')}
-                      >
-                        <span className={`h-2 w-2 rounded-full ${s.dot}`} />
-                        <span className={`text-[15px] ${s.text}`}>
-                          {b.status}
-                        </span>
-                      </div>
-
-                      <button
-                        type="button"
-                        className="ml-2 inline-flex h-8 w-8 items-center justify-center rounded-full text-neutral-500 hover:bg-neutral-200"
-                        aria-label="Row actions"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <ChevronDownIcon className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                {(['Representative', 'Booking ID'] as const).map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => {
+                      setSearchBy(opt);
+                      setOpenSearchBy(false);
+                    }}
+                    className={`block w-full px-4 py-2 text-left text-sm hover:bg-gray-100 ${
+                      searchBy === opt ? 'text-[#558B2F] font-medium' : 'text-gray-700'
+                    }`}
+                  >
+                    {opt}
+                  </button>
+                ))}
               </div>
-            );
-          })}
+            )}
+          </div>
+
+          {/* Search input */}
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search"
+              className="rounded-md border border-gray-300 py-1.5 pl-9 pr-4 text-sm text-gray-700 placeholder:text-gray-400 focus:border-[#558B2F] focus:outline-none focus:ring-1 focus:ring-[#558B2F]"
+            />
+          </div>
         </div>
 
-        <div className="mt-1 border-t border-neutral-200 pt-2">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-sm font-medium text-neutral-500">
-              {totalItems === 0
-                ? 'Showing 0 of 0'
-                : `Showing ${startIndex + 1}–${endIndex} of ${totalItems}`}
-            </div>
+        {/* Column headers — desktop */}
+        <div className="mt-5 hidden md:grid grid-cols-[1fr_0.9fr_1.3fr_1.2fr_0.5fr_0.7fr_0.8fr] gap-0">
+          <span className="px-3 text-xs font-bold text-gray-900 truncate">Booking ID</span>
+          <span className="px-3 text-xs font-bold text-gray-900 truncate">Request Date</span>
+          <span className="px-3 text-xs font-bold text-gray-900 truncate">Representative</span>
+          <span className="px-3 text-xs font-bold text-gray-900 truncate">Schedule</span>
+          <span className="px-3 text-xs font-bold text-gray-900 text-center truncate">Guests</span>
+          <span className="px-3 text-xs font-bold text-gray-900 truncate">Total</span>
+          <span className="px-3 text-xs font-bold text-gray-900 truncate">Status</span>
+        </div>
 
-            <div className="flex items-center gap-2 self-end">
+        {/* Rows */}
+        <div className="mt-3 flex flex-col gap-2 flex-1 min-h-0 overflow-y-auto">
+          {bookings.length === 0 ? (
+            <div className="rounded-lg bg-gray-100 px-4 py-4 text-center text-sm text-gray-400">
+              No bookings found.
+            </div>
+          ) : (
+            paginatedBookings.map((b) => {
+              const s = statusStyles[b.status];
+              const subtotal = b.payment.pricePerPerson * b.payment.qty;
+              const total = subtotal + b.payment.serviceCharge;
+
+              return (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => onSelect?.(b.id)}
+                  className={`rounded-lg text-left transition-colors ${
+                    selectedId === b.id
+                      ? 'bg-green-100 ring-1 ring-green-300'
+                      : 'bg-gray-100 hover:bg-gray-200'
+                  }`}
+                >
+                  {/* Desktop row */}
+                  <div className="hidden md:grid grid-cols-[1fr_0.9fr_1.3fr_1.2fr_0.5fr_0.7fr_0.8fr] items-center gap-0">
+                    <span className="border-r border-gray-300 px-4 text-xs text-gray-700 truncate">
+                      {b.bookingIdLabel ?? b.id}
+                    </span>
+                    <span className="border-r border-gray-300 px-4 text-xs text-gray-700 truncate">
+                      {b.requestDate}
+                    </span>
+                    <span className="border-r border-gray-300 px-4 text-xs text-gray-700 truncate">
+                      {b.representative.name}
+                    </span>
+                    <span className="border-r border-gray-300 px-4 text-xs text-gray-700 truncate">
+                      {b.scheduleLabel}
+                    </span>
+                    <span className="border-r border-gray-300 px-4 py-3 text-xs text-gray-700 text-center truncate">
+                      {b.payment.qty}
+                    </span>
+                    <span className="border-r border-gray-300 px-4 text-xs text-gray-700 truncate">
+                      {pesoShort(total)}
+                    </span>
+                    <span className="flex items-center gap-1.5 px-3 py-1 text-xs">
+                      <span className={`h-2 w-2 rounded-full shrink-0 ${s.dot}`} />
+                      <span className={`truncate ${s.text}`}>{b.status}</span>
+                    </span>
+                  </div>
+
+                  {/* Mobile card */}
+                  <div className="md:hidden px-4 py-3 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-gray-900 truncate">
+                        {b.representative.name}
+                      </span>
+                      <span className={`flex items-center gap-1.5 text-xs shrink-0 ml-2 ${s.text}`}>
+                        <span className={`h-2 w-2 rounded-full ${s.dot}`} />
+                        {b.status}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <span>ID: {b.bookingIdLabel ?? b.id}</span>
+                      <span>{b.scheduleLabel}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <span>{b.payment.qty} guest{b.payment.qty !== 1 ? 's' : ''}</span>
+                      <span className="font-medium text-gray-700">{pesoShort(total)}</span>
+                    </div>
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+
+        {/* Pagination */}
+        {totalItems > ROWS_PER_PAGE && (
+          <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3">
+            <p className="text-xs text-gray-500">
+              Showing {startIndex + 1}–{endIndex} of {totalItems}
+            </p>
+            <div className="flex items-center gap-1">
               <button
-                type="button"
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={safeCurrentPage === 1}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-neutral-400 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
               >
-                <ChevronLeftIcon className="h-5 w-5" />
+                <ChevronLeft size={16} />
               </button>
-
-              {pageNumbers.map((page) => {
-                const isActive = page === safeCurrentPage;
-
-                return (
-                  <button
-                    key={page}
-                    type="button"
-                    onClick={() => setCurrentPage(page)}
-                    className={[
-                      'inline-flex h-10 min-w-[40px] items-center justify-center rounded-lg px-3 text-base font-medium transition-colors',
-                      isActive
-                        ? 'bg-[#6EA43A] text-white'
-                        : 'text-neutral-600 hover:bg-neutral-100',
-                    ].join(' ')}
-                  >
-                    {page}
-                  </button>
-                );
-              })}
-
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <button
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  className={`h-7 min-w-7 rounded-md px-2 text-xs font-medium transition-colors ${
+                    safeCurrentPage === page
+                      ? 'bg-[#558B2F] text-white'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
               <button
-                type="button"
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 disabled={safeCurrentPage === totalPages}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-neutral-500 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
               >
-                <ChevronRightIcon className="h-5 w-5" />
+                <ChevronRight size={16} />
               </button>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
