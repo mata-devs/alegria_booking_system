@@ -254,3 +254,6 @@ function extractPathFromUrl(url: string): string | null {
   }
   return null;
 }
+
+//for booking and hello
+export { api } from "./api.http";
