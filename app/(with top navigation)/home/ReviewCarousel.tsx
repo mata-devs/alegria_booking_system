@@ -148,7 +148,7 @@ export default function ReviewCarousel() {
                 </h2>
             </div>
 
-            <div className="relative w-[100vw] flex">
+            <div className="relative w-full max-w-full flex">
                 {/* Slider */}
                 <div className="overflow-hidden w-full h-[40vh] lg:h-[50vh]">
                     <div
