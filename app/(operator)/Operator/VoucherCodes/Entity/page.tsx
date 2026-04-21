@@ -11,7 +11,7 @@ interface EntityResponse {
     representative: string;
     representativeEmail: string;
     phoneNumber: string;
-    createdAt?: any;
+    createdAt?: string | number | null;
 }
 
 export default function Page() {
@@ -99,14 +99,14 @@ export default function Page() {
     );
 }
 
-export interface EntityField {
+interface EntityField {
     id: string;
     label: string;
     placeholder?: string;
     type?: React.HTMLInputTypeAttribute;
 }
 
-export interface CreateNewEntityModalProps {
+interface CreateNewEntityModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSaved: () => void;
@@ -114,7 +114,7 @@ export interface CreateNewEntityModalProps {
     fields?: EntityField[];
 }
 
-export function CreateNewEntityModal({
+function CreateNewEntityModal({
     isOpen,
     onClose,
     onSaved,
@@ -165,8 +165,8 @@ export function CreateNewEntityModal({
                 setFormData({});
                 onSaved();
             }, 1500);
-        } catch (err: any) {
-            setError(err?.message || "Network error");
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : "Network error");
         } finally {
             setSubmitting(false);
         }

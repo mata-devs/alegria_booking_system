@@ -1,19 +1,22 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth";
-import Filters from "@/app/(operator)/Operator/Analytics/filter";
-import ChartLineLinear from "@/app/(operator)/Operator/Analytics/linechart";
-import ChartBarDefault from "@/app/(operator)/Operator/Analytics/barchart";
-import ChartBarCodesDistribution from "@/app/(operator)/Operator/Analytics/barcharty";
-import ChartPieSimple from "@/app/(operator)/Operator/Analytics/piechart";
-import ChartPieCodes from "@/app/(operator)/Operator/Analytics/piechart2";
-import PaymentMethod from "@/app/(operator)/Operator/Analytics/payment";
-import TotalBookingsCard from "@/app/(operator)/Operator/Analytics/total";
-import RevenueCard from "@/app/(operator)/Operator/Analytics/revenue";
-import { getAnalyticsDashboard, type AnalyticsDashboardResponse } from "@/lib/analytics-service";
-import { firebaseAuth, firestore } from "@/lib/firebase";
+import type { User } from "firebase/auth";
+import { useAuth } from "@/app/context/AuthContext";
+import { getAnalyticsDashboard, type AnalyticsDashboardResponse } from "@/app/lib/analytics-service";
+import { firestore } from "@/app/lib/firebase";
+
+const Filters = dynamic(() => import("@/app/(operator)/Operator/Analytics/filter"), { ssr: false });
+const ChartLineLinear = dynamic(() => import("@/app/(operator)/Operator/Analytics/linechart"), { ssr: false });
+const ChartBarDefault = dynamic(() => import("@/app/(operator)/Operator/Analytics/barchart"), { ssr: false });
+const ChartBarCodesDistribution = dynamic(() => import("@/app/(operator)/Operator/Analytics/barcharty"), { ssr: false });
+const ChartPieSimple = dynamic(() => import("@/app/(operator)/Operator/Analytics/piechart"), { ssr: false });
+const ChartPieCodes = dynamic(() => import("@/app/(operator)/Operator/Analytics/piechart2"), { ssr: false });
+const PaymentMethod = dynamic(() => import("@/app/(operator)/Operator/Analytics/payment"), { ssr: false });
+const TotalBookingsCard = dynamic(() => import("@/app/(operator)/Operator/Analytics/total"), { ssr: false });
+const RevenueCard = dynamic(() => import("@/app/(operator)/Operator/Analytics/revenue"), { ssr: false });
 
 type UserRecord = {
   role?: string;
@@ -50,15 +53,21 @@ function resolveOperatorUid(
 }
 
 export default function Analytics() {
+  const { authState } = useAuth();
+  const uid = authState.status === "authenticated" ? authState.user.uid : null;
+
   const [dashboard, setDashboard] = useState<AnalyticsDashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [scopeLabel, setScopeLabel] = useState("Admin Overview");
 
   useEffect(() => {
-    let cancelled = false;
+    if (authState.status === "loading") return;
 
-    const loadDashboard = async (currentUser: typeof firebaseAuth.currentUser) => {
+    let cancelled = false;
+    const currentUser: User | null = authState.status === "authenticated" ? authState.user : null;
+
+    const loadDashboard = async () => {
       setLoading(true);
       setError(null);
 
@@ -104,15 +113,10 @@ export default function Analytics() {
       }
     };
 
-    const unsubscribe = onAuthStateChanged(firebaseAuth, (currentUser) => {
-      void loadDashboard(currentUser);
-    });
-
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
-  }, []);
+    void loadDashboard();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authState.status, uid]);
 
   return (
     <div className="h-full  w-full bg-gray-200 flex items-center justify-center hide-scrollbar">

@@ -68,10 +68,12 @@ export default function ProfileSettingsPage() {
                   <div className="relative h-30 w-30 overflow-hidden rounded-full bg-gray-200">
                     {photoPreview ? (
                       
-                      <img
+                      <Image
                         src={photoPreview}
                         alt="Profile preview"
                         className="h-full w-full object-cover"
+                        width={120}
+                        height={120}
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center">

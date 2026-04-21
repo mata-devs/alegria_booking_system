@@ -120,13 +120,13 @@ export default function Page() {
     );
 }
 
-export interface CreateNewCodeModalProps {
+interface CreateNewCodeModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSaved: () => void;
 }
 
-export function CreateNewCodeModal({ isOpen, onClose, onSaved }: CreateNewCodeModalProps) {
+function CreateNewCodeModal({ isOpen, onClose, onSaved }: CreateNewCodeModalProps) {
     const [formData, setFormData] = useState({
         code: '',
         discount: '',
@@ -214,8 +214,8 @@ export function CreateNewCodeModal({ isOpen, onClose, onSaved }: CreateNewCodeMo
                 });
                 onSaved();
             }, 1500);
-        } catch (err: any) {
-            setError(err?.message || "Network error");
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : "Network error");
         } finally {
             setSubmitting(false);
         }

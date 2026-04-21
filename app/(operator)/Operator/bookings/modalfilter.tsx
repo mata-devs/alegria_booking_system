@@ -44,6 +44,7 @@ export default function FilterModal({
   const toggleStatus = (s: Status) => {
     setFilters((prev) => {
       const next = new Set(prev.status);
+      // eslint-disable-next-line @typescript-eslint/no-unused-expressions
       next.has(s) ? next.delete(s) : next.add(s);
       return { ...prev, status: next };
     });

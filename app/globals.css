@@ -2,54 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-  /* Fallback for tooling; `app/layout.tsx` also sets this via next/font `Poppins` on `<body>`. */
-  --font-poppins: "Poppins", system-ui, sans-serif;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
-  background-color: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-poppins), system-ui, sans-serif;
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  background-color: #f0fdf4;
+  color: #1a1a1a;
 }
 
-.fc .fc-event {
-  background: transparent;
-  border: none;
-}
-
-.fc-timegrid-event {
-  inset: 4px;
-}
-
-.hide-scrollbar {
-  overflow: auto;
+.scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
-
-.hide-scrollbar::-webkit-scrollbar {
+.scrollbar-hide::-webkit-scrollbar {
   display: none;
-}
-
-/* Spinning gradient border for selected calendar slot (CalendarEventCard) */
-@property --border-angle {
-  inherits: false;
-  initial-value: 0deg;
-  syntax: "<angle>";
-}
-
-@keyframes spin-border {
-  to {
-    --border-angle: 360deg;
-  }
 }

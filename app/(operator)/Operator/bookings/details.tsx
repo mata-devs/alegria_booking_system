@@ -62,8 +62,8 @@ const statusDot: Record<BookingStatus, string> = {
 };
 
 function uid() {
-  const c: any = globalThis as any;
-  return c?.crypto?.randomUUID?.() ?? `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  const c = globalThis as { crypto?: { randomUUID?: () => string } };
+  return c.crypto?.randomUUID?.() ?? `${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
 
 interface BookingDetailsCardProps {
@@ -87,6 +87,7 @@ export default function BookingDetailsCard({
     if (!booking) return;
     setVisibleUploads(booking.uploads ?? []);
     setStatus(booking.status);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [booking?.id]);
 
   const totals = useMemo(() => {

@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { AuthProvider } from '@/contexts/AuthContext';
-import RoleGuard from '@/components/RoleGuard';
-import OperatorSidebar from '@/components/OperatorSidebar';
+import { AuthProvider } from '@/app/context/AuthContext';
+import RoleGuard from '@/app/components/(operator)/RoleGuard';
+import OperatorSidebar from '@/app/components/(operator)/OperatorSidebar';
 
 export default function OperatorLayout({
   children,

@@ -8,9 +8,8 @@ import FilterModal, {
   createEmptyFilters,
   type BookingFilters,
   type Status,
-} from '@/app/(operator)/Operator/bookings/modalfilter';
-import { useOperatorBookings, type FirestoreBooking } from '@/hooks/useOperatorBookings';
-import { useAuth } from '@/contexts/AuthContext';
+} from '@/app/(operator)/Operator/bookings/modalfilter';import { useOperatorBookings, type FirestoreBooking } from '@/app/hooks/useOperatorBookings';
+import { useAuth } from '@/app/context/AuthContext';
 
 /* ── Map Firestore document → UI Booking type ─────────────── */
 
