@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Booking } from '@/app/(operator)/Operator/history/details';
+import type { Booking } from '@/app/(operator)/operator/history/details';
 
 type BookingStatus = 'Reserved' | 'Paid' | 'Processing' | 'Cancelled' | 'Completed';
 

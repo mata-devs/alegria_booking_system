@@ -1,6 +1,6 @@
 import React from 'react';
 import { Filter, Search, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
-import type { Booking } from '@/app/(operator)/Operator/bookings/details';
+import type { Booking } from '@/app/(operator)/operator/bookings/details';
 
 type BookingStatus =
   | 'Reserved'

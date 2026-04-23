@@ -67,7 +67,7 @@ export default function Auth() {
 
   const ROLE_REDIRECT_MAP: Record<UserRole, string> = {
     super_admin: '/super-admin/analytics',
-    operator: '/Operator/bookings',
+    operator: '/operator/bookings',
     customer: '/',
   };
 

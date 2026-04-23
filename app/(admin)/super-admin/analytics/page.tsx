@@ -13,14 +13,14 @@ const Filters = dynamic(
 );
 
 // Chart components are pure, props-driven — reuse operator charts to avoid duplication.
-const ChartLineLinear = dynamic(() => import("@/app/(operator)/Operator/Analytics/linechart"), { ssr: false });
-const ChartBarDefault = dynamic(() => import("@/app/(operator)/Operator/Analytics/barchart"), { ssr: false });
-const ChartBarCodesDistribution = dynamic(() => import("@/app/(operator)/Operator/Analytics/barcharty"), { ssr: false });
-const ChartPieSimple = dynamic(() => import("@/app/(operator)/Operator/Analytics/piechart"), { ssr: false });
-const ChartPieCodes = dynamic(() => import("@/app/(operator)/Operator/Analytics/piechart2"), { ssr: false });
-const PaymentMethod = dynamic(() => import("@/app/(operator)/Operator/Analytics/payment"), { ssr: false });
-const TotalBookingsCard = dynamic(() => import("@/app/(operator)/Operator/Analytics/total"), { ssr: false });
-const RevenueCard = dynamic(() => import("@/app/(operator)/Operator/Analytics/revenue"), { ssr: false });
+const ChartLineLinear = dynamic(() => import("@/app/(operator)/operator/analytics/linechart"), { ssr: false });
+const ChartBarDefault = dynamic(() => import("@/app/(operator)/operator/analytics/barchart"), { ssr: false });
+const ChartBarCodesDistribution = dynamic(() => import("@/app/(operator)/operator/analytics/barcharty"), { ssr: false });
+const ChartPieSimple = dynamic(() => import("@/app/(operator)/operator/analytics/piechart"), { ssr: false });
+const ChartPieCodes = dynamic(() => import("@/app/(operator)/operator/analytics/piechart2"), { ssr: false });
+const PaymentMethod = dynamic(() => import("@/app/(operator)/operator/analytics/payment"), { ssr: false });
+const TotalBookingsCard = dynamic(() => import("@/app/(operator)/operator/analytics/total"), { ssr: false });
+const RevenueCard = dynamic(() => import("@/app/(operator)/operator/analytics/revenue"), { ssr: false });
 
 export default function SuperAdminAnalyticsPage() {
   const [dashboard, setDashboard] = useState<AnalyticsDashboardResponse | null>(null);

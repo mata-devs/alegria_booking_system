@@ -14,7 +14,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
-} from "@/app/(operator)/Operator/_components/ui/chart"
+} from "@/app/(operator)/operator/_components/ui/chart"
 
 type AgeDistributionPoint = {
   range: string

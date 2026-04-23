@@ -207,13 +207,13 @@ functions/src/
 
 | Route | Description |
 |-------|-------------|
-| `/Operator` | Operator home |
-| `/Operator/bookings` | Live booking management (calendar + list view) |
-| `/Operator/history` | Past booking history with search and filters |
-| `/Operator/Analytics` | Revenue, booking volume, promo code charts |
-| `/Operator/VoucherCodes/Code` | Manage promo codes |
-| `/Operator/VoucherCodes/Entity` | Manage voucher entities |
-| `/Operator/Settings` | Operator profile |
+| `/operator` | Operator home |
+| `/operator/bookings` | Live booking management (calendar + list view) |
+| `/operator/history` | Past booking history with search and filters |
+| `/operator/analytics` | Revenue, booking volume, promo code charts |
+| `/operator/VoucherCodes/Code` | Manage promo codes |
+| `/operator/VoucherCodes/Entity` | Manage voucher entities |
+| `/operator/settings` | Operator profile |
 
 ### Super-Admin
 

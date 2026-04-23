@@ -1,13 +1,13 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import BookingHistoryPanel from '@/app/(operator)/Operator/history/list';
-import BookingHistoryCard, { Booking } from '@/app/(operator)/Operator/history/details';
+import BookingHistoryPanel from '@/app/(operator)/operator/history/list';
+import BookingHistoryCard, { Booking } from '@/app/(operator)/operator/history/details';
 import FilterModal, {
   createEmptyFilters,
   type BookingFilters,
   type Status,
-} from '@/app/(operator)/Operator/history/modalfilter';
+} from '@/app/(operator)/operator/history/modalfilter';
 
 
 export default function Page() {

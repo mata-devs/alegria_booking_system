@@ -15,9 +15,9 @@ import {
 import { useState } from 'react';
 
 const NAV_ITEMS = [
-  { label: 'Bookings', href: '/Operator/bookings', icon: ClipboardList },
-  { label: 'Bookings\nHistory', href: '/Operator/history', icon: History },
-  { label: 'Analytics', href: '/Operator/Analytics', icon: BarChart3 },
+  { label: 'Bookings', href: '/operator/bookings', icon: ClipboardList },
+  { label: 'Bookings\nHistory', href: '/operator/history', icon: History },
+  { label: 'Analytics', href: '/operator/analytics', icon: BarChart3 },
 ];
 
 interface OperatorSidebarProps {
@@ -107,7 +107,7 @@ export default function OperatorSidebar({ isCollapsed, onToggleCollapse, onHover
         <div className={`border-t border-white/30 ${isCollapsed ? 'mx-3' : 'mx-5'}`} />
         <div className={`py-4 space-y-1 ${isCollapsed ? 'px-2' : 'px-4'}`}>
           <Link
-            href="/Operator/Settings"
+            href="/operator/settings"
             title={isCollapsed ? 'Settings' : undefined}
             className={`flex items-center rounded-lg text-sm font-semibold text-white/90 hover:bg-white/10 transition-colors ${
               isCollapsed ? 'justify-center px-2 py-3' : 'gap-4 px-3 py-3'

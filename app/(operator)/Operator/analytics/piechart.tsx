@@ -7,7 +7,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
-} from "@/app/(operator)/Operator/_components/ui/chart"
+} from "@/app/(operator)/operator/_components/ui/chart"
 
 const palette = ["#2563eb", "#ef4444", "#f59e0b", "#84cc16", "#14b8a6", "#6b7280", "#fb7185", "#0ea5e9"]
 const paletteClasses = ["bg-blue-600", "bg-red-500", "bg-amber-500", "bg-lime-500", "bg-teal-500", "bg-gray-500", "bg-pink-400", "bg-sky-500"]

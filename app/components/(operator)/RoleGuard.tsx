@@ -7,7 +7,7 @@ import type { UserRole } from '@/app/lib/types';
 
 const ROLE_DASHBOARD_MAP: Record<string, string> = {
   super_admin: '/super-admin/analytics',
-  operator: '/Operator/bookings',
+  operator: '/operator/bookings',
 };
 
 interface RoleGuardProps {

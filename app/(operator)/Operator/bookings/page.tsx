@@ -1,14 +1,14 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import BookingRequestsPanel from '@/app/(operator)/Operator/bookings/list';
-import BookingDetailsCard, { type Booking, type BookingStatus } from '@/app/(operator)/Operator/bookings/details';
-import CalendarAvailability from '@/app/(operator)/Operator/bookings/calendar';
+import BookingRequestsPanel from '@/app/(operator)/operator/bookings/list';
+import BookingDetailsCard, { type Booking, type BookingStatus } from '@/app/(operator)/operator/bookings/details';
+import CalendarAvailability from '@/app/(operator)/operator/bookings/calendar';
 import FilterModal, {
   createEmptyFilters,
   type BookingFilters,
   type Status,
-} from '@/app/(operator)/Operator/bookings/modalfilter';import { useOperatorBookings, type FirestoreBooking } from '@/app/hooks/useOperatorBookings';
+} from '@/app/(operator)/operator/bookings/modalfilter';import { useOperatorBookings, type FirestoreBooking } from '@/app/hooks/useOperatorBookings';
 import { useAuth } from '@/app/context/AuthContext';
 
 /* ── Map Firestore document → UI Booking type ─────────────── */
