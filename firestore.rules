@@ -25,7 +25,15 @@ service cloud.firestore {
 		// Promo: client validates by code via query + optional operator lookup.
     match /voucherCodes/{voucherId} {
       allow read: if true;
-      allow write: if false;
+      // Only super admins can create, update, or delete voucher codes via the admin UI.
+      allow create, update, delete: if isSuperAdmin();
+    }
+
+    // Entities: affiliated orgs attached to voucher codes. Managed from super_admin UI.
+    match /entities/{entityId} {
+      // Read allowed for any authenticated user (voucher modal populates the dropdown).
+      allow read: if request.auth != null;
+      allow create, update, delete: if isSuperAdmin();
     }
 
 

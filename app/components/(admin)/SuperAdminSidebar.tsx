@@ -10,6 +10,7 @@ import {
   Users,
   FileText,
   TicketPercent,
+  MessageSquare,
   LogOut,
   Settings,
   ChevronLeft,
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
   { label: 'Operators', href: '/super-admin/operators', icon: Users },
   { label: 'Revenue\nReports', href: '/super-admin/revenue', icon: FileText },
   { label: 'Voucher\nCodes', href: '/super-admin/vouchers', icon: TicketPercent },
+  { label: 'Reviews', href: '/super-admin/reviews', icon: MessageSquare },
 ];
 
 interface SuperAdminSidebarProps {
