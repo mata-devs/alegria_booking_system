@@ -1,14 +1,36 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useParams, useRouter } from 'next/navigation'
 import Footer from '@/app/components/Footer'
-import { tourPackages, travelerReviews } from '@/app/data/mockData'
+import { collection, query, where, getDocs } from 'firebase/firestore'
+import { firebaseDb } from '@/app/lib/firebase'
+import { travelerReviews } from '@/app/data/mockData'
 import { useBooking } from '@/app/context/BookingContext'
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import QRCode from 'react-qr-code'
+
+interface ItineraryStep {
+  itineraryTime: string
+  itineraryTitle: string
+  itineraryDescription: string
+}
+
+interface FirestorePackage {
+  id: string
+  packageName: string
+  packageDescription: string
+  pricePerPerson: number
+  packageLocation: string
+  duration: string
+  inclusions: string[]
+  exclusions: string[]
+  packageItinerary: ItineraryStep[]
+  packageImages: string[]
+  packageTag: string
+  packageRating: number
+  slug: string
+}
 
 function StarRating({ rating }: { rating: number }) {
   return (
@@ -23,55 +45,37 @@ function StarRating({ rating }: { rating: number }) {
 }
 
 const botReplies: { keywords: string[]; reply: string }[] = [
-  { keywords: ['price', 'cost', 'how much', 'fee'], reply: 'The price starts from ₱4,500 per person. Group discounts are available for 10+ guests. Contact us for custom pricing!' },
-  { keywords: ['include', 'included', 'whats included', "what's included"], reply: 'The package includes transportation, a professional tour guide, entrance fees, safety gear, packed lunch, and bottled water.' },
-  { keywords: ['exclude', 'excluded', 'not included'], reply: 'Personal expenses, optional activities, travel insurance, and tips/gratuities are not included.' },
-  { keywords: ['book', 'booking', 'reserve', 'reservation'], reply: 'You can book by clicking the "Book Now" button on the right side. Fill in your date, number of guests, and proceed to payment!' },
-  { keywords: ['cancel', 'cancellation', 'refund'], reply: 'Cancellations made 48 hours before the tour date are fully refundable. Within 48 hours, a 50% cancellation fee applies.' },
-  { keywords: ['guide', 'guides', 'tour guide'], reply: 'All our guides are certified, experienced locals who know Cebu inside out. They speak English and Filipino.' },
-  { keywords: ['duration', 'how long', 'time', 'hours'], reply: `This package runs for ${tourPackages[0].duration}. Pick-up is usually early morning and drop-off is in the evening.` },
-  { keywords: ['group', 'private', 'solo'], reply: 'We offer both private group and join-in tour options. Private groups can be customized to your preferences.' },
-  { keywords: ['hello', 'hi', 'hey', 'good morning', 'good afternoon'], reply: 'Hi there! 👋 How can I help you with your Cebu adventure? Ask me anything about this tour package!' },
-  { keywords: ['thank', 'thanks', 'salamat'], reply: "You're welcome! Feel free to ask if you have more questions. We'd love to have you on this adventure! 🌿" },
-  { keywords: ['weather', 'season', 'rain', 'best time'], reply: 'The best time to visit Cebu is from December to May (dry season). Avoid July–October which is typhoon season.' },
-  { keywords: ['bring', 'wear', 'what to bring', 'prepare', 'pack'], reply: 'Bring sunscreen, comfortable clothes, sandals/aqua shoes, a change of clothes, and a waterproof bag. We provide the rest!' },
+  { keywords: ['price', 'cost', 'how much', 'fee'], reply: 'Pricing is shown on the booking panel. Group discounts may be available — contact us for custom rates!' },
+  { keywords: ['include', 'included', 'whats included', "what's included"], reply: 'Inclusions are listed in the "What\'s Included" section on this page.' },
+  { keywords: ['exclude', 'excluded', 'not included'], reply: 'Exclusions are listed in the "What\'s Excluded" section on this page.' },
+  { keywords: ['book', 'booking', 'reserve', 'reservation'], reply: 'Click "Book Now" on the right, fill in your date and guests, then proceed to payment!' },
+  { keywords: ['cancel', 'cancellation', 'refund'], reply: 'Cancellations made 48 hours before are fully refundable. Within 48 hours, a 50% fee applies.' },
+  { keywords: ['guide', 'guides', 'tour guide'], reply: 'All guides are certified, experienced locals fluent in English and Filipino.' },
+  { keywords: ['duration', 'how long', 'time', 'hours'], reply: 'Duration is shown near the package title. Check the itinerary for a step-by-step breakdown.' },
+  { keywords: ['group', 'private', 'solo'], reply: 'Both private group and join-in options available. Private groups can be customized.' },
+  { keywords: ['hello', 'hi', 'hey', 'good morning', 'good afternoon'], reply: 'Hi there! 👋 How can I help with your Cebu adventure?' },
+  { keywords: ['thank', 'thanks', 'salamat'], reply: "You're welcome! Feel free to ask anything else. 🌿" },
+  { keywords: ['weather', 'season', 'rain', 'best time'], reply: 'Best time is December–May (dry season). Avoid July–October (typhoon season).' },
+  { keywords: ['bring', 'wear', 'what to bring', 'prepare', 'pack'], reply: 'Bring sunscreen, comfortable clothes, sandals/aqua shoes, change of clothes, and a waterproof bag.' },
 ]
 
 function getBotReply(input: string): string {
   const lower = input.toLowerCase()
   const match = botReplies.find(({ keywords }) => keywords.some((kw) => lower.includes(kw)))
-  return match?.reply ?? "That's a great question! For specific inquiries, please contact us at hello@suroyCebu.com or call +63 912 345 6789. We're happy to help! 😊"
+  return match?.reply ?? "Great question! Contact us at hello@suroyCebu.com or call +63 912 345 6789 for specific inquiries. 😊"
 }
-
-const tourGuides = [
-  { name: 'Juan Miguel Santos', avatar: 'https://picsum.photos/seed/guide1/80/80', credentials: ['Credentials 1', 'Credentials 2', 'Credentials 3', 'Credentials 4', 'Credentials 5'] },
-  { name: 'Juan Miguel Santos', avatar: 'https://picsum.photos/seed/guide2/80/80', credentials: ['Credentials 1', 'Credentials 2', 'Credentials 3', 'Credentials 4', 'Credentials 5'] },
-  { name: 'Juan Miguel Santos', avatar: 'https://picsum.photos/seed/guide3/80/80', credentials: ['Credentials 1', 'Credentials 2', 'Credentials 3', 'Credentials 4', 'Credentials 5'] },
-  { name: 'Juan Miguel Santos', avatar: 'https://picsum.photos/seed/guide4/80/80', credentials: ['Credentials 1', 'Credentials 2', 'Credentials 3', 'Credentials 4', 'Credentials 5'] },
-  { name: 'Juan Miguel Santos', avatar: 'https://picsum.photos/seed/guide5/80/80', credentials: ['Credentials 1', 'Credentials 2', 'Credentials 3', 'Credentials 4', 'Credentials 5'] },
-  { name: 'Juan Miguel Santos', avatar: 'https://picsum.photos/seed/guide6/80/80', credentials: ['Credentials 1', 'Credentials 2', 'Credentials 3', 'Credentials 4', 'Credentials 5'] },
-]
-
-const itinerary = [
-  { time: '06:00 AM', title: 'Cebu City Pickup', desc: 'Direct pickup from your hotel or accommodation in Cebu City or Mactan.' },
-  { time: '06:30 AM', title: 'Safety Briefing & Gearing Up', desc: 'Your guide will walk you through safety protocols and fit you with the proper gear.' },
-  { time: '09:00 AM', title: 'Canyoneering Begins', desc: 'Start your canyoneering adventure through the stunning gorges and cliffs of Alegria.' },
-  { time: '12:00 PM', title: 'Kawasan Falls & Lunch', desc: 'Arrive at the breathtaking Kawasan Falls. Enjoy a refreshing swim and a packed lunch by the falls.' },
-  { time: '02:00 PM', title: 'Whale Shark Watching', desc: 'Head to Oslob for a once-in-a-lifetime whale shark swimming experience in the open sea.' },
-  { time: '05:00 PM', title: 'Return to Cebu City', desc: 'Board the van for a comfortable ride back to your hotel. Estimated arrival by 7:00 PM.' },
-]
-
-const included = ['Transportation (A/C van)', 'Professional tour guide', 'Entrance fees', 'Life vest & safety gear', 'Packed lunch', 'Bottled water']
-const excluded = ['Personal expenses', 'Optional activities', 'Travel insurance', 'Tips & gratuities']
 
 export default function TourPackageDetail() {
   const params = useParams()
-  const packageId = params.packageId as string
+  const slug = params.packageId as string
   const router = useRouter()
   const { updateBooking } = useBooking()
 
-  const pkg = tourPackages.find((p) => String(p.id) === packageId) ?? tourPackages[0]
+  const [pkg, setPkg] = useState<FirestorePackage | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [notFound, setNotFound] = useState(false)
 
+  const [galleryIdx, setGalleryIdx] = useState(0)
   const [date, setDate] = useState('')
   const [travelers, setTravelers] = useState(1)
   const [chatOpen, setChatOpen] = useState(false)
@@ -83,6 +87,24 @@ export default function TourPackageDetail() {
   const chipsRef = useRef<HTMLDivElement>(null)
   const chipsDrag = useRef({ isDown: false, startX: 0, scrollLeft: 0 })
 
+  useEffect(() => {
+    async function load() {
+      try {
+        const q = query(collection(firebaseDb, 'tourPackages'), where('slug', '==', slug))
+        const snap = await getDocs(q)
+        if (snap.empty) { setNotFound(true); setLoading(false); return }
+        const doc = snap.docs[0]
+        setPkg({ id: doc.id, ...doc.data() } as FirestorePackage)
+      } catch (err) {
+        console.error(err)
+        setNotFound(true)
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [slug])
+
   const sendMessage = () => {
     const text = chatInput.trim()
     if (!text) return
@@ -92,17 +114,44 @@ export default function TourPackageDetail() {
     setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
   }
 
-  const galleryImages = [
-    pkg.image,
-    `https://picsum.photos/seed/${pkg.id}-g2/600/400`,
-    `https://picsum.photos/seed/${pkg.id}-g3/600/400`,
-    `https://picsum.photos/seed/${pkg.id}-g4/600/400`,
-  ]
-
   const handleBook = () => {
-    updateBooking({ item: pkg, date, guestCount: travelers })
+    if (!pkg) return
+    updateBooking({
+      item: {
+        id: 0,
+        title: pkg.packageName,
+        description: pkg.packageDescription,
+        price: pkg.pricePerPerson,
+        image: pkg.packageImages[0] ?? '',
+        theme: 'green',
+        duration: pkg.duration,
+        inclusions: pkg.inclusions,
+        municipalityId: pkg.slug,
+      },
+      date,
+      guestCount: travelers,
+    })
     router.push('/booking/guest-info')
   }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#f0fdf4]">
+        <p className="text-gray-400 text-sm">Loading…</p>
+      </div>
+    )
+  }
+
+  if (notFound || !pkg) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#f0fdf4] gap-4">
+        <p className="text-gray-700 font-semibold">Package not found.</p>
+        <Link href="/tour-packages" className="text-green-600 text-sm hover:underline">Back to Tour Packages</Link>
+      </div>
+    )
+  }
+
+  const images = pkg.packageImages
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f0fdf4]">
@@ -110,148 +159,131 @@ export default function TourPackageDetail() {
         <nav className="text-sm text-gray-500 mb-5">
           <Link href="/" className="hover:text-green-600">Home</Link>
           <span className="mx-2">›</span>
-          <Link href="/locations" className="hover:text-green-600">Cebu Locations</Link>
-          <span className="mx-2">›</span>
           <Link href="/tour-packages" className="hover:text-green-600">Tour Packages</Link>
           <span className="mx-2">›</span>
-          <span className="text-gray-800 font-medium">{pkg.title}</span>
+          <span className="text-gray-800 font-medium">{pkg.packageName}</span>
         </nav>
 
+        {/* Gallery */}
         <div className="mb-8 rounded-2xl overflow-hidden">
           <div className="relative h-72 md:h-96 w-full">
-            <Image src={galleryImages[0]} alt={pkg.title} fill className="object-cover" priority />
+            <Image src={images[galleryIdx]} alt={pkg.packageName} fill className="object-cover" priority />
           </div>
-          <div className="grid grid-cols-3 gap-2 mt-2">
-            {galleryImages.slice(1).map((img, i) => (
-              <div key={i} className="relative h-32 rounded-xl overflow-hidden">
-                <Image src={img} alt={`${pkg.title} ${i + 2}`} fill className="object-cover" />
-              </div>
-            ))}
-          </div>
+          {images.length > 1 && (
+            <div className="grid gap-2 mt-2" style={{ gridTemplateColumns: `repeat(${Math.min(images.length - 1, 3)}, 1fr)` }}>
+              {images.slice(1, 4).map((img, i) => (
+                <button key={i} onClick={() => setGalleryIdx(i + 1)}
+                  className={`relative h-32 rounded-xl overflow-hidden border-2 transition-colors ${galleryIdx === i + 1 ? 'border-green-500' : 'border-transparent'}`}>
+                  <Image src={img} alt={`${pkg.packageName} ${i + 2}`} fill className="object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col-reverse lg:flex-row gap-8">
+          {/* Left content */}
           <div className="flex-1 min-w-0">
-            <h1 className="text-2xl font-extrabold text-gray-900 mb-1">{pkg.title}</h1>
+            <h1 className="text-2xl font-extrabold text-gray-900 mb-1">{pkg.packageName}</h1>
             <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 mb-2">
               <span className="text-green-600 font-semibold text-xs uppercase tracking-wide">{pkg.duration}</span>
               <span>•</span>
-              <span>Private Group</span>
+              <span>{pkg.packageLocation}</span>
+              <span>•</span>
+              <span className="bg-green-100 text-green-700 text-xs font-semibold px-2.5 py-0.5 rounded-full">{pkg.packageTag}</span>
             </div>
             <div className="flex items-center gap-2 mb-6">
-              <StarRating rating={4.5} />
-              <span className="text-sm font-semibold text-gray-700">4.5</span>
-              <span className="text-sm text-gray-400">(128 reviews)</span>
+              <StarRating rating={pkg.packageRating} />
+              <span className="text-sm font-semibold text-gray-700">{pkg.packageRating.toFixed(1)}</span>
             </div>
 
             <section className="mb-8">
               <h2 className="text-base font-bold text-gray-900 mb-3">About this package</h2>
-              <p className="text-gray-500 leading-relaxed text-sm">
-                {pkg.description} Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
-              </p>
+              <p className="text-gray-500 leading-relaxed text-sm whitespace-pre-wrap">{pkg.packageDescription}</p>
             </section>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-              <div className="relative rounded-xl overflow-hidden h-52">
-                <Image src={`https://picsum.photos/seed/${pkg.id}-promo1/500/400`} alt="Promo" fill className="object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-green-900/80 via-green-800/40 to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-4">
-                  <p className="text-white font-extrabold text-lg uppercase leading-tight drop-shadow">{pkg.title}</p>
-                  <p className="text-green-300 text-xs font-semibold mt-1">Experience of a Lifetime</p>
-                </div>
-              </div>
-              <div className="relative rounded-xl overflow-hidden h-52">
-                <Image src={`https://picsum.photos/seed/${pkg.id}-promo2/500/400`} alt="Promo" fill className="object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-green-900/80 via-green-800/40 to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-4">
-                  <p className="text-white font-extrabold text-lg uppercase leading-tight drop-shadow">{pkg.title}</p>
-                  <p className="text-green-300 text-xs font-semibold mt-1">Cebu, Philippines</p>
-                </div>
-              </div>
-            </div>
+            {/* Itinerary */}
+            {pkg.packageItinerary.length > 0 && (
+              <section className="mb-8">
+                <h2 className="text-base font-bold text-gray-900 mb-4">Itinerary</h2>
+                <ul className="space-y-0">
+                  {pkg.packageItinerary.map((step, i) => (
+                    <li key={i} className="flex gap-4 relative">
+                      {i < pkg.packageItinerary.length - 1 && (
+                        <div className="absolute left-[7px] top-5 bottom-0 w-px bg-gray-200" />
+                      )}
+                      <div className="w-4 h-4 rounded-full bg-green-500 shrink-0 mt-1 z-10" />
+                      <div className="pb-6 flex-1">
+                        {step.itineraryTime && (
+                          <p className="text-xs font-bold text-green-500 mb-0.5">{step.itineraryTime}</p>
+                        )}
+                        <p className="text-sm font-bold text-gray-900 mb-0.5">{step.itineraryTitle}</p>
+                        {step.itineraryDescription && (
+                          <p className="text-sm text-gray-500">{step.itineraryDescription}</p>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
 
-            <section className="mb-8">
-              <h2 className="text-base font-bold text-gray-900 mb-4">Itinerary</h2>
-              <ul className="space-y-0">
-                {itinerary.map((item, i) => (
-                  <li key={i} className="flex gap-4 relative">
-                    {i < itinerary.length - 1 && (
-                      <div className="absolute left-[7px] top-5 bottom-0 w-px bg-gray-200" />
-                    )}
-                    <div className="w-4 h-4 rounded-full bg-green-500 shrink-0 mt-1 z-10" />
-                    <div className="pb-6 flex-1">
-                      <p className="text-xs font-bold text-green-500 mb-0.5">{item.time}</p>
-                      <p className="text-sm font-bold text-gray-900 mb-0.5">{item.title}</p>
-                      <p className="text-sm text-gray-500">{item.desc}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </section>
-
-            <section className="mb-8">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center shrink-0">
-                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                    </span>
-                    What&apos;s Included
-                  </h3>
-                  <ul className="space-y-2.5">
-                    {included.map((item, i) => (
-                      <li key={i} className="flex items-center gap-2.5 text-sm text-gray-600">
-                        <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-red-400 flex items-center justify-center shrink-0">
-                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
-                    </span>
-                    What&apos;s Excluded
-                  </h3>
-                  <ul className="space-y-2.5">
-                    {excluded.map((item, i) => (
-                      <li key={i} className="flex items-center gap-2.5 text-sm text-gray-600">
-                        <svg className="w-4 h-4 text-red-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </section>
-
-            <section className="mb-8">
-              <h2 className="text-base font-bold text-gray-900 mb-5">Tour Guides</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4" style={{ gridAutoRows: '1fr' }}>
-                {tourGuides.map((guide, i) => (
-                  <div key={i} className="flex gap-4 bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                    <Image src={guide.avatar} alt={guide.name} width={56} height={56} className="rounded-full object-cover shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-gray-900 mb-1">{guide.name}</p>
-                      <p className="text-xs text-green-600 font-semibold mb-2">Credentials:</p>
-                      <ul className="space-y-1">
-                        {guide.credentials.map((c, j) => (
-                          <li key={j} className="flex items-center gap-2 text-xs text-gray-500">
-                            <span className="w-1.5 h-1.5 rounded-full bg-gray-300 shrink-0" />
-                            {c}
+            {/* Inclusions / Exclusions */}
+            {(pkg.inclusions.length > 0 || pkg.exclusions.length > 0) && (
+              <section className="mb-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {pkg.inclusions.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center shrink-0">
+                          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </span>
+                        What&apos;s Included
+                      </h3>
+                      <ul className="space-y-2.5">
+                        {pkg.inclusions.map((item, i) => (
+                          <li key={i} className="flex items-center gap-2.5 text-sm text-gray-600">
+                            <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                            </svg>
+                            {item}
                           </li>
                         ))}
                       </ul>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </section>
+                  )}
+                  {pkg.exclusions.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-red-400 flex items-center justify-center shrink-0">
+                          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </span>
+                        What&apos;s Excluded
+                      </h3>
+                      <ul className="space-y-2.5">
+                        {pkg.exclusions.map((item, i) => (
+                          <li key={i} className="flex items-center gap-2.5 text-sm text-gray-600">
+                            <svg className="w-4 h-4 text-red-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
 
+            {/* Reviews (static placeholder) */}
             <section className="mb-8">
               <h2 className="text-base font-bold text-gray-900 mb-4">
-                Reviews <span className="text-gray-400 font-normal text-sm">(128 reviews)</span>
+                Reviews <span className="text-gray-400 font-normal text-sm">({travelerReviews.length * 2} reviews)</span>
               </h2>
               <div className="space-y-5">
                 {[...travelerReviews, ...travelerReviews].map((review, i) => (
@@ -268,33 +300,26 @@ export default function TourPackageDetail() {
                   </div>
                 ))}
               </div>
-              <div className="flex items-center justify-center gap-2 mt-6">
-                <button className="w-7 h-7 flex items-center justify-center rounded-full border border-gray-300 text-gray-400 hover:border-green-400">
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-                </button>
-                {[1,2,3,4,5].map((n) => (
-                  <button key={n} className={`w-7 h-7 rounded-full text-xs font-medium transition-colors ${n === 1 ? 'bg-green-500 text-white' : 'border border-gray-300 text-gray-500 hover:border-green-400'}`}>{n}</button>
-                ))}
-                <button className="w-7 h-7 flex items-center justify-center rounded-full border border-gray-300 text-gray-400 hover:border-green-400">
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                </button>
-              </div>
             </section>
           </div>
 
+          {/* Booking sidebar */}
           <div className="w-full lg:w-72 shrink-0 lg:sticky lg:top-6">
             <div className="bg-white rounded-2xl shadow-md p-6 sticky top-24">
               <div className="mb-5">
                 <p className="text-xs text-gray-400 mb-0.5">Starting from</p>
-                <span className="text-3xl font-extrabold text-gray-900">₱{pkg.price.toLocaleString()}</span>
+                <span className="text-3xl font-extrabold text-gray-900">₱{pkg.pricePerPerson.toLocaleString()}</span>
                 <span className="text-gray-400 text-sm ml-1">/ person</span>
               </div>
 
               <div className="mb-4">
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Date</label>
                 <div className="flex items-center border border-gray-200 rounded-xl px-4 py-3 gap-3 bg-gray-50">
-                  <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                  <input type="date" id="tour-date" name="tourDate" autoComplete="off" aria-label="Tour date" value={date} onChange={(e) => setDate(e.target.value)}
+                  <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <input type="date" id="tour-date" name="tourDate" autoComplete="off" aria-label="Tour date"
+                    value={date} onChange={(e) => setDate(e.target.value)}
                     className="outline-none text-sm text-gray-700 flex-1 bg-transparent [color-scheme:light]"
                     style={{ colorScheme: 'light' }} />
                 </div>
@@ -313,12 +338,12 @@ export default function TourPackageDetail() {
 
               <div className="border-t border-gray-100 pt-4 mb-5 space-y-2 text-sm">
                 <div className="flex justify-between text-gray-500">
-                  <span>₱{pkg.price.toLocaleString()} × {travelers}</span>
-                  <span>₱{(pkg.price * travelers).toLocaleString()}</span>
+                  <span>₱{pkg.pricePerPerson.toLocaleString()} × {travelers}</span>
+                  <span>₱{(pkg.pricePerPerson * travelers).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between font-bold text-gray-900 pt-2 border-t border-gray-100">
                   <span>Total</span>
-                  <span>₱{(pkg.price * travelers).toLocaleString()}</span>
+                  <span>₱{(pkg.pricePerPerson * travelers).toLocaleString()}</span>
                 </div>
               </div>
 
@@ -335,6 +360,7 @@ export default function TourPackageDetail() {
 
       <Footer />
 
+      {/* Chatbot */}
       <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
         {chatOpen && (
           <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col"
@@ -365,7 +391,7 @@ export default function TourPackageDetail() {
                   {msg.from === 'bot' && (
                     <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center shrink-0">
                       <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" />
                       </svg>
                     </div>
                   )}
@@ -399,9 +425,8 @@ export default function TourPackageDetail() {
                 chipsRef.current.scrollLeft = chipsDrag.current.scrollLeft - walk
               }}
             >
-              {['Included?', 'How to book?', 'Cancel policy?', 'What to bring?'].map((q) => (
-                <button key={q}
-                  onClick={() => { setChatInput(q) }}
+              {["Included?", "How to book?", "Cancel policy?", "What to bring?"].map((q) => (
+                <button key={q} onClick={() => setChatInput(q)}
                   className="whitespace-nowrap text-xs border border-green-200 text-green-600 px-2.5 py-1 rounded-full hover:bg-green-50 transition-colors shrink-0">
                   {q}
                 </button>

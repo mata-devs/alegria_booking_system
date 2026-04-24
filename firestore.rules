@@ -12,12 +12,28 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'operator';
     }
 
-		// Public booking: catalog + slot availability are readable by anyone (no sign-in).
-    // Writes stay off for clients so only Admin SDK / Cloud Functions / console can change data.
+    // ── ADDED 2026-04-24 ───────────────────────────────────────────
+    // Activities: public read for guest catalog. Only the owning operator can
+    // create/edit/delete their own activities. Super admins and guests are read-only.
     match /activities/{activityId} {
       allow read: if true;
-      allow write: if false;
+      allow create: if isOperator()
+        && request.resource.data.operatorId == request.auth.uid;
+      allow update, delete: if isOperator()
+        && resource.data.operatorId == request.auth.uid;
     }
+    // ── ADDED 2026-04-24 ───────────────────────────────────────────
+    // Tour packages: public read for guest catalog. Only the owning operator can
+    // create/edit/delete their own packages. Super admins have full write access.
+    match /tourPackages/{packageId} {
+      allow read: if true;
+      allow create: if isOperator()
+        && request.resource.data.operatorId == request.auth.uid;
+      allow update, delete: if isOperator()
+        && resource.data.operatorId == request.auth.uid;
+      allow write: if isSuperAdmin();
+    }
+
     match /timeslots/{slotId} {
       allow read: if true;
       allow write: if false;

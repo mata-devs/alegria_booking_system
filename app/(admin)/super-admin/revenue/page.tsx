@@ -334,10 +334,9 @@ function IndividualBookings() {
       setError(null);
       try {
         const cursor = cursors[pageIndex] ?? null;
-        const parts = [...bookingsBase()];
         const q = cursor
-          ? query(...parts, startAfter(cursor), limit(PAGE_SIZE))
-          : query(...parts, limit(PAGE_SIZE));
+          ? query(...bookingsBase(), startAfter(cursor), limit(PAGE_SIZE))
+          : query(...bookingsBase(), limit(PAGE_SIZE));
         const snap = await getDocs(q);
         if (cancelled) return;
 

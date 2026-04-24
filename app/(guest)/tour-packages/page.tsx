@@ -1,21 +1,80 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import Footer from '@/app/components/Footer'
-import TourPackageCard from '@/app/components/TourPackageCard'
-import { tourPackages, activityCategories } from '@/app/data/mockData'
-import type { TourPackage } from '@/app/types'
+import { collection, query, where, onSnapshot } from 'firebase/firestore'
+import { firebaseDb } from '@/app/lib/firebase'
 
-const allPackages: TourPackage[] = [...tourPackages, ...tourPackages, ...tourPackages]
+const ACTIVITY_TAGS = ['Diving', 'Culture', 'Canyoneering', 'Beach', 'Museum', 'History'] as const;
+
+interface FirestorePackage {
+  id: string
+  packageName: string
+  packageDescription: string
+  pricePerPerson: number
+  packageLocation: string
+  duration: string
+  packageTag: string
+  packageImages: string[]
+  packageRating: number
+  slug: string
+}
+
 const INITIAL_COUNT = 9
 
+function PackageCard({ pkg }: { pkg: FirestorePackage }) {
+  return (
+    <Link href={`/tour-packages/${pkg.slug}`} className="block">
+      <div className="relative rounded-2xl overflow-hidden cursor-pointer group h-72">
+        <Image
+          src={pkg.packageImages[0]}
+          alt={pkg.packageName}
+          fill
+          className="object-cover group-hover:scale-105 transition-transform duration-500"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-green-900/20 via-green-900/40 to-green-900/90" />
+        <div className="absolute top-4 left-4">
+          <span className="text-xs font-bold px-3 py-1 rounded-full bg-green-500 text-white">
+            {pkg.duration}
+          </span>
+        </div>
+        <div className="absolute inset-0 p-5 flex flex-col justify-end">
+          <h3 className="text-white font-bold text-xl leading-tight mb-1 drop-shadow">{pkg.packageName}</h3>
+          <p className="text-white/80 text-xs mb-3 line-clamp-2">{pkg.packageDescription}</p>
+          <span className="text-white text-xs font-bold px-3 py-1.5 rounded-full self-start bg-green-500">
+            Starting from ₱{pkg.pricePerPerson.toLocaleString()}.00
+          </span>
+        </div>
+      </div>
+    </Link>
+  )
+}
+
 export default function TourPackagesPage() {
+  const [packages, setPackages] = useState<FirestorePackage[]>([])
+  const [loading, setLoading] = useState(true)
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
   const [visibleCount, setVisibleCount] = useState(INITIAL_COUNT)
 
-  const visible = allPackages.slice(0, visibleCount)
+  useEffect(() => {
+    const q = query(
+      collection(firebaseDb, 'tourPackages'),
+      where('status', '==', 'active'),
+    )
+    const unsub = onSnapshot(q, (snap) => {
+      setPackages(snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirestorePackage)))
+      setLoading(false)
+    })
+    return unsub
+  }, [])
+
+  const filtered = activeFilter
+    ? packages.filter((p) => p.packageTag === activeFilter)
+    : packages
+
+  const visible = filtered.slice(0, visibleCount)
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f0fdf4]">
@@ -48,13 +107,15 @@ export default function TourPackagesPage() {
 
       <div className="w-full px-4 sm:px-6 lg:px-8 py-5">
         <div className="flex items-center justify-center gap-2 flex-wrap">
-          <button className="flex items-center gap-1.5 border border-gray-300 text-gray-600 px-5 py-2 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-            </svg>
-            Filters
+          <button
+            onClick={() => setActiveFilter(null)}
+            className={`flex items-center gap-1.5 border px-5 py-2 rounded-full text-sm font-medium transition-colors ${
+              activeFilter === null ? 'bg-green-500 text-white border-green-500' : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            All
           </button>
-          {activityCategories.map((cat) => (
+          {ACTIVITY_TAGS.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveFilter(activeFilter === cat ? null : cat)}
@@ -71,14 +132,22 @@ export default function TourPackagesPage() {
       </div>
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pb-16">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
-          {visible.map((pkg, i) => (
-            <TourPackageCard key={i} pkg={pkg} />
-          ))}
-        </div>
+        {loading ? (
+          <div className="text-sm text-gray-400 py-20 text-center">Loading packages…</div>
+        ) : visible.length === 0 ? (
+          <div className="text-sm text-gray-400 py-20 text-center">
+            {packages.length === 0 ? 'No tour packages available yet.' : 'No packages match this category.'}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
+            {visible.map((pkg) => (
+              <PackageCard key={pkg.id} pkg={pkg} />
+            ))}
+          </div>
+        )}
 
         <div className="flex items-center justify-center gap-3 mb-10">
-          {visibleCount < allPackages.length && (
+          {visibleCount < filtered.length && (
             <button
               onClick={() => setVisibleCount((c) => c + 6)}
               className="border border-gray-300 text-gray-700 px-10 py-2.5 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors"

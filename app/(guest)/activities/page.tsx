@@ -1,17 +1,56 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import Footer from '@/app/components/Footer'
 import SearchBar from '@/app/components/SearchBar'
 import ActivityCard from '@/app/components/ActivityCard'
 import TourPackageCard from '@/app/components/TourPackageCard'
-import { activities, activityCategories, tourPackages } from '@/app/data/mockData'
+import { tourPackages } from '@/app/data/mockData'
+import { collection, query, where, getDocs } from 'firebase/firestore'
+import { firebaseDb } from '@/app/lib/firebase'
+import type { Activity } from '@/app/types'
+
+const ACTIVITY_TAGS = ['Diving', 'Culture', 'Canyoneering', 'Beach', 'Museum', 'History'] as const
 
 export default function ActivitiesPage() {
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
   const [visibleCount, setVisibleCount] = useState(8)
+  const [activities, setActivities] = useState<Activity[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchActivities() {
+      try {
+        const q = query(
+          collection(firebaseDb, 'activities'),
+          where('status', '==', 'active'),
+        )
+        const snap = await getDocs(q)
+        const mapped: Activity[] = snap.docs.map((d, idx) => {
+          const data = d.data()
+          return {
+            id: idx,
+            category: data.activityTag ?? '',
+            title: data.activityName ?? '',
+            location: data.activityLocation ?? '',
+            rating: data.activityRating ?? 0,
+            reviewCount: 0,
+            price: data.pricePerGuest ?? 0,
+            image: data.activityImages?.[0] ?? '',
+            municipalityId: data.activityLocation ?? '',
+          }
+        })
+        setActivities(mapped)
+      } catch (err) {
+        console.error('Failed to fetch activities:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchActivities()
+  }, [])
 
   const filtered = activeFilter
     ? activities.filter((a) => a.category === activeFilter)
@@ -62,7 +101,7 @@ export default function ActivitiesPage() {
             </svg>
             Filters
           </button>
-          {activityCategories.map((cat) => (
+          {ACTIVITY_TAGS.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveFilter(activeFilter === cat ? null : cat)}
@@ -79,11 +118,17 @@ export default function ActivitiesPage() {
       </div>
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 lg:px-8 pb-16">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5 mb-8">
-          {visible.map((act) => (
-            <ActivityCard key={act.id} activity={act} />
-          ))}
-        </div>
+        {loading ? (
+          <div className="py-16 text-center text-sm text-gray-400">Loading activities…</div>
+        ) : filtered.length === 0 ? (
+          <div className="py-16 text-center text-sm text-gray-400">No activities available.</div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5 mb-8">
+            {visible.map((act) => (
+              <ActivityCard key={act.id} activity={act} />
+            ))}
+          </div>
+        )}
 
         <div className="flex items-center justify-center gap-3 mb-16">
           {visibleCount < filtered.length && (

@@ -111,7 +111,7 @@ app/
 │           └── page.tsx                 # Reservation received screen with booking ID
 │
 ├── (operator)/                          # Tour operator portal
-│   └── Operator/
+│   └── operator/
 │       ├── layout.tsx                   # Operator layout (sidebar nav)
 │       ├── page.tsx                     # Operator home / redirect
 │       ├── bookings/                    # Live booking management (calendar + list)

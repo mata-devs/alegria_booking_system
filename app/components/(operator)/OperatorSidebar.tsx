@@ -11,6 +11,8 @@ import {
   Settings,
   CircleUserRound,
   Menu,
+  Package,
+  Zap,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -18,6 +20,8 @@ const NAV_ITEMS = [
   { label: 'Bookings', href: '/operator/bookings', icon: ClipboardList },
   { label: 'Bookings\nHistory', href: '/operator/history', icon: History },
   { label: 'Analytics', href: '/operator/analytics', icon: BarChart3 },
+  { label: 'Tour\nPackages', href: '/operator/tour-packages', icon: Package },
+  { label: 'Activities', href: '/operator/activities', icon: Zap },
 ];
 
 interface OperatorSidebarProps {
