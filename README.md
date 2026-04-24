@@ -115,21 +115,63 @@ app/
 │       ├── layout.tsx                   # Operator layout (sidebar nav)
 │       ├── page.tsx                     # Operator home / redirect
 │       ├── bookings/                    # Live booking management (calendar + list)
+│       │   ├── page.tsx
+│       │   ├── calendar.tsx             # Week-view calendar component
+│       │   ├── list.tsx                 # Booking request list
+│       │   ├── details.tsx             # Booking detail modal
+│       │   └── modalfilter.tsx
 │       ├── history/                     # Past booking history with filters
-│       ├── Analytics/                   # Revenue, booking, and promo charts
-│       ├── VoucherCodes/                # Promo code and entity management
-│       │   ├── Code/
-│       │   └── Entity/
-│       └── Settings/                    # Operator profile settings
+│       │   ├── page.tsx
+│       │   ├── list.tsx
+│       │   ├── details.tsx
+│       │   └── modalfilter.tsx
+│       ├── analytics/                   # Revenue, booking, and promo charts
+│       │   ├── page.tsx
+│       │   ├── filter.tsx
+│       │   ├── linechart.tsx            # Bookings trend (dynamic Y-axis)
+│       │   ├── barchart.tsx             # Age distribution
+│       │   ├── barcharty.tsx            # Affiliated entities horizontal bar
+│       │   ├── piechart.tsx             # Tourist nationalities
+│       │   ├── piechart2.tsx            # Promo code usage
+│       │   ├── payment.tsx              # Payment methods
+│       │   ├── total.tsx                # Total bookings KPI card
+│       │   └── revenue.tsx              # Gross / net revenue KPI card
+│       ├── settings/                    # Operator profile settings
+│       │   └── page.tsx
+│       └── _components/
+│           └── ui/                      # Local chart UI primitives (shadcn-style)
+│               ├── chart.tsx
+│               ├── card.tsx
+│               └── button.tsx
 │
 ├── (admin)/                             # Super-admin portal
 │   └── super-admin/
 │       ├── layout.tsx                   # Admin layout (sidebar nav)
 │       ├── operators/                   # Operator account management
-│       ├── analytics/                   # Platform-wide analytics
+│       │   ├── page.tsx
+│       │   └── loading.tsx
+│       ├── analytics/                   # Platform-wide analytics with operator filter
+│       │   ├── page.tsx                 # Sectioned dashboard (skeleton loaders, sticky filter)
+│       │   ├── loading.tsx
+│       │   └── _components/
+│       │       └── filter.tsx           # Operator / date range / demographic sidebar
 │       ├── revenue/                     # Revenue reports
+│       │   ├── page.tsx
+│       │   └── loading.tsx
+│       ├── reviews/                     # Review management (mockup)
+│       │   ├── page.tsx
+│       │   └── loading.tsx
 │       ├── vouchers/                    # Voucher code oversight
-│       └── settings/                   # Platform settings
+│       │   ├── layout.tsx
+│       │   ├── page.tsx
+│       │   ├── loading.tsx
+│       │   ├── code/
+│       │   │   └── page.tsx
+│       │   └── entity/
+│       │       └── page.tsx
+│       └── settings/                    # Platform settings
+│           ├── page.tsx
+│           └── loading.tsx
 │
 ├── login/
 │   └── page.tsx                         # Unified login page (guest / operator / admin)
@@ -145,6 +187,8 @@ app/
 │   ├── auth/
 │   │   ├── LoginPanel.tsx               # Email/password login panel
 │   │   └── ResetPasswordPanel.tsx       # Password reset panel
+│   ├── ui/
+│   │   └── Skeleton.tsx                 # Reusable skeleton loader component
 │   ├── (operator)/
 │   │   ├── OperatorSidebar.tsx          # Operator nav sidebar
 │   │   └── RoleGuard.tsx               # Role-based route protection
@@ -207,12 +251,10 @@ functions/src/
 
 | Route | Description |
 |-------|-------------|
-| `/operator` | Operator home |
-| `/operator/bookings` | Live booking management (calendar + list view) |
+| `/operator` | Operator home / redirect |
+| `/operator/bookings` | Live booking management (week-view calendar + request list) |
 | `/operator/history` | Past booking history with search and filters |
-| `/operator/analytics` | Revenue, booking volume, promo code charts |
-| `/operator/VoucherCodes/Code` | Manage promo codes |
-| `/operator/VoucherCodes/Entity` | Manage voucher entities |
+| `/operator/analytics` | Revenue, booking trend, age, nationality, promo, payment charts |
 | `/operator/settings` | Operator profile |
 
 ### Super-Admin
@@ -220,9 +262,10 @@ functions/src/
 | Route | Description |
 |-------|-------------|
 | `/super-admin/operators` | Approve / manage operator accounts |
-| `/super-admin/analytics` | Platform-wide analytics |
+| `/super-admin/analytics` | Platform-wide analytics with operator + demographic filters |
 | `/super-admin/revenue` | Revenue reports |
-| `/super-admin/vouchers` | Voucher oversight |
+| `/super-admin/vouchers` | Voucher code oversight (code + entity sub-pages) |
+| `/super-admin/reviews` | Review management (mockup) |
 | `/super-admin/settings` | Platform settings |
 
 ### Auth
@@ -253,10 +296,13 @@ Landing → Locations → Municipality View → Tour Package Detail
 - **Fixed bottom navigation** — Go Back / Next buttons on booking flow pages
 - **Role-based auth** — Firebase Auth with `UserRole` guard (guest / operator / super-admin)
 - **Operator booking calendar** — Week-view calendar + booking request list
-- **Analytics dashboards** — Bar, line, and pie charts via Recharts for both operators and admin
-- **Voucher / promo codes** — Create and manage promo codes with entity grouping
+- **Analytics dashboards** — Sectioned bar, line, and pie charts via Recharts for operators and super-admin; dynamic Y-axis scaling; per-card skeleton loaders; sticky filter sidebar
+- **Super-admin analytics filters** — Filter platform analytics by operator, date range, age, gender, and nationality
+- **Voucher / promo codes** — Manage promo codes and affiliated entities; super-admin oversight via dedicated sub-pages
+- **Loading states** — Per-page `loading.tsx` files for all super-admin routes; skeleton loaders on analytics cards
 - **Idempotent booking API** — `X-Idempotency-Key` header prevents duplicate bookings
 - **Firebase App Check** — Optional enforcement on the booking Cloud Function
+- **Firestore security rules** — Super-admin rules cover voucher codes and affiliated entity management
 - **Mobile responsive** — All pages adapt to mobile with stacked layouts and hamburger menu
 
 ---

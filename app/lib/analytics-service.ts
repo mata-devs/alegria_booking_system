@@ -163,9 +163,38 @@ function cloneSampleDashboard(): AnalyticsDashboardResponse {
   };
 }
 
+const ANALYTICS_CACHE_TTL_MS = 60_000;
+type AnalyticsCacheEntry = { data: AnalyticsDashboardResponse; fetchedAt: number };
+const analyticsCache = new Map<string, AnalyticsCacheEntry>();
+
+function analyticsCacheKey(filters: AnalyticsQueryFilters): string {
+  const norm = {
+    operators: [...(filters.operators ?? [])].sort(),
+    startDate: filters.startDate ?? null,
+    endDate: filters.endDate ?? null,
+    minAge: filters.minAge ?? null,
+    maxAge: filters.maxAge ?? null,
+    genders: [...(filters.genders ?? [])].sort(),
+    nationalities: [...(filters.nationalities ?? [])].sort(),
+    topNationalities: filters.topNationalities ?? null,
+    topEntities: filters.topEntities ?? null,
+  };
+  return JSON.stringify(norm);
+}
+
+export function invalidateAnalyticsCache() {
+  analyticsCache.clear();
+}
+
 export async function getAnalyticsDashboard(filters: AnalyticsQueryFilters = {}): Promise<AnalyticsDashboardResponse> {
   if (isAnalyticsSampleForced()) {
     return { ...cloneSampleDashboard(), _demo: true };
+  }
+
+  const key = analyticsCacheKey(filters);
+  const cached = analyticsCache.get(key);
+  if (cached && Date.now() - cached.fetchedAt < ANALYTICS_CACHE_TTL_MS) {
+    return cached.data;
   }
 
   const url = new URL(`${API_URL}/analytics`);
@@ -197,7 +226,9 @@ export async function getAnalyticsDashboard(filters: AnalyticsQueryFilters = {})
       );
     }
 
-    return data as AnalyticsDashboardResponse;
+    const result = data as AnalyticsDashboardResponse;
+    analyticsCache.set(key, { data: result, fetchedAt: Date.now() });
+    return result;
   } catch (e) {
     if (process.env.NODE_ENV === "development") {
       console.warn("[analytics] API unavailable, using sample dashboard:", e);

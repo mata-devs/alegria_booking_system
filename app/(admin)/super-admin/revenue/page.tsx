@@ -1,17 +1,42 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Search,
   SlidersHorizontal,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Printer,
   Download,
   Loader2,
   FileText,
+  ShieldAlert,
 } from 'lucide-react';
-import { collection, getDocs, Timestamp } from 'firebase/firestore';
+import {
+  collection,
+  getCountFromServer,
+  getDocs,
+  limit,
+  orderBy,
+  query,
+  QueryDocumentSnapshot,
+  startAfter,
+  Timestamp,
+  where,
+  type DocumentData,
+} from 'firebase/firestore';
 import { firebaseDb } from '@/app/lib/firebase';
+import { useAuth } from '@/app/context/AuthContext';
+
+const PAGE_SIZE = 10;
+
+const REVENUE_WINDOW_DAYS = 90;
+const BOOKINGS_LIMIT = 500;
+const CACHE_TTL_MS = 60_000;
+
+type RevenueCacheEntry = { rows: unknown; fetchedAt: number };
+let revenueCache: RevenueCacheEntry | null = null;
 
 type Tab = 'individual' | 'summarized';
 
@@ -61,17 +86,47 @@ function tsToDate(v: unknown): Date | null {
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
 export default function RevenueReportsPage() {
+  const { authState } = useAuth();
+  const isSuperAdmin =
+    authState.status === 'authenticated' && authState.profile.role === 'super_admin';
+
   const [tab, setTab] = useState<Tab>('individual');
   const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!isSuperAdmin) {
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
     (async () => {
+      const now = Date.now();
+      if (revenueCache && now - revenueCache.fetchedAt < CACHE_TTL_MS) {
+        setBookings(revenueCache.rows as BookingRow[]);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       try {
+        const cutoff = Timestamp.fromMillis(now - REVENUE_WINDOW_DAYS * 86_400_000);
+
+        const bookingsQuery = query(
+          collection(firebaseDb, 'bookings'),
+          where('createdAt', '>=', cutoff),
+          limit(BOOKINGS_LIMIT),
+        );
+        const operatorsQuery = query(
+          collection(firebaseDb, 'users'),
+          where('role', '==', 'operator'),
+        );
+
         const [bSnap, uSnap] = await Promise.all([
-          getDocs(collection(firebaseDb, 'bookings')),
-          getDocs(collection(firebaseDb, 'users')),
+          getDocs(bookingsQuery),
+          getDocs(operatorsQuery),
         ]);
 
         const userMap = new Map<string, string>();
@@ -107,14 +162,42 @@ export default function RevenueReportsPage() {
             createdAt: tsToDate(b.createdAt),
           };
         });
-        setBookings(rows);
+
+        revenueCache = { rows, fetchedAt: Date.now() };
+        if (!cancelled) setBookings(rows);
       } catch (err) {
         console.error('Failed to load bookings:', err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
-  }, []);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isSuperAdmin]);
+
+  if (authState.status === 'loading') {
+    return (
+      <div className="flex h-full items-center justify-center text-gray-400">
+        <Loader2 className="mr-2 animate-spin" size={18} /> Verifying access…
+      </div>
+    );
+  }
+
+  if (!isSuperAdmin) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="max-w-md rounded-lg border border-red-200 bg-red-50 p-6 text-center">
+          <ShieldAlert className="mx-auto mb-3 h-8 w-8 text-red-600" />
+          <h2 className="text-base font-semibold text-red-800">Access denied</h2>
+          <p className="mt-1 text-sm text-red-700">
+            Revenue reports are restricted to super administrators.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -126,7 +209,7 @@ export default function RevenueReportsPage() {
 
       <div className="flex-1 min-h-0 mt-4">
         {tab === 'individual'
-          ? <IndividualBookings bookings={bookings} loading={loading} />
+          ? <IndividualBookings />
           : <SummarizedReport bookings={bookings} loading={loading} />}
       </div>
     </div>
@@ -152,26 +235,160 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
 
 type IndSearchField = 'Booking ID' | 'Operator' | 'Representative';
 
-function IndividualBookings({ bookings, loading }: { bookings: BookingRow[]; loading: boolean }) {
+function mapBookingDoc(d: QueryDocumentSnapshot<DocumentData>, userMap: Map<string, string>): BookingRow {
+  const b = d.data();
+  return {
+    bookingId: b.bookingId ?? d.id,
+    operatorUid: b.operatorUid ?? '',
+    operatorName: userMap.get(b.operatorUid) ?? '—',
+    representative: {
+      fullName: b.representative?.fullName ?? '',
+      email: b.representative?.email ?? '',
+      phoneNumber: b.representative?.phoneNumber ?? '',
+      age: Number(b.representative?.age) || 0,
+      gender: b.representative?.gender,
+      nationality: b.representative?.nationality,
+    },
+    guests: Array.isArray(b.guests) ? b.guests : [],
+    numberOfGuests: Number(b.numberOfGuests) || 0,
+    tourDate: tsToDate(b.tourDate),
+    timeSlot: b.timeSlot ?? 'AM',
+    pricePerGuest: Number(b.pricePerGuest) || 0,
+    serviceCharge: Number(b.serviceCharge) || 0,
+    discountAmount: Number(b.discountAmount) || 0,
+    finalPrice: Number(b.finalPrice) || 0,
+    paymentMethod: b.paymentMethod ?? 'Cash',
+    createdAt: tsToDate(b.createdAt),
+  };
+}
+
+function IndividualBookings() {
+  const { authState } = useAuth();
+  const isSuperAdmin =
+    authState.status === 'authenticated' && authState.profile.role === 'super_admin';
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [searchField, setSearchField] = useState<IndSearchField>('Booking ID');
   const [term, setTerm] = useState('');
 
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pages, setPages] = useState<Map<number, BookingRow[]>>(new Map());
+  const [cursors, setCursors] = useState<(QueryDocumentSnapshot<DocumentData> | null)[]>([null]);
+  const [totalCount, setTotalCount] = useState<number | null>(null);
+  const [userMap, setUserMap] = useState<Map<string, string>>(new Map());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const cutoff = useMemo(
+    () => Timestamp.fromMillis(Date.now() - REVENUE_WINDOW_DAYS * 86_400_000),
+    [],
+  );
+
+  const bookingsBase = useCallback(
+    () => [
+      collection(firebaseDb, 'bookings'),
+      where('createdAt', '>=', cutoff),
+      orderBy('createdAt', 'desc'),
+    ] as const,
+    [cutoff],
+  );
+
+  // One-time: load operators + total count. Guarded by role.
   useEffect(() => {
-    if (!selectedId && bookings.length > 0) setSelectedId(bookings[0].bookingId);
-  }, [bookings, selectedId]);
+    if (!isSuperAdmin) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const [opSnap, countSnap] = await Promise.all([
+          getDocs(query(collection(firebaseDb, 'users'), where('role', '==', 'operator'))),
+          getCountFromServer(query(...bookingsBase())),
+        ]);
+        if (cancelled) return;
+        const map = new Map<string, string>();
+        opSnap.docs.forEach(d => {
+          const u = d.data();
+          const name = u.operatorName || u.companyName || [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email || d.id;
+          map.set(d.id, name);
+        });
+        setUserMap(map);
+        setTotalCount(countSnap.data().count);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load metadata');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isSuperAdmin, bookingsBase]);
+
+  // Fetch page on demand via cursor.
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    if (pages.has(pageIndex)) return;
+    if (userMap.size === 0 && totalCount === null) return; // wait for metadata
+
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const cursor = cursors[pageIndex] ?? null;
+        const parts = [...bookingsBase()];
+        const q = cursor
+          ? query(...parts, startAfter(cursor), limit(PAGE_SIZE))
+          : query(...parts, limit(PAGE_SIZE));
+        const snap = await getDocs(q);
+        if (cancelled) return;
+
+        const rows = snap.docs.map(d => mapBookingDoc(d, userMap));
+        const last = snap.docs[snap.docs.length - 1] ?? null;
+
+        setPages(prev => new Map(prev).set(pageIndex, rows));
+        setCursors(prev => {
+          const next = [...prev];
+          next[pageIndex + 1] = last;
+          return next;
+        });
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load page');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isSuperAdmin, pageIndex, pages, cursors, userMap, totalCount, bookingsBase]);
+
+  const currentPage = pages.get(pageIndex) ?? [];
+
+  useEffect(() => {
+    if (!selectedId && currentPage.length > 0) setSelectedId(currentPage[0].bookingId);
+  }, [currentPage, selectedId]);
 
   const filtered = useMemo(() => {
     const t = term.trim().toLowerCase();
-    if (!t) return bookings;
-    return bookings.filter(b => {
+    if (!t) return currentPage;
+    return currentPage.filter(b => {
       if (searchField === 'Booking ID') return b.bookingId.toLowerCase().includes(t);
       if (searchField === 'Operator') return b.operatorName.toLowerCase().includes(t);
       return b.representative.fullName.toLowerCase().includes(t);
     });
-  }, [bookings, term, searchField]);
+  }, [currentPage, term, searchField]);
 
-  const selected = bookings.find(b => b.bookingId === selectedId) ?? null;
+  const selected = currentPage.find(b => b.bookingId === selectedId) ?? null;
+
+  const totalPages = totalCount === null ? null : Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const hasNext = totalPages === null ? currentPage.length === PAGE_SIZE : pageIndex < totalPages - 1;
+  const hasPrev = pageIndex > 0;
+
+  const goTo = (idx: number) => {
+    if (idx < 0) return;
+    if (totalPages !== null && idx >= totalPages) return;
+    // Cursor for `idx` must be known: we only know cursors for pages we've already loaded + 1 ahead.
+    if (idx > 0 && cursors[idx] === undefined) return;
+    setSelectedId(null);
+    setPageIndex(idx);
+  };
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-5 gap-4 h-full">
@@ -196,8 +413,10 @@ function IndividualBookings({ bookings, loading }: { bookings: BookingRow[]; loa
               </tr>
             </thead>
             <tbody>
-              {loading ? (
+              {loading && currentPage.length === 0 ? (
                 <tr><td colSpan={6} className="px-6 py-16 text-center text-gray-400"><Loader2 className="inline animate-spin mr-2" size={16} />Loading…</td></tr>
+              ) : error ? (
+                <tr><td colSpan={6} className="px-6 py-16 text-center text-red-500">{error}</td></tr>
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={6} className="px-6 py-16 text-center text-gray-400">No bookings found.</td></tr>
               ) : filtered.map(b => {
@@ -219,6 +438,38 @@ function IndividualBookings({ bookings, loading }: { bookings: BookingRow[]; loa
               })}
             </tbody>
           </table>
+        </div>
+
+        <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3 text-xs text-gray-600">
+          <span>
+            {totalCount === null
+              ? 'Loading count…'
+              : totalCount === 0
+              ? 'No bookings in the last 90 days.'
+              : `Showing ${pageIndex * PAGE_SIZE + (currentPage.length > 0 ? 1 : 0)}–${pageIndex * PAGE_SIZE + currentPage.length} of ${totalCount}`}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => goTo(pageIndex - 1)}
+              disabled={!hasPrev || loading}
+              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-700 transition-colors hover:border-[#558B2F] hover:text-[#558B2F] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" /> Prev
+            </button>
+            <span className="px-2 font-medium">
+              Page {pageIndex + 1}
+              {totalPages !== null ? ` of ${totalPages}` : ''}
+            </span>
+            <button
+              type="button"
+              onClick={() => goTo(pageIndex + 1)}
+              disabled={!hasNext || loading}
+              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-700 transition-colors hover:border-[#558B2F] hover:text-[#558B2F] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Next <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 
