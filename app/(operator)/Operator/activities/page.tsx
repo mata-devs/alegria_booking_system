@@ -2,11 +2,13 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react';
 import Image from 'next/image';
-import { Plus, Search, SlidersHorizontal, X, Upload, ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
+import { Plus, Search, SlidersHorizontal, X, Upload, ChevronLeft, ChevronRight, Pencil, Trash2, LayoutGrid, Table as TableIcon } from 'lucide-react';
+import ToggleSwitch from '@/components/ui/ToggleSwitch';
 import {
   collection,
   addDoc,
   updateDoc,
+  deleteDoc,
   doc,
   query,
   where,
@@ -58,9 +60,10 @@ interface Filters {
   location: string;
   priceMin: string;
   priceMax: string;
+  tag: ActivityTag | '';
 }
 
-const EMPTY_FILTERS: Filters = { status: 'all', location: '', priceMin: '', priceMax: '' };
+const EMPTY_FILTERS: Filters = { status: 'all', location: '', priceMin: '', priceMax: '', tag: '' };
 
 // ── Image compression ───────────────────────────────────────────
 
@@ -710,6 +713,21 @@ function FiltersModal({ open, filters, onApply, onClose }: { open: boolean; filt
             </select>
           </div>
           <div>
+            <p className="text-xs font-semibold text-gray-600 mb-2">Tag</p>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => set('tag', '')}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${draft.tag === '' ? 'bg-green-500 text-white border-green-500' : 'border-gray-300 text-gray-600 hover:border-green-400 hover:text-green-600'}`}>
+                All
+              </button>
+              {ACTIVITY_TAGS.map((tag) => (
+                <button key={tag} onClick={() => set('tag', tag)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${draft.tag === tag ? 'bg-green-500 text-white border-green-500' : 'border-gray-300 text-gray-600 hover:border-green-400 hover:text-green-600'}`}>
+                  {tag}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
             <p className="text-xs font-semibold text-gray-600 mb-2">Price per Guest (₱)</p>
             <div className="flex items-center gap-2">
               <input type="number" min="0" value={draft.priceMin} onChange={(e) => set('priceMin', e.target.value)} placeholder="Min"
@@ -731,6 +749,77 @@ function FiltersModal({ open, filters, onApply, onClose }: { open: boolean; filt
   );
 }
 
+// ── Delete Confirmation Modal ──────────────────────────────────
+
+function DeleteActivityModal({
+  activity,
+  onClose,
+  onDelete,
+  onDisable,
+}: {
+  activity: OperatorActivity;
+  onClose: () => void;
+  onDelete: () => void;
+  onDisable: () => void;
+}) {
+  const isAlreadyDisabled = activity.status === 'disabled';
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <h2 className="text-base font-bold text-gray-900">Delete Activity</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label="Close">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="px-6 py-5 space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="shrink-0 w-10 h-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center">
+              <Trash2 className="w-5 h-5" />
+            </div>
+            <div className="text-sm text-gray-700">
+              <p className="font-medium text-gray-900 mb-1">&quot;{activity.activityName}&quot;</p>
+              <p>
+                Permanently deleting will remove this activity and cannot be undone. If you only want to hide it from
+                customers, choose <span className="font-semibold">Disable</span> instead.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center justify-end gap-2 px-6 py-4 bg-gray-50 border-t">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-full text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-100"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onDisable}
+            disabled={isAlreadyDisabled}
+            className={`px-4 py-2 rounded-full text-sm font-medium border transition-colors ${
+              isAlreadyDisabled
+                ? 'border-gray-200 text-gray-400 cursor-not-allowed'
+                : 'border-amber-400 text-amber-700 hover:bg-amber-50'
+            }`}
+            title={isAlreadyDisabled ? 'Already disabled' : 'Disable this activity'}
+          >
+            {isAlreadyDisabled ? 'Already Disabled' : 'Disable'}
+          </button>
+          <button
+            type="button"
+            onClick={onDelete}
+            className="px-4 py-2 rounded-full text-sm font-medium bg-red-500 text-white hover:bg-red-600"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page ───────────────────────────────────────────────────
 
 export default function OperatorActivitiesPage() {
@@ -740,12 +829,47 @@ export default function OperatorActivitiesPage() {
   const [activities, setActivities] = useState<OperatorActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [tagFilter, setTagFilter] = useState<ActivityTag | ''>('');
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [detailActivity, setDetailActivity] = useState<OperatorActivity | null>(null);
   const [editActivity, setEditActivity] = useState<OperatorActivity | null>(null);
+  const [deleteActivity, setDeleteActivity] = useState<OperatorActivity | null>(null);
+  const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
+
+  const handleToggleStatus = async (act: OperatorActivity) => {
+    const next = act.status === 'active' ? 'disabled' : 'active';
+    try {
+      await updateDoc(doc(firebaseDb, 'activities', act.id), { status: next });
+    } catch (err) {
+      console.error('Failed to toggle activity status', err);
+      alert('Failed to update status. Please try again.');
+    }
+  };
+
+  const handleDelete = (act: OperatorActivity) => {
+    setDeleteActivity(act);
+  };
+
+  const confirmDelete = async (act: OperatorActivity) => {
+    try {
+      await deleteDoc(doc(firebaseDb, 'activities', act.id));
+      setDeleteActivity(null);
+    } catch (err) {
+      console.error('Failed to delete activity', err);
+      alert('Failed to delete. Please try again.');
+    }
+  };
+
+  const confirmDisable = async (act: OperatorActivity) => {
+    try {
+      await updateDoc(doc(firebaseDb, 'activities', act.id), { status: 'disabled' });
+      setDeleteActivity(null);
+    } catch (err) {
+      console.error('Failed to disable activity', err);
+      alert('Failed to disable. Please try again.');
+    }
+  };
 
   useEffect(() => {
     if (!operatorId) return;
@@ -757,34 +881,55 @@ export default function OperatorActivitiesPage() {
     return unsub;
   }, [operatorId]);
 
-  const hasActiveFilters = filters.status !== 'all' || filters.location !== '' || filters.priceMin !== '' || filters.priceMax !== '';
+  const hasActiveFilters = filters.status !== 'all' || filters.location !== '' || filters.priceMin !== '' || filters.priceMax !== '' || filters.tag !== '';
 
   const filtered = useMemo(() => activities.filter((a) => {
     if (search && !a.activityName.toLowerCase().includes(search.toLowerCase())) return false;
-    if (tagFilter && a.activityTag !== tagFilter) return false;
+    if (filters.tag && a.activityTag !== filters.tag) return false;
     if (filters.status !== 'all' && a.status !== filters.status) return false;
     if (filters.location && a.activityLocation !== filters.location) return false;
     if (filters.priceMin && a.pricePerGuest < Number(filters.priceMin)) return false;
     if (filters.priceMax && a.pricePerGuest > Number(filters.priceMax)) return false;
     return true;
-  }), [activities, search, tagFilter, filters]);
+  }), [activities, search, filters]);
 
   return (
     <>
       <div className="space-y-5">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900">Activities</h1>
-          <button onClick={() => setShowAddModal(true)} className="flex items-center gap-2 bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-green-700 transition-colors">
-            <Plus className="w-4 h-4" />
-            Add Activity
-          </button>
-        </div>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h1 className="text-xl font-bold text-gray-900 shrink-0">Activities</h1>
 
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="relative flex-1 min-w-52">
+          <div className="flex items-center gap-3 flex-wrap justify-end flex-1">
+          <div className="relative w-full sm:w-72 md:w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search Activity"
               className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
+          </div>
+          <div className="inline-flex rounded-full border border-gray-300 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setViewMode('card')}
+              aria-pressed={viewMode === 'card'}
+              title="Card view"
+              className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors ${
+                viewMode === 'card' ? 'bg-green-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              Card
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              aria-pressed={viewMode === 'table'}
+              title="Table view"
+              className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
+                viewMode === 'table' ? 'bg-green-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <TableIcon className="w-4 h-4" />
+              Table
+            </button>
           </div>
           <button onClick={() => setShowFilters(true)}
             className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border transition-colors ${hasActiveFilters ? 'bg-green-500 text-white border-green-500 hover:bg-green-600' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
@@ -792,12 +937,11 @@ export default function OperatorActivitiesPage() {
             Filters
             {hasActiveFilters && <span className="bg-white text-green-600 text-xs font-bold w-4 h-4 rounded-full flex items-center justify-center">!</span>}
           </button>
-          {ACTIVITY_TAGS.map((tag) => (
-            <button key={tag} onClick={() => setTagFilter(tagFilter === tag ? '' : tag)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${tagFilter === tag ? 'bg-green-500 text-white border-green-500' : 'border-gray-300 text-gray-600 hover:border-green-400 hover:text-green-600'}`}>
-              {tag}
-            </button>
-          ))}
+          <button onClick={() => setShowAddModal(true)} className="flex items-center gap-2 bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-green-700 transition-colors shrink-0">
+            <Plus className="w-4 h-4" />
+            Add Activity
+          </button>
+          </div>
         </div>
 
         {loading ? (
@@ -806,11 +950,69 @@ export default function OperatorActivitiesPage() {
           <div className="text-sm text-gray-400 py-16 text-center">
             {activities.length === 0 ? 'No activities yet. Add your first one!' : 'No activities match your filters.'}
           </div>
-        ) : (
+        ) : viewMode === 'card' ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
             {filtered.map((act) => (
               <ActivityCard key={act.id} activity={act} onViewDetails={setDetailActivity} />
             ))}
+          </div>
+        ) : (
+          <div className="overflow-x-auto border border-gray-200 rounded-lg bg-white">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-gray-600 text-xs uppercase tracking-wide">
+                <tr>
+                  <th className="text-left px-4 py-3 font-semibold">Activity</th>
+                  <th className="text-left px-4 py-3 font-semibold">Tag</th>
+                  <th className="text-left px-4 py-3 font-semibold">Location</th>
+                  <th className="text-right px-4 py-3 font-semibold">Price</th>
+                  <th className="text-left px-4 py-3 font-semibold w-28">Status</th>
+                  <th className="text-right px-4 py-3 font-semibold w-40">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filtered.map((act) => (
+                  <tr key={act.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-medium text-gray-900">
+                      <button
+                        onClick={() => setDetailActivity(act)}
+                        className="text-left hover:text-green-600"
+                      >
+                        {act.activityName}
+                      </button>
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">{act.activityTag}</td>
+                    <td className="px-4 py-3 text-gray-600">{act.activityLocation}</td>
+                    <td className="px-4 py-3 text-right text-gray-900">₱{act.pricePerGuest.toLocaleString()}</td>
+                    <td className="px-4 py-3 w-28"><StatusBadge status={act.status} /></td>
+                    <td className="px-4 py-3 w-40 whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-3">
+                        <button
+                          onClick={() => setEditActivity(act)}
+                          title="Edit"
+                          aria-label="Edit activity"
+                          className="p-1.5 rounded hover:bg-gray-100 text-gray-600 hover:text-green-600"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <ToggleSwitch
+                          checked={act.status === 'active'}
+                          onChange={() => handleToggleStatus(act)}
+                          ariaLabel={act.status === 'active' ? 'Disable activity' : 'Enable activity'}
+                        />
+                        <button
+                          onClick={() => handleDelete(act)}
+                          title="Delete"
+                          aria-label="Delete activity"
+                          className="p-1.5 rounded hover:bg-red-50 text-gray-600 hover:text-red-600"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
@@ -834,6 +1036,15 @@ export default function OperatorActivitiesPage() {
           activity={editActivity}
           onClose={() => setEditActivity(null)}
           operatorId={operatorId}
+        />
+      )}
+
+      {deleteActivity && (
+        <DeleteActivityModal
+          activity={deleteActivity}
+          onClose={() => setDeleteActivity(null)}
+          onDelete={() => confirmDelete(deleteActivity)}
+          onDisable={() => confirmDisable(deleteActivity)}
         />
       )}
     </>

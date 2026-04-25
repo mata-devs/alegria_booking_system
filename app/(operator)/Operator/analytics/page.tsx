@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import type { User } from "firebase/auth";
 import {
@@ -15,8 +15,16 @@ import {
   Wallet,
 } from "lucide-react";
 import { useAuth } from "@/app/context/AuthContext";
-import { getAnalyticsDashboard, type AnalyticsDashboardResponse } from "@/app/lib/analytics-service";
+import {
+  getAnalyticsDashboard,
+  type AnalyticsDashboardResponse,
+  type AnalyticsQueryFilters,
+} from "@/app/lib/analytics-service";
 import { firestore } from "@/app/lib/firebase";
+import type {
+  FilterGranularity,
+  OperatorFilterState,
+} from "@/app/(operator)/operator/analytics/filter";
 
 const Filters = dynamic(() => import("@/app/(operator)/operator/analytics/filter"), { ssr: false });
 const ChartLineLinear = dynamic(() => import("@/app/(operator)/operator/analytics/linechart"), { ssr: false });
@@ -69,6 +77,29 @@ function resolveOperatorUid(
   return currentUid;
 }
 
+/**
+ * Map the local `OperatorFilterState` to the backend `AnalyticsQueryFilters` shape.
+ * Empty/undefined fields are dropped so the request stays compact.
+ * `promoUsage` and `paymentMethods` are NOT in `AnalyticsQueryFilters` — they are applied
+ * client-side to the response (see Analytics component below).
+ */
+function toQuery(s: OperatorFilterState): AnalyticsQueryFilters {
+  const out: AnalyticsQueryFilters = {};
+  if (s.startDate) out.startDate = s.startDate;
+  if (s.endDate) out.endDate = s.endDate;
+  if (typeof s.minAge === "number") out.minAge = s.minAge;
+  if (typeof s.maxAge === "number") out.maxAge = s.maxAge;
+  if (s.genders && s.genders.length > 0) out.genders = s.genders;
+  if (s.nationalities && s.nationalities.length > 0) out.nationalities = s.nationalities;
+  if (typeof s.topN === "number") {
+    out.topNationalities = s.topN;
+    out.topEntities = s.topN;
+  }
+  return out;
+}
+
+const DEFAULT_FILTERS: OperatorFilterState = {};
+
 export default function Analytics() {
   const { authState } = useAuth();
   const uid = authState.status === "authenticated" ? authState.user.uid : null;
@@ -77,6 +108,10 @@ export default function Analytics() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [scopeLabel, setScopeLabel] = useState("Admin Overview");
+
+  // Draft (in-panel) and applied (last-clicked) filter states.
+  const [filters, setFilters] = useState<OperatorFilterState>(DEFAULT_FILTERS);
+  const [appliedFilters, setAppliedFilters] = useState<OperatorFilterState>(DEFAULT_FILTERS);
 
   useEffect(() => {
     if (authState.status === "loading") return;
@@ -89,7 +124,8 @@ export default function Analytics() {
       setError(null);
 
       try {
-        const baseDashboard = await getAnalyticsDashboard();
+        const queryExtra = toQuery(appliedFilters);
+        const baseDashboard = await getAnalyticsDashboard(queryExtra);
 
         if (!currentUser) {
           if (!cancelled) {
@@ -112,7 +148,10 @@ export default function Analytics() {
         }
 
         const operatorUid = resolveOperatorUid(currentUser.uid, userData, baseDashboard.filters.options.operators);
-        const operatorDashboard = await getAnalyticsDashboard({ operators: [operatorUid] });
+        const operatorDashboard = await getAnalyticsDashboard({
+          ...queryExtra,
+          operators: [operatorUid],
+        });
 
         if (!cancelled) {
           setDashboard(operatorDashboard);
@@ -133,7 +172,7 @@ export default function Analytics() {
     void loadDashboard();
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authState.status, uid]);
+  }, [authState.status, uid, appliedFilters]);
 
   const totalBookings = dashboard?.summary.totalBookings ?? 0;
   const grossRevenue = dashboard?.summary.grossRevenue ?? 0;
@@ -155,6 +194,45 @@ export default function Analytics() {
     : "—";
 
   const [showFilters, setShowFilters] = useState(false);
+
+  // Derived option lists for the controlled filter panel.
+  const nationalityOptions = dashboard?.filters.options.nationalities ?? [];
+  const genderOptions = dashboard?.filters.options.genders ?? [];
+  const paymentMethodOptions = useMemo(
+    () => Array.from(new Set((dashboard?.paymentMethods ?? []).map((p) => p.method))),
+    [dashboard?.paymentMethods]
+  );
+
+  // Client-side payment method filter (backend `AnalyticsQueryFilters` doesn't expose `paymentMethods`).
+  const filteredPaymentMethods = useMemo(() => {
+    const all = dashboard?.paymentMethods ?? [];
+    const selected = appliedFilters.paymentMethods;
+    if (!selected || selected.length === 0) return all;
+    return all.filter((p) => selected.includes(p.method));
+  }, [dashboard?.paymentMethods, appliedFilters.paymentMethods]);
+
+  // Client-side promo usage filter (backend `AnalyticsQueryFilters` has no such field).
+  const promoStats = useMemo(() => {
+    const stats = dashboard?.promoCodeStats ?? { withPromo: 0, withoutPromo: 0 };
+    const usage = appliedFilters.promoUsage ?? "any";
+    if (usage === "used") return { withPromo: stats.withPromo, withoutPromo: 0 };
+    if (usage === "unused") return { withPromo: 0, withoutPromo: stats.withoutPromo };
+    return stats;
+  }, [dashboard?.promoCodeStats, appliedFilters.promoUsage]);
+
+  const handleApplyFilters = () => {
+    setAppliedFilters(filters);
+  };
+
+  const handleResetFilters = () => {
+    setFilters(DEFAULT_FILTERS);
+    setAppliedFilters(DEFAULT_FILTERS);
+  };
+
+  const handleGranularityChange = (g: FilterGranularity) => {
+    setFilters((prev) => ({ ...prev, granularity: g }));
+    setAppliedFilters((prev) => ({ ...prev, granularity: g }));
+  };
 
   useEffect(() => {
     if (!showFilters) return;
@@ -206,7 +284,15 @@ export default function Analytics() {
               <span aria-hidden className="text-base leading-none">×</span>
             </button>
             <div className="flex-1 overflow-y-auto">
-              <Filters />
+              <Filters
+                value={filters}
+                onChange={setFilters}
+                onApply={handleApplyFilters}
+                onReset={handleResetFilters}
+                nationalityOptions={nationalityOptions}
+                genderOptions={genderOptions}
+                paymentMethodOptions={paymentMethodOptions}
+              />
             </div>
           </aside>
         </div>
@@ -302,7 +388,11 @@ export default function Analytics() {
 
           {/* Trend */}
           <div className="mb-5">
-            <ChartLineLinear points={dashboard?.bookingsTrend.points || []} />
+            <ChartLineLinear
+              points={dashboard?.bookingsTrend.points || []}
+              granularity={appliedFilters.granularity}
+              onGranularityChange={handleGranularityChange}
+            />
           </div>
 
           {/* Donut + Age + Gauge */}
@@ -310,14 +400,14 @@ export default function Analytics() {
             <ChartPieSimple points={dashboard?.touristNationalities || []} />
             <ChartBarDefault points={dashboard?.touristAgeDistribution || []} />
             <ChartPieCodes
-              withPromo={dashboard?.promoCodeStats.withPromo || 0}
-              withoutPromo={dashboard?.promoCodeStats.withoutPromo || 0}
+              withPromo={promoStats.withPromo}
+              withoutPromo={promoStats.withoutPromo}
             />
           </div>
 
           {/* Payment + Popular Promo Codes */}
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-            <PaymentMethod data={dashboard?.paymentMethods || []} />
+            <PaymentMethod data={filteredPaymentMethods} />
             <ChartBarCodesDistribution
               data={dashboard?.affiliatedEntities || []}
             />

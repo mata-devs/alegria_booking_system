@@ -2,12 +2,14 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react';
 import Image from 'next/image';
-import { Plus, Search, SlidersHorizontal, X, Upload, ChevronLeft, ChevronRight, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Search, SlidersHorizontal, X, Upload, ChevronLeft, ChevronRight, Pencil, Trash2, LayoutGrid, Table as TableIcon } from 'lucide-react';
+import ToggleSwitch from '@/components/ui/ToggleSwitch';
 import {
   collection,
   doc,
   setDoc,
   updateDoc,
+  deleteDoc,
   query,
   where,
   onSnapshot,
@@ -69,9 +71,10 @@ interface Filters {
   location: string;
   priceMin: string;
   priceMax: string;
+  tag: ActivityTag | '';
 }
 
-const EMPTY_FILTERS: Filters = { status: 'all', location: '', priceMin: '', priceMax: '' };
+const EMPTY_FILTERS: Filters = { status: 'all', location: '', priceMin: '', priceMax: '', tag: '' };
 
 function generateSlug(location: string, docId: string): string {
   const loc = location.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -799,29 +802,29 @@ function EditPackageModal({ pkg, onClose, operatorId }: { pkg: OperatorPackage; 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl overflow-y-auto max-h-[90vh]">
-        <div className="flex items-center justify-between px-6 py-4 border-b sticky top-0 bg-white z-10">
+      <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl max-h-[90vh] flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b bg-white shrink-0">
           <h2 className="text-base font-bold text-gray-900">Edit Tour Package</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
         </div>
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-2">Status</label>
-            <div className="flex gap-2">
-              {(['active', 'disabled'] as const).map((s) => (
-                <button key={s} type="button" onClick={() => field('status', s)}
-                  className={`px-4 py-1.5 rounded-full text-xs font-semibold border transition-colors capitalize ${
-                    form.status === s
-                      ? s === 'active' ? 'bg-green-500 text-white border-green-500' : 'bg-gray-400 text-white border-gray-400'
-                      : 'border-gray-300 text-gray-500 hover:border-gray-400'
-                  }`}>
-                  {s === 'active' ? 'Active' : 'Disabled'}
-                </button>
-              ))}
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4 overflow-y-auto scrollbar-hide flex-1">
+          <div className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+            <div>
+              <p className="text-xs font-semibold text-gray-700">Status</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {form.status === 'active' ? 'Active — visible to guests.' : 'Disabled — hidden from guests.'}
+              </p>
             </div>
-            <p className="text-xs text-gray-400 mt-1">
-              {form.status === 'active' ? 'Visible to guests.' : 'Hidden from guests.'}
-            </p>
+            <div className="flex items-center gap-2">
+              <span className={`text-xs font-semibold ${form.status === 'active' ? 'text-green-600' : 'text-gray-400'}`}>
+                {form.status === 'active' ? 'Active' : 'Disabled'}
+              </span>
+              <ToggleSwitch
+                checked={form.status === 'active'}
+                onChange={(c) => field('status', c ? 'active' : 'disabled')}
+                ariaLabel="Toggle package status"
+              />
+            </div>
           </div>
 
           <div>
@@ -948,6 +951,19 @@ function FiltersModal({ open, filters, onApply, onClose }: {
         </div>
         <div className="px-5 py-4 space-y-5">
           <div>
+            <p className="text-xs font-semibold text-gray-600 mb-2">Activity</p>
+            <div className="flex flex-wrap gap-2">
+              {ACTIVITY_TAGS.map((tag) => (
+                <button key={tag} onClick={() => set('tag', draft.tag === tag ? '' : tag)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                    draft.tag === tag ? 'bg-green-500 text-white border-green-500' : 'border-gray-300 text-gray-600 hover:border-green-400 hover:text-green-600'
+                  }`}>
+                  {tag}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
             <p className="text-xs font-semibold text-gray-600 mb-2">Status</p>
             <div className="flex gap-2">
               {(['all', 'active', 'disabled'] as const).map((s) => (
@@ -994,6 +1010,77 @@ function FiltersModal({ open, filters, onApply, onClose }: {
   );
 }
 
+// ── Delete Confirmation Modal ───────────────────────────────────
+
+function DeletePackageModal({
+  pkg,
+  onClose,
+  onDelete,
+  onDisable,
+}: {
+  pkg: OperatorPackage;
+  onClose: () => void;
+  onDelete: () => void;
+  onDisable: () => void;
+}) {
+  const isAlreadyDisabled = pkg.status === 'disabled';
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <h2 className="text-base font-bold text-gray-900">Delete Tour Package</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label="Close">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="px-6 py-5 space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="shrink-0 w-10 h-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center">
+              <Trash2 className="w-5 h-5" />
+            </div>
+            <div className="text-sm text-gray-700">
+              <p className="font-medium text-gray-900 mb-1">&quot;{pkg.packageName}&quot;</p>
+              <p>
+                Permanently deleting will remove this package and cannot be undone. If you only want to hide it from
+                customers, choose <span className="font-semibold">Disable</span> instead.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center justify-end gap-2 px-6 py-4 bg-gray-50 border-t">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-full text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-100"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onDisable}
+            disabled={isAlreadyDisabled}
+            className={`px-4 py-2 rounded-full text-sm font-medium border transition-colors ${
+              isAlreadyDisabled
+                ? 'border-gray-200 text-gray-400 cursor-not-allowed'
+                : 'border-amber-400 text-amber-700 hover:bg-amber-50'
+            }`}
+            title={isAlreadyDisabled ? 'Already disabled' : 'Disable this package'}
+          >
+            {isAlreadyDisabled ? 'Already Disabled' : 'Disable'}
+          </button>
+          <button
+            type="button"
+            onClick={onDelete}
+            className="px-4 py-2 rounded-full text-sm font-medium bg-red-500 text-white hover:bg-red-600"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page ───────────────────────────────────────────────────
 
 export default function OperatorTourPackagesPage() {
@@ -1003,12 +1090,13 @@ export default function OperatorTourPackagesPage() {
   const [packages, setPackages] = useState<OperatorPackage[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [tagFilter, setTagFilter] = useState<ActivityTag | ''>('');
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [detailPackage, setDetailPackage] = useState<OperatorPackage | null>(null);
   const [editPackage, setEditPackage] = useState<OperatorPackage | null>(null);
+  const [deletePackage, setDeletePackage] = useState<OperatorPackage | null>(null);
+  const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
 
   useEffect(() => {
     if (!operatorId) return;
@@ -1020,35 +1108,89 @@ export default function OperatorTourPackagesPage() {
     return unsub;
   }, [operatorId]);
 
-  const hasActiveFilters = filters.status !== 'all' || filters.location !== '' || filters.priceMin !== '' || filters.priceMax !== '';
+  const hasActiveFilters = filters.status !== 'all' || filters.location !== '' || filters.priceMin !== '' || filters.priceMax !== '' || filters.tag !== '';
+
+  const handleToggleStatus = async (pkg: OperatorPackage) => {
+    const next = pkg.status === 'active' ? 'disabled' : 'active';
+    try {
+      await updateDoc(doc(firebaseDb, 'tourPackages', pkg.id), { status: next });
+    } catch (err) {
+      console.error('Failed to toggle package status', err);
+      alert('Failed to update status. Please try again.');
+    }
+  };
+
+  const handleDelete = (pkg: OperatorPackage) => {
+    setDeletePackage(pkg);
+  };
+
+  const confirmDelete = async (pkg: OperatorPackage) => {
+    try {
+      await deleteDoc(doc(firebaseDb, 'tourPackages', pkg.id));
+      setDeletePackage(null);
+    } catch (err) {
+      console.error('Failed to delete package', err);
+      alert('Failed to delete. Please try again.');
+    }
+  };
+
+  const confirmDisable = async (pkg: OperatorPackage) => {
+    try {
+      await updateDoc(doc(firebaseDb, 'tourPackages', pkg.id), { status: 'disabled' });
+      setDeletePackage(null);
+    } catch (err) {
+      console.error('Failed to disable package', err);
+      alert('Failed to disable. Please try again.');
+    }
+  };
 
   const filtered = useMemo(() => packages.filter((p) => {
     if (search && !p.packageName.toLowerCase().includes(search.toLowerCase())) return false;
-    if (tagFilter && p.packageTag !== tagFilter) return false;
+    if (filters.tag && p.packageTag !== filters.tag) return false;
     if (filters.status !== 'all' && p.status !== filters.status) return false;
     if (filters.location && p.packageLocation !== filters.location) return false;
     if (filters.priceMin && p.pricePerPerson < Number(filters.priceMin)) return false;
     if (filters.priceMax && p.pricePerPerson > Number(filters.priceMax)) return false;
     return true;
-  }), [packages, search, tagFilter, filters]);
+  }), [packages, search, filters]);
 
   return (
     <>
       <div className="space-y-5">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900">Tour Packages</h1>
-          <button onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-green-700 transition-colors">
-            <Plus className="w-4 h-4" />
-            Add Package
-          </button>
-        </div>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h1 className="text-xl font-bold text-gray-900 shrink-0">Tour Packages</h1>
 
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="relative flex-1 min-w-52">
+          <div className="flex items-center gap-3 flex-wrap justify-end flex-1">
+          <div className="relative w-full sm:w-72 md:w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search Tour Package"
               className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
+          </div>
+          <div className="inline-flex rounded-full border border-gray-300 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setViewMode('card')}
+              aria-pressed={viewMode === 'card'}
+              title="Card view"
+              className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors ${
+                viewMode === 'card' ? 'bg-green-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              Card
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              aria-pressed={viewMode === 'table'}
+              title="Table view"
+              className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
+                viewMode === 'table' ? 'bg-green-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <TableIcon className="w-4 h-4" />
+              Table
+            </button>
           </div>
           <button onClick={() => setShowFilters(true)}
             className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border transition-colors ${
@@ -1058,14 +1200,12 @@ export default function OperatorTourPackagesPage() {
             Filters
             {hasActiveFilters && <span className="bg-white text-green-600 text-xs font-bold w-4 h-4 rounded-full flex items-center justify-center">!</span>}
           </button>
-          {ACTIVITY_TAGS.map((tag) => (
-            <button key={tag} onClick={() => setTagFilter(tagFilter === tag ? '' : tag)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
-                tagFilter === tag ? 'bg-green-500 text-white border-green-500' : 'border-gray-300 text-gray-600 hover:border-green-400 hover:text-green-600'
-              }`}>
-              {tag}
-            </button>
-          ))}
+          <button onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2 bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-green-700 transition-colors shrink-0">
+            <Plus className="w-4 h-4" />
+            Add Package
+          </button>
+          </div>
         </div>
 
         {loading ? (
@@ -1074,11 +1214,69 @@ export default function OperatorTourPackagesPage() {
           <div className="text-sm text-gray-400 py-16 text-center">
             {packages.length === 0 ? 'No packages yet. Add your first one!' : 'No packages match your filters.'}
           </div>
-        ) : (
+        ) : viewMode === 'card' ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
             {filtered.map((pkg) => (
               <PackageCard key={pkg.id} pkg={pkg} onViewDetails={setDetailPackage} />
             ))}
+          </div>
+        ) : (
+          <div className="overflow-x-auto border border-gray-200 rounded-lg bg-white">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-gray-600 text-xs uppercase tracking-wide">
+                <tr>
+                  <th className="text-left px-4 py-3 font-semibold">Package</th>
+                  <th className="text-left px-4 py-3 font-semibold">Tag</th>
+                  <th className="text-left px-4 py-3 font-semibold">Location</th>
+                  <th className="text-right px-4 py-3 font-semibold">Price</th>
+                  <th className="text-left px-4 py-3 font-semibold w-28">Status</th>
+                  <th className="text-right px-4 py-3 font-semibold w-40">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filtered.map((pkg) => (
+                  <tr key={pkg.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-medium text-gray-900">
+                      <button
+                        onClick={() => setDetailPackage(pkg)}
+                        className="text-left hover:text-green-600"
+                      >
+                        {pkg.packageName}
+                      </button>
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">{pkg.packageTag}</td>
+                    <td className="px-4 py-3 text-gray-600">{pkg.packageLocation}</td>
+                    <td className="px-4 py-3 text-right text-gray-900">₱{pkg.pricePerPerson.toLocaleString()}</td>
+                    <td className="px-4 py-3 w-28"><StatusBadge status={pkg.status} /></td>
+                    <td className="px-4 py-3 w-40 whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-3">
+                        <button
+                          onClick={() => setEditPackage(pkg)}
+                          title="Edit"
+                          aria-label="Edit package"
+                          className="p-1.5 rounded hover:bg-gray-100 text-gray-600 hover:text-green-600"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <ToggleSwitch
+                          checked={pkg.status === 'active'}
+                          onChange={() => handleToggleStatus(pkg)}
+                          ariaLabel={pkg.status === 'active' ? 'Disable package' : 'Enable package'}
+                        />
+                        <button
+                          onClick={() => handleDelete(pkg)}
+                          title="Delete"
+                          aria-label="Delete package"
+                          className="p-1.5 rounded hover:bg-red-50 text-gray-600 hover:text-red-600"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
@@ -1102,6 +1300,15 @@ export default function OperatorTourPackagesPage() {
           pkg={editPackage}
           onClose={() => setEditPackage(null)}
           operatorId={operatorId}
+        />
+      )}
+
+      {deletePackage && (
+        <DeletePackageModal
+          pkg={deletePackage}
+          onClose={() => setDeletePackage(null)}
+          onDelete={() => confirmDelete(deletePackage)}
+          onDisable={() => confirmDisable(deletePackage)}
         />
       )}
     </>

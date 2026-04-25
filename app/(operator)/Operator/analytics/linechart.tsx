@@ -36,10 +36,24 @@ interface ChartLineLinearProps {
   points?: TrendPoint[]
 }
 
-type Granularity = "monthly" | "weekly"
+export type TrendGranularity = "day" | "month"
 
-export default function ChartLineLinear({ points = [] }: ChartLineLinearProps) {
-  const [granularity, setGranularity] = useState<Granularity>("monthly")
+interface ChartLineLinearPropsExt extends ChartLineLinearProps {
+  granularity?: TrendGranularity
+  onGranularityChange?: (g: TrendGranularity) => void
+}
+
+export default function ChartLineLinear({
+  points = [],
+  granularity: granularityProp,
+  onGranularityChange,
+}: ChartLineLinearPropsExt) {
+  const [internalGranularity, setInternalGranularity] = useState<TrendGranularity>("month")
+  const granularity = granularityProp ?? internalGranularity
+  const setGranularity = (g: TrendGranularity) => {
+    if (onGranularityChange) onGranularityChange(g)
+    else setInternalGranularity(g)
+  }
 
   const chartData = points.map((point) => ({
     month: point.label,
@@ -54,7 +68,7 @@ export default function ChartLineLinear({ points = [] }: ChartLineLinearProps) {
         </h2>
 
         <div className="inline-flex items-center rounded-full bg-gray-100 p-0.5 text-[11px] font-medium">
-          {(["monthly", "weekly"] as Granularity[]).map((g) => (
+          {(["month", "day"] as TrendGranularity[]).map((g) => (
             <button
               key={g}
               type="button"
@@ -65,7 +79,7 @@ export default function ChartLineLinear({ points = [] }: ChartLineLinearProps) {
                   : "text-gray-500 hover:text-gray-700"
               }`}
             >
-              {g}
+              {g === "month" ? "Monthly" : "Daily"}
             </button>
           ))}
         </div>
