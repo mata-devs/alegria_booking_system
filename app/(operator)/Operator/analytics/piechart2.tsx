@@ -7,9 +7,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
-} from "@/app/(operator)/operator/_components/ui/chart";
-
-const palette = ["#5fd1a1", "#c29a19"]
+} from "@/app/(operator)/operator/_components/ui/chart"
 
 const chartConfig = {
   visitors: { label: "Visitors" },
@@ -20,60 +18,71 @@ interface ChartPieCodesProps {
   withoutPromo?: number
 }
 
-export default function ChartPieCodes({ withPromo = 0, withoutPromo = 0 }: ChartPieCodesProps) {
+export default function ChartPieCodes({
+  withPromo = 0,
+  withoutPromo = 0,
+}: ChartPieCodesProps) {
+  const total = withPromo + withoutPromo
+  const pct = total > 0 ? Math.round((withPromo / total) * 100) : 0
+
   const chartData = [
-    { name: "With promocodes", visitors: withPromo, fill: palette[0], colorClass: "bg-emerald-400" },
-    { name: "Without Promocodes", visitors: withoutPromo, fill: palette[1], colorClass: "bg-yellow-600" },
+    { name: "Used", visitors: withPromo, fill: "#0F5132" },
+    { name: "Unused", visitors: withoutPromo, fill: "#E6F2EA" },
   ]
 
   return (
-    <div className="w-full rounded-2xl bg-white overflow-hidden p-1  shadow-sm">
-      <div className="py-2 text-center">
-        <h2 className="text-sm lg:text-lg font-semibold text-neutral-900">
-          Bookings with redemmed promocodes
-        </h2>
-      </div>
-      <div className="px-0 pb-2 ">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-35 w-[55%]">
-            <ChartContainer config={chartConfig} className="h-full w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <ChartTooltip
-                    cursor={false}
-                    content={<ChartTooltipContent hideLabel />}
-                  />
-                  <Pie
-                    data={chartData}
-                    dataKey="visitors"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={0}
-                    outerRadius="100%"
-                    stroke="transparent"
-                  >
-                    {chartData.map((entry, idx) => (
-                      <Cell key={idx} fill={entry.fill} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          </div>
+    <div className="w-full rounded-2xl border border-neutral-100 bg-white p-5 shadow-sm">
+      <h2 className="text-base font-semibold text-neutral-900">
+        Redeemed Promocodes
+      </h2>
 
-          <div className="w-[80%] pt-2">
-            <ul className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs lg:text-sm text-neutral-700">
-              {chartData.map((d) => (
-                <li key={d.name} className="flex items-center gap-2">
-                  <span className={`h-2.5 w-2.5 rounded-sm ${d.colorClass}`} />
-                  <span className="truncate">{d.name}</span>
-                </li>
-              ))}
-            </ul>
-            
+      <div className="mt-3 flex flex-col items-center">
+        <div className="relative h-[160px] w-[160px]">
+          <ChartContainer config={chartConfig} className="h-full w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <ChartTooltip
+                  cursor={false}
+                  content={
+                    <ChartTooltipContent
+                      hideLabel
+                      className="!border-neutral-200 !bg-white !text-neutral-900 !shadow-lg"
+                    />
+                  }
+                />
+                <Pie
+                  data={chartData}
+                  dataKey="visitors"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius="70%"
+                  outerRadius="95%"
+                  startAngle={90}
+                  endAngle={-270}
+                  stroke="transparent"
+                >
+                  {chartData.map((entry, idx) => (
+                    <Cell key={idx} fill={entry.fill} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+          </ChartContainer>
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-2xl font-bold text-[#0F5132] leading-none">
+              {pct}%
+            </span>
+            <span className="mt-1 text-[10px] uppercase tracking-wider text-gray-400">
+              Usage
+            </span>
           </div>
         </div>
+
+        <p className="mt-4 text-center text-xs text-gray-500">
+          {withPromo.toLocaleString("en-PH")} of{" "}
+          {total.toLocaleString("en-PH")} bookings used a code
+        </p>
       </div>
     </div>
   )

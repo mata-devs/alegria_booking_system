@@ -3,7 +3,7 @@
 import {
   Bar,
   BarChart,
-  CartesianGrid,
+  Cell,
   ResponsiveContainer,
   XAxis,
   YAxis,
@@ -24,7 +24,7 @@ type AgeDistributionPoint = {
 const chartConfig = {
   quantity: {
     label: "quantity",
-    color: "green",
+    color: "#0F5132",
   },
 } satisfies ChartConfig
 
@@ -32,69 +32,62 @@ interface ChartBarQuantityDistributionProps {
   points?: AgeDistributionPoint[]
 }
 
+// Heat-style emerald palette — tallest bar darkest, smallest lightest.
+function shadeFor(rank: number, total: number) {
+  if (total <= 1) return "#0F5132"
+  const palette = ["#D1F0DA", "#A6DBB7", "#6BBF8C", "#2F8F5A", "#0F5132"]
+  const idx = Math.min(palette.length - 1, Math.round((rank / (total - 1)) * (palette.length - 1)))
+  return palette[idx]
+}
+
 export default function ChartBarquantityistribution({ points = [] }: ChartBarQuantityDistributionProps) {
   const chartData = points.map((point) => ({ age: point.range, quantity: point.count }))
+  const sorted = [...chartData].sort((a, b) => a.quantity - b.quantity)
+  const colorFor = (q: number) => shadeFor(sorted.findIndex((p) => p.quantity === q), sorted.length)
   const maxQuantity = Math.max(10, ...chartData.map((point) => point.quantity))
 
   return (
-    <div className="w-full  rounded-2xl bg-white overflow-hidden p-1 shadow-sm">
-      {/* title */}
-      <div className="py-0 lg:py-0 text-center">
-        <h2 className="text-sm lg:text-lg font-semibold text-neutral-900">
-          Tourist Age distribution
+    <div className="w-full rounded-2xl border border-neutral-100 bg-white p-5 shadow-sm">
+      <div className="flex items-center justify-between">
+        <h2 className="text-base font-semibold text-neutral-900">
+          Tourist Age Distribution
         </h2>
       </div>
 
-      {/* chart body */}
-      <div className="px-2 ">
-        <div className="h-[160px] lg:h-[205] w-full">
-          <ChartContainer config={chartConfig} className="h-full w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={chartData}
-                margin={{ top: 0, left: 0, right: 6, bottom: 0 }}
-              >
-                <CartesianGrid vertical={false} />
-
-                <YAxis
-                  className="hidden lg:block"
-                  width={20}
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={4}
-                  fontSize={10}
-                  domain={[0, maxQuantity]}
-                  tickCount={8}
-                  allowDecimals={false}
-                />
-
-                <XAxis
-                  dataKey="age"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={10}
-                  fontSize={12}
-                />
-
-                <ChartTooltip
-                  cursor={false}
-                  content={<ChartTooltipContent hideLabel />}
-                />
-
-                <Bar
-                  dataKey="quantity"
-                  fill="var(--color-quantity)"
-                  barSize={16}         // controls thickness like screenshot
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartContainer>
-        </div>
-
-        {/* bottom label like screenshot */}
-        <div className="mt-1 text-center text-xs text-neutral-700">
-          Age
-        </div>
+      <div className="mt-3 h-[200px] w-full">
+        <ChartContainer config={chartConfig} className="h-full w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={chartData}
+              margin={{ top: 8, left: 0, right: 6, bottom: 0 }}
+              barCategoryGap="22%"
+            >
+              <YAxis hide domain={[0, maxQuantity]} />
+              <XAxis
+                dataKey="age"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={10}
+                fontSize={11}
+                stroke="#9ca3af"
+              />
+              <ChartTooltip
+                cursor={{ fill: "rgba(15,81,50,0.06)" }}
+                content={
+                  <ChartTooltipContent
+                    hideLabel
+                    className="!border-neutral-200 !bg-white !text-neutral-900 !shadow-lg"
+                  />
+                }
+              />
+              <Bar dataKey="quantity" radius={[6, 6, 0, 0]} barSize={28}>
+                {chartData.map((entry, idx) => (
+                  <Cell key={idx} fill={colorFor(entry.quantity)} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartContainer>
       </div>
     </div>
   )

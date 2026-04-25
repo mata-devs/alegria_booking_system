@@ -9,8 +9,8 @@ import {
   type ChartConfig,
 } from "@/app/(operator)/operator/_components/ui/chart"
 
-const palette = ["#2563eb", "#ef4444", "#f59e0b", "#84cc16", "#14b8a6", "#6b7280", "#fb7185", "#0ea5e9"]
-const paletteClasses = ["bg-blue-600", "bg-red-500", "bg-amber-500", "bg-lime-500", "bg-teal-500", "bg-gray-500", "bg-pink-400", "bg-sky-500"]
+// Emerald-leaning palette to match the InsightFlow mockup.
+const palette = ["#0F5132", "#2F8F5A", "#6BBF8C", "#A6DBB7", "#D1F0DA"]
 
 type NationalityPoint = {
   nationality: string
@@ -26,61 +26,81 @@ interface ChartPieNationalitiesProps {
 }
 
 export default function ChartPieNationalities({ points = [] }: ChartPieNationalitiesProps) {
-  const chartData = points.map((point, index) => ({
+  const top = [...points]
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5)
+
+  const total = top.reduce((sum, p) => sum + p.count, 0) || 1
+
+  const chartData = top.map((point, index) => ({
     name: point.nationality,
     visitors: point.count,
+    pct: Math.round((point.count / total) * 100),
     fill: palette[index % palette.length],
-    colorClass: paletteClasses[index % paletteClasses.length],
   }))
 
   return (
-    <div className="w-full min-w-0 rounded-2xl bg-white overflow-hidden p-1  shadow-sm">
-      <div className="py-1 text-center">
-        <h2 className="text-sm lg:text-lg font-semibold text-neutral-900">
-          Tourist Nationalities
-        </h2>
-      </div>
-      <div className="px-2 pb-2 ">
-        <div className="flex items-center gap-3">
-          <div className="h-[160px] lg:h-[225px] w-[55%]">
-            <ChartContainer config={chartConfig} className="h-full w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <ChartTooltip
-                    cursor={false}
-                    content={<ChartTooltipContent hideLabel />}
-                  />
-                  <Pie
-                    data={chartData}
-                    dataKey="visitors"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={0}
-                    outerRadius="85%"
-                    stroke="transparent"
-                  >
-                    {chartData.map((entry, idx) => (
-                      <Cell key={idx} fill={entry.fill} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          </div>
+    <div className="w-full min-w-0 rounded-2xl border border-neutral-100 bg-white p-5 shadow-sm">
+      <h2 className="text-base font-semibold text-neutral-900">
+        Tourist Nationalities
+      </h2>
 
-          <div className="w-[45%]">
-            <ul className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs lg:text-sm text-neutral-700">
-              {chartData.map((d) => (
-                <li key={d.name} className="flex items-center gap-2">
-                  <span className={`h-2.5 w-2.5 rounded-sm ${d.colorClass}`} />
-                  <span className="truncate">{d.name}</span>
-                </li>
-              ))}
-            </ul>
-            
+      <div className="mt-3 flex items-center gap-4">
+        <div className="relative h-[160px] w-[160px] shrink-0">
+          <ChartContainer config={chartConfig} className="h-full w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <ChartTooltip
+                  cursor={false}
+                  content={
+                    <ChartTooltipContent
+                      hideLabel
+                      className="!border-neutral-200 !bg-white !text-neutral-900 !shadow-lg"
+                    />
+                  }
+                />
+                <Pie
+                  data={chartData}
+                  dataKey="visitors"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius="65%"
+                  outerRadius="95%"
+                  paddingAngle={2}
+                  stroke="transparent"
+                >
+                  {chartData.map((entry, idx) => (
+                    <Cell key={idx} fill={entry.fill} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+          </ChartContainer>
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-[11px] uppercase tracking-wide text-gray-400">
+              Top
+            </span>
+            <span className="text-2xl font-bold text-[#0F5132] leading-none">
+              {chartData.length}
+            </span>
           </div>
         </div>
+
+        <ul className="min-w-0 flex-1 space-y-1.5 text-xs">
+          {chartData.map((d) => (
+            <li key={d.name} className="flex items-center justify-between gap-2">
+              <span className="flex min-w-0 items-center gap-2 text-neutral-700">
+                <span
+                  className="h-2 w-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: d.fill }}
+                />
+                <span className="truncate">{d.name}</span>
+              </span>
+              <span className="font-medium text-neutral-600">{d.pct}%</span>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   )

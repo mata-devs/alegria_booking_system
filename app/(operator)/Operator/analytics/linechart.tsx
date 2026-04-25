@@ -1,9 +1,10 @@
 "use client"
 
+import { useState } from "react"
 import {
+  Area,
+  AreaChart,
   CartesianGrid,
-  Line,
-  LineChart,
   ResponsiveContainer,
   XAxis,
   YAxis,
@@ -21,11 +22,13 @@ type TrendPoint = {
   count: number
 }
 
+// Bookings Trend uses a cyan accent that complements the dashboard's emerald palette.
+const TREND_COLOR = "#0891B2" // cyan-600
+
 const chartConfig = {
   Total: {
     label: "Total",
-    // Solid color so stroke is visible; `var(--chart-1)` is not defined in globals.css
-    color: "#15803d",
+    color: TREND_COLOR,
   },
 } satisfies ChartConfig
 
@@ -33,65 +36,86 @@ interface ChartLineLinearProps {
   points?: TrendPoint[]
 }
 
+type Granularity = "monthly" | "weekly"
+
 export default function ChartLineLinear({ points = [] }: ChartLineLinearProps) {
-  const chartData = points.map((point) => ({ month: point.label, Total: point.count }))
+  const [granularity, setGranularity] = useState<Granularity>("monthly")
+
+  const chartData = points.map((point) => ({
+    month: point.label,
+    Total: point.count,
+  }))
 
   return (
-    <div className="w-full min-w-0 rounded-2xl bg-white overflow-hidden p-1 shadow-sm">
-      {/* title */}
-      <div className="py-1 text-center">
-        <h2 className="text-sm lg:text-lg font-semibold text-neutral-900">
+    <div className="w-full min-w-0 rounded-2xl border border-neutral-100 bg-white p-5 shadow-sm">
+      <div className="flex items-center justify-between">
+        <h2 className="text-base font-semibold text-neutral-900">
           Bookings Trend
         </h2>
+
+        <div className="inline-flex items-center rounded-full bg-gray-100 p-0.5 text-[11px] font-medium">
+          {(["monthly", "weekly"] as Granularity[]).map((g) => (
+            <button
+              key={g}
+              type="button"
+              onClick={() => setGranularity(g)}
+              className={`rounded-full px-3 py-1 capitalize transition-colors ${
+                granularity === g
+                  ? "bg-white text-[#0891B2] shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {g}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* chart body */}
-      <div className="px-2 pb-2">
-        <div className="h-[160px] lg:h-[240px] w-full">
-          <ChartContainer config={chartConfig} className="h-full w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={chartData}
-                margin={{ top: 12, left: 0, right: 12, bottom: 0 }}
-              >
-                <CartesianGrid vertical={false} />
-                <YAxis
-                  className="font-bold hidden lg:block"
-                  width={28}
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={2}
-                  fontSize={12}
-                  domain={[100, 400]}
-                  ticks={[100, 150, 200, 250, 300, 350, 400]}
-                  tickCount={6}
-                  allowDecimals={false}
-                />
-                <XAxis
-                  className="font-bold"
-                  dataKey="month"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={12}
-                  padding={{ left: 50, right: 12 }}
-                  fontSize={11}
-                  tickFormatter={(v) => String(v).slice(0, 3).toUpperCase()}
-                />
-                <ChartTooltip
-                  cursor={false}
-                  content={<ChartTooltipContent hideLabel />}
-                />
-                <Line
-                  dataKey="Total"
-                  type="linear"
-                  stroke="var(--color-Total)"
-                  strokeWidth={3}
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </ChartContainer>
-        </div>
+      <div className="mt-4 h-[260px] w-full">
+        <ChartContainer config={chartConfig} className="h-full w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart
+              data={chartData}
+              margin={{ top: 12, left: 0, right: 12, bottom: 0 }}
+            >
+              <defs>
+                <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={TREND_COLOR} stopOpacity={0.22} />
+                  <stop offset="100%" stopColor={TREND_COLOR} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid vertical={false} stroke="#f1f5f4" />
+              <YAxis hide />
+              <XAxis
+                dataKey="month"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={12}
+                fontSize={11}
+                stroke="#9ca3af"
+                tickFormatter={(v) => String(v).slice(0, 3).toUpperCase()}
+              />
+              <ChartTooltip
+                cursor={{ stroke: TREND_COLOR, strokeOpacity: 0.18 }}
+                content={
+                  <ChartTooltipContent
+                    hideLabel
+                    className="!border-neutral-200 !bg-white !text-neutral-900 !shadow-lg"
+                  />
+                }
+              />
+              <Area
+                type="monotone"
+                dataKey="Total"
+                stroke={TREND_COLOR}
+                strokeWidth={3}
+                fill="url(#trendFill)"
+                dot={false}
+                activeDot={{ r: 4, fill: TREND_COLOR }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </ChartContainer>
       </div>
     </div>
   )
