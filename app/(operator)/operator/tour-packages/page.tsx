@@ -541,7 +541,7 @@ function AddPackageModal({ onClose, operatorId }: { onClose: () => void; operato
       for (const file of imageFiles) {
         const compressed = await compressImage(file);
         const storageRef = ref(firebaseStorage, `tour-packages/${operatorId}/${Date.now()}_${file.name}`);
-        await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg' });
+        await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg', cacheControl: 'public,max-age=31536000' });
         imageUrls.push(await getDownloadURL(storageRef));
       }
       const docRef = doc(collection(firebaseDb, 'tourPackages'));
@@ -700,7 +700,7 @@ interface EditFormState {
 
 type EditFormErrors = Partial<Record<keyof EditFormState | 'images', string>>;
 
-function EditPackageModal({ pkg, onClose, operatorId }: { pkg: OperatorPackage; onClose: () => void; operatorId: string }) {
+function EditPackageModal({ pkg, onClose, onDelete, operatorId }: { pkg: OperatorPackage; onClose: () => void; onDelete: () => void; operatorId: string }) {
   const [form, setForm] = useState<EditFormState>({
     packageName: pkg.packageName,
     packageDescription: pkg.packageDescription,
@@ -772,7 +772,7 @@ function EditPackageModal({ pkg, onClose, operatorId }: { pkg: OperatorPackage; 
       for (const file of newFiles) {
         const compressed = await compressImage(file);
         const storageRef = ref(firebaseStorage, `tour-packages/${operatorId}/${Date.now()}_${file.name}`);
-        await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg' });
+        await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg', cacheControl: 'public,max-age=31536000' });
         uploadedUrls.push(await getDownloadURL(storageRef));
       }
       await updateDoc(doc(firebaseDb, 'tourPackages', pkg.id), {
@@ -916,15 +916,22 @@ function EditPackageModal({ pkg, onClose, operatorId }: { pkg: OperatorPackage; 
             {errors.images && <p className="text-red-500 text-xs">{errors.images}</p>}
           </div>
 
-          <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
-              Cancel
+          <div className="flex items-center justify-between gap-3 pt-2">
+            <button type="button" onClick={onDelete} disabled={submitting}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-red-600 border border-red-300 rounded-lg hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed">
+              <Trash2 className="w-4 h-4" />
+              Delete
             </button>
-            <button type="submit" disabled={submitting}
-              className="px-5 py-2 text-sm font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed">
-              {submitting ? 'Saving…' : 'Save Changes'}
-            </button>
+            <div className="flex gap-3">
+              <button type="button" onClick={onClose}
+                className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+                Cancel
+              </button>
+              <button type="submit" disabled={submitting}
+                className="px-5 py-2 text-sm font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed">
+                {submitting ? 'Saving…' : 'Save Changes'}
+              </button>
+            </div>
           </div>
         </form>
       </div>
@@ -1097,6 +1104,9 @@ export default function OperatorTourPackagesPage() {
   const [editPackage, setEditPackage] = useState<OperatorPackage | null>(null);
   const [deletePackage, setDeletePackage] = useState<OperatorPackage | null>(null);
   const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [undoSnackbar, setUndoSnackbar] = useState<{ name: string } | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!operatorId) return;
@@ -1124,15 +1134,31 @@ export default function OperatorTourPackagesPage() {
     setDeletePackage(pkg);
   };
 
-  const confirmDelete = async (pkg: OperatorPackage) => {
-    try {
-      await deleteDoc(doc(firebaseDb, 'tourPackages', pkg.id));
-      setDeletePackage(null);
-    } catch (err) {
-      console.error('Failed to delete package', err);
-      alert('Failed to delete. Please try again.');
-    }
+  const confirmDelete = (pkg: OperatorPackage) => {
+    setDeletePackage(null);
+    setPendingDeleteId(pkg.id);
+    setUndoSnackbar({ name: pkg.packageName });
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    undoTimerRef.current = setTimeout(async () => {
+      try {
+        await deleteDoc(doc(firebaseDb, 'tourPackages', pkg.id));
+      } catch (err) {
+        console.error('Failed to delete package', err);
+        alert('Failed to delete. Please try again.');
+      } finally {
+        setPendingDeleteId(null);
+        setUndoSnackbar(null);
+      }
+    }, 5000);
   };
+
+  const handleUndoDelete = () => {
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    setPendingDeleteId(null);
+    setUndoSnackbar(null);
+  };
+
+  useEffect(() => () => { if (undoTimerRef.current) clearTimeout(undoTimerRef.current); }, []);
 
   const confirmDisable = async (pkg: OperatorPackage) => {
     try {
@@ -1145,6 +1171,7 @@ export default function OperatorTourPackagesPage() {
   };
 
   const filtered = useMemo(() => packages.filter((p) => {
+    if (p.id === pendingDeleteId) return false;
     if (search && !p.packageName.toLowerCase().includes(search.toLowerCase())) return false;
     if (filters.tag && p.packageTag !== filters.tag) return false;
     if (filters.status !== 'all' && p.status !== filters.status) return false;
@@ -1152,7 +1179,7 @@ export default function OperatorTourPackagesPage() {
     if (filters.priceMin && p.pricePerPerson < Number(filters.priceMin)) return false;
     if (filters.priceMax && p.pricePerPerson > Number(filters.priceMax)) return false;
     return true;
-  }), [packages, search, filters]);
+  }), [packages, search, filters, pendingDeleteId]);
 
   return (
     <>
@@ -1200,20 +1227,31 @@ export default function OperatorTourPackagesPage() {
             Filters
             {hasActiveFilters && <span className="bg-white text-green-600 text-xs font-bold w-4 h-4 rounded-full flex items-center justify-center">!</span>}
           </button>
-          <button onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-green-700 transition-colors shrink-0">
-            <Plus className="w-4 h-4" />
-            Add Package
-          </button>
+          {packages.length > 0 && (
+            <button onClick={() => setShowAddModal(true)}
+              className="flex items-center gap-2 bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-green-700 transition-colors shrink-0">
+              <Plus className="w-4 h-4" />
+              Add Package
+            </button>
+          )}
           </div>
         </div>
 
         {loading ? (
           <div className="text-sm text-gray-400 py-16 text-center">Loading packages…</div>
         ) : filtered.length === 0 ? (
-          <div className="text-sm text-gray-400 py-16 text-center">
-            {packages.length === 0 ? 'No packages yet. Add your first one!' : 'No packages match your filters.'}
-          </div>
+          packages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-24 gap-4">
+              <p className="text-sm text-gray-400">No packages yet. Add your first one!</p>
+              <button onClick={() => setShowAddModal(true)}
+                className="flex items-center gap-2 bg-green-600 text-white text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-green-700 transition-colors">
+                <Plus className="w-4 h-4" />
+                Add Package
+              </button>
+            </div>
+          ) : (
+            <div className="text-sm text-gray-400 py-16 text-center">No packages match your filters.</div>
+          )
         ) : viewMode === 'card' ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
             {filtered.map((pkg) => (
@@ -1299,6 +1337,7 @@ export default function OperatorTourPackagesPage() {
         <EditPackageModal
           pkg={editPackage}
           onClose={() => setEditPackage(null)}
+          onDelete={() => { setEditPackage(null); handleDelete(editPackage); }}
           operatorId={operatorId}
         />
       )}
@@ -1310,6 +1349,18 @@ export default function OperatorTourPackagesPage() {
           onDelete={() => confirmDelete(deletePackage)}
           onDisable={() => confirmDisable(deletePackage)}
         />
+      )}
+
+      {undoSnackbar && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-gray-900 text-white px-5 py-3 rounded-full shadow-lg text-sm whitespace-nowrap">
+          <span>&quot;{undoSnackbar.name}&quot; deleted.</span>
+          <button
+            onClick={handleUndoDelete}
+            className="font-semibold text-green-400 hover:text-green-300 underline focus:outline-none"
+          >
+            Undo
+          </button>
+        </div>
       )}
     </>
   );

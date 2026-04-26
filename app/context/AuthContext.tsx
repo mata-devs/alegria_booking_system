@@ -113,6 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signOutUser() {
     await signOut(firebaseAuth);
+    window.location.href = '/login';
   }
 
   return (

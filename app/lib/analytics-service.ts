@@ -97,7 +97,7 @@ export const SAMPLE_ANALYTICS_DASHBOARD: AnalyticsDashboardResponse = {
     { nationality: "Chinese", count: 200 },
     { nationality: "Korean", count: 187 },
     { nationality: "Local", count: 173 },
-    { nationality: "Negrito", count: 90 },
+    { nationality: "African", count: 90 },
     { nationality: "Others", count: 0 },
   ],
   touristAgeDistribution: [

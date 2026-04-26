@@ -13,6 +13,7 @@ import {
   Menu,
   Package,
   Zap,
+  Ticket,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -22,6 +23,7 @@ const NAV_ITEMS = [
   { label: 'Analytics', href: '/operator/analytics', icon: BarChart3 },
   { label: 'Tour\nPackages', href: '/operator/tour-packages', icon: Package },
   { label: 'Activities', href: '/operator/activities', icon: Zap },
+  { label: 'Voucher\nCodes', href: '/operator/voucher-codes', icon: Ticket },
 ];
 
 interface OperatorSidebarProps {

@@ -170,7 +170,7 @@ function MunicipalityCombobox({ value, onChange, error }: { value: string; onCha
 
 // ── Activity Card ───────────────────────────────────────────────
 
-function ActivityCard({ activity, onViewDetails }: { activity: OperatorActivity; onViewDetails: (a: OperatorActivity) => void }) {
+function ActivityCard({ activity, onViewDetails, onDelete }: { activity: OperatorActivity; onViewDetails: (a: OperatorActivity) => void; onDelete: (a: OperatorActivity) => void }) {
   const createdDate = activity.createdAt?.toDate?.()?.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' }) ?? '—';
   return (
     <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
@@ -178,6 +178,14 @@ function ActivityCard({ activity, onViewDetails }: { activity: OperatorActivity;
         <Image src={activity.activityImages[0]} alt={activity.activityName} fill className="object-cover" />
         <span className="absolute top-3 left-3 bg-green-500 text-white text-xs font-semibold px-2.5 py-1 rounded-full">{activity.activityTag}</span>
         <span className="absolute bottom-3 left-3 bg-white/90 text-green-700 font-bold text-xs px-2.5 py-1 rounded-full">₱{activity.pricePerGuest.toLocaleString()}</span>
+        <button
+          onClick={() => onDelete(activity)}
+          title="Delete activity"
+          aria-label="Delete activity"
+          className="absolute top-3 right-3 p-1.5 rounded-full bg-black/40 text-white hover:bg-red-500 transition-colors"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
       </div>
       <div className="p-4">
         <h3 className="font-semibold text-gray-900 text-sm leading-snug mb-1 truncate">{activity.activityName}</h3>
@@ -366,7 +374,7 @@ function EditActivityModal({ activity, onClose, operatorId }: { activity: Operat
       for (const file of newFiles) {
         const compressed = await compressImage(file);
         const storageRef = ref(firebaseStorage, `activities/${operatorId}/${Date.now()}_${file.name}`);
-        await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg' });
+        await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg', cacheControl: 'public,max-age=31536000' });
         uploadedUrls.push(await getDownloadURL(storageRef));
       }
       await updateDoc(doc(firebaseDb, 'activities', activity.id), {
@@ -576,7 +584,7 @@ function AddActivityModal({ onClose, operatorId }: { onClose: () => void; operat
       for (const file of imageFiles) {
         const compressed = await compressImage(file);
         const storageRef = ref(firebaseStorage, `activities/${operatorId}/${Date.now()}_${file.name}`);
-        await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg' });
+        await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg', cacheControl: 'public,max-age=31536000' });
         imageUrls.push(await getDownloadURL(storageRef));
       }
       await addDoc(collection(firebaseDb, 'activities'), {
@@ -836,6 +844,9 @@ export default function OperatorActivitiesPage() {
   const [editActivity, setEditActivity] = useState<OperatorActivity | null>(null);
   const [deleteActivity, setDeleteActivity] = useState<OperatorActivity | null>(null);
   const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [undoSnackbar, setUndoSnackbar] = useState<{ name: string } | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleToggleStatus = async (act: OperatorActivity) => {
     const next = act.status === 'active' ? 'disabled' : 'active';
@@ -851,15 +862,31 @@ export default function OperatorActivitiesPage() {
     setDeleteActivity(act);
   };
 
-  const confirmDelete = async (act: OperatorActivity) => {
-    try {
-      await deleteDoc(doc(firebaseDb, 'activities', act.id));
-      setDeleteActivity(null);
-    } catch (err) {
-      console.error('Failed to delete activity', err);
-      alert('Failed to delete. Please try again.');
-    }
+  const confirmDelete = (act: OperatorActivity) => {
+    setDeleteActivity(null);
+    setPendingDeleteId(act.id);
+    setUndoSnackbar({ name: act.activityName });
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    undoTimerRef.current = setTimeout(async () => {
+      try {
+        await deleteDoc(doc(firebaseDb, 'activities', act.id));
+      } catch (err) {
+        console.error('Failed to delete activity', err);
+        alert('Failed to delete. Please try again.');
+      } finally {
+        setPendingDeleteId(null);
+        setUndoSnackbar(null);
+      }
+    }, 5000);
   };
+
+  const handleUndoDelete = () => {
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    setPendingDeleteId(null);
+    setUndoSnackbar(null);
+  };
+
+  useEffect(() => () => { if (undoTimerRef.current) clearTimeout(undoTimerRef.current); }, []);
 
   const confirmDisable = async (act: OperatorActivity) => {
     try {
@@ -884,6 +911,7 @@ export default function OperatorActivitiesPage() {
   const hasActiveFilters = filters.status !== 'all' || filters.location !== '' || filters.priceMin !== '' || filters.priceMax !== '' || filters.tag !== '';
 
   const filtered = useMemo(() => activities.filter((a) => {
+    if (a.id === pendingDeleteId) return false;
     if (search && !a.activityName.toLowerCase().includes(search.toLowerCase())) return false;
     if (filters.tag && a.activityTag !== filters.tag) return false;
     if (filters.status !== 'all' && a.status !== filters.status) return false;
@@ -891,7 +919,7 @@ export default function OperatorActivitiesPage() {
     if (filters.priceMin && a.pricePerGuest < Number(filters.priceMin)) return false;
     if (filters.priceMax && a.pricePerGuest > Number(filters.priceMax)) return false;
     return true;
-  }), [activities, search, filters]);
+  }), [activities, search, filters, pendingDeleteId]);
 
   return (
     <>
@@ -937,23 +965,34 @@ export default function OperatorActivitiesPage() {
             Filters
             {hasActiveFilters && <span className="bg-white text-green-600 text-xs font-bold w-4 h-4 rounded-full flex items-center justify-center">!</span>}
           </button>
-          <button onClick={() => setShowAddModal(true)} className="flex items-center gap-2 bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-green-700 transition-colors shrink-0">
-            <Plus className="w-4 h-4" />
-            Add Activity
-          </button>
+          {activities.length > 0 && (
+            <button onClick={() => setShowAddModal(true)} className="flex items-center gap-2 bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-green-700 transition-colors shrink-0">
+              <Plus className="w-4 h-4" />
+              Add Activity
+            </button>
+          )}
           </div>
         </div>
 
         {loading ? (
           <div className="text-sm text-gray-400 py-16 text-center">Loading activities…</div>
         ) : filtered.length === 0 ? (
-          <div className="text-sm text-gray-400 py-16 text-center">
-            {activities.length === 0 ? 'No activities yet. Add your first one!' : 'No activities match your filters.'}
-          </div>
+          activities.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-24 gap-4">
+              <p className="text-sm text-gray-400">No activities yet. Add your first one!</p>
+              <button onClick={() => setShowAddModal(true)}
+                className="flex items-center gap-2 bg-green-600 text-white text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-green-700 transition-colors">
+                <Plus className="w-4 h-4" />
+                Add Activity
+              </button>
+            </div>
+          ) : (
+            <div className="text-sm text-gray-400 py-16 text-center">No activities match your filters.</div>
+          )
         ) : viewMode === 'card' ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
             {filtered.map((act) => (
-              <ActivityCard key={act.id} activity={act} onViewDetails={setDetailActivity} />
+              <ActivityCard key={act.id} activity={act} onViewDetails={setDetailActivity} onDelete={handleDelete} />
             ))}
           </div>
         ) : (
@@ -1046,6 +1085,18 @@ export default function OperatorActivitiesPage() {
           onDelete={() => confirmDelete(deleteActivity)}
           onDisable={() => confirmDisable(deleteActivity)}
         />
+      )}
+
+      {undoSnackbar && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-gray-900 text-white px-5 py-3 rounded-full shadow-lg text-sm whitespace-nowrap">
+          <span>&quot;{undoSnackbar.name}&quot; deleted.</span>
+          <button
+            onClick={handleUndoDelete}
+            className="font-semibold text-green-400 hover:text-green-300 underline focus:outline-none"
+          >
+            Undo
+          </button>
+        </div>
       )}
     </>
   );
