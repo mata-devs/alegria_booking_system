@@ -70,7 +70,7 @@ test-results
 tsconfig.tsbuildinfo
 playwright-report
 CLAUDE.original.md
-tests/e2e/login.spec.ts
+tests/e2e/
 
 
 
