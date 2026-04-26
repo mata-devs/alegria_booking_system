@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import { Plus, Search, SlidersHorizontal, X, Upload, ChevronLeft, ChevronRight, Pencil, Trash2, LayoutGrid, Table as TableIcon } from 'lucide-react';
-import ToggleSwitch from '@/components/ui/ToggleSwitch';
+import ToggleSwitch from '@/app/components/ui/ToggleSwitch';
+import PackageCard from '@/app/components/ui/PackageCard';
 import {
   collection,
   doc,
@@ -107,8 +108,6 @@ async function compressImage(file: File): Promise<Blob> {
     img.src = url;
   });
 }
-
-// ── Shared sub-components ───────────────────────────────────────
 
 function StarDisplay({ rating }: { rating: number }) {
   return (
@@ -272,36 +271,23 @@ function ItineraryEditor({ steps, onChange }: { steps: ItineraryStep[]; onChange
   );
 }
 
-// ── Package Card ────────────────────────────────────────────────
-
-function PackageCard({ pkg, onViewDetails }: { pkg: OperatorPackage; onViewDetails: (p: OperatorPackage) => void }) {
+function OperatorPackageCard({ pkg, onViewDetails }: { pkg: OperatorPackage; onViewDetails: (p: OperatorPackage) => void }) {
   const createdDate = pkg.createdAt?.toDate?.()?.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' }) ?? '—';
   return (
-    <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-      <div className="relative h-44">
-        <Image src={pkg.packageImages[0]} alt={pkg.packageName} fill className="object-cover" />
-        <span className="absolute top-3 left-3 bg-green-500 text-white text-xs font-semibold px-2.5 py-1 rounded-full">{pkg.packageTag}</span>
-        <span className="absolute bottom-3 left-3 bg-white/90 text-green-700 font-bold text-xs px-2.5 py-1 rounded-full">₱{pkg.pricePerPerson.toLocaleString()}</span>
-        <span className="absolute top-3 right-3 bg-black/50 text-white text-xs px-2 py-0.5 rounded-full">{pkg.duration}</span>
-      </div>
-      <div className="p-4">
-        <h3 className="font-semibold text-gray-900 text-sm leading-snug mb-1 truncate">{pkg.packageName}</h3>
-        <p className="text-xs text-gray-400 mb-1.5">Date created: {createdDate}</p>
-        <div className="flex items-center gap-1 text-gray-500 text-xs mb-2">
-          <svg className="w-3.5 h-3.5 text-green-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-          </svg>
-          <span className="truncate">{pkg.packageLocation}</span>
-        </div>
-        <StarDisplay rating={pkg.packageRating} />
-        <div className="mt-3 flex items-center justify-between">
-          <StatusBadge status={pkg.status} />
-          <button onClick={() => onViewDetails(pkg)} className="text-xs text-green-600 border border-green-500 px-3 py-1 rounded-full hover:bg-green-50 transition-colors font-medium">
-            View Details
-          </button>
-        </div>
-      </div>
-    </div>
+    <PackageCard
+      image={pkg.packageImages[0]}
+      title={pkg.packageName}
+      price={pkg.pricePerPerson}
+      pricePrefix=""
+      tag={pkg.packageTag}
+      duration={pkg.duration}
+      rating={pkg.packageRating}
+      location={pkg.packageLocation}
+      createdAt={`Created: ${createdDate}`}
+      status={<StatusBadge status={pkg.status} />}
+      ctaLabel="View Details"
+      onCta={() => onViewDetails(pkg)}
+    />
   );
 }
 
@@ -1184,56 +1170,60 @@ export default function OperatorTourPackagesPage() {
   return (
     <>
       <div className="space-y-5">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h1 className="text-xl font-bold text-gray-900 shrink-0">Tour Packages</h1>
-
-          <div className="flex items-center gap-3 flex-wrap justify-end flex-1">
-          <div className="relative w-full sm:w-72 md:w-96">
+        <div className="space-y-3">
+          {/* Row 1: title + add button */}
+          <div className="flex items-center justify-between gap-2">
+            <h1 className="text-xl font-bold text-gray-900">Tour Packages</h1>
+            {packages.length > 0 && (
+              <button onClick={() => setShowAddModal(true)}
+                className="flex items-center gap-2 bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-green-700 transition-colors shrink-0">
+                <Plus className="w-4 h-4" />
+                Add Package
+              </button>
+            )}
+          </div>
+          {/* Row 2: search */}
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search Tour Package"
               className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
           </div>
-          <div className="inline-flex rounded-full border border-gray-300 overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setViewMode('card')}
-              aria-pressed={viewMode === 'card'}
-              title="Card view"
-              className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors ${
-                viewMode === 'card' ? 'bg-green-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              <LayoutGrid className="w-4 h-4" />
-              Card
+          {/* Row 3: view toggle + filters */}
+          <div className="flex items-center gap-2">
+            <div className="inline-flex rounded-full border border-gray-300 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setViewMode('card')}
+                aria-pressed={viewMode === 'card'}
+                title="Card view"
+                className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors ${
+                  viewMode === 'card' ? 'bg-green-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <LayoutGrid className="w-4 h-4" />
+                Card
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('table')}
+                aria-pressed={viewMode === 'table'}
+                title="Table view"
+                className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
+                  viewMode === 'table' ? 'bg-green-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <TableIcon className="w-4 h-4" />
+                Table
+              </button>
+            </div>
+            <button onClick={() => setShowFilters(true)}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border transition-colors ${
+                hasActiveFilters ? 'bg-green-500 text-white border-green-500 hover:bg-green-600' : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+              }`}>
+              <SlidersHorizontal className="w-4 h-4" />
+              Filters
+              {hasActiveFilters && <span className="bg-white text-green-600 text-xs font-bold w-4 h-4 rounded-full flex items-center justify-center">!</span>}
             </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('table')}
-              aria-pressed={viewMode === 'table'}
-              title="Table view"
-              className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
-                viewMode === 'table' ? 'bg-green-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              <TableIcon className="w-4 h-4" />
-              Table
-            </button>
-          </div>
-          <button onClick={() => setShowFilters(true)}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border transition-colors ${
-              hasActiveFilters ? 'bg-green-500 text-white border-green-500 hover:bg-green-600' : 'border-gray-300 text-gray-600 hover:bg-gray-50'
-            }`}>
-            <SlidersHorizontal className="w-4 h-4" />
-            Filters
-            {hasActiveFilters && <span className="bg-white text-green-600 text-xs font-bold w-4 h-4 rounded-full flex items-center justify-center">!</span>}
-          </button>
-          {packages.length > 0 && (
-            <button onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-2 bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded-full hover:bg-green-700 transition-colors shrink-0">
-              <Plus className="w-4 h-4" />
-              Add Package
-            </button>
-          )}
           </div>
         </div>
 
@@ -1255,7 +1245,7 @@ export default function OperatorTourPackagesPage() {
         ) : viewMode === 'card' ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
             {filtered.map((pkg) => (
-              <PackageCard key={pkg.id} pkg={pkg} onViewDetails={setDetailPackage} />
+              <OperatorPackageCard key={pkg.id} pkg={pkg} onViewDetails={setDetailPackage} />
             ))}
           </div>
         ) : (

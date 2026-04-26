@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import Footer from '@/app/components/Footer'
+import PackageCard from '@/app/components/ui/PackageCard'
 import { collection, query, where, onSnapshot } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
 
@@ -24,33 +25,6 @@ interface FirestorePackage {
 
 const INITIAL_COUNT = 9
 
-function PackageCard({ pkg }: { pkg: FirestorePackage }) {
-  return (
-    <Link href={`/tour-packages/${pkg.slug}`} className="block">
-      <div className="relative rounded-2xl overflow-hidden cursor-pointer group h-72">
-        <Image
-          src={pkg.packageImages[0]}
-          alt={pkg.packageName}
-          fill
-          className="object-cover group-hover:scale-105 transition-transform duration-500"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-green-900/20 via-green-900/40 to-green-900/90" />
-        <div className="absolute top-4 left-4">
-          <span className="text-xs font-bold px-3 py-1 rounded-full bg-green-500 text-white">
-            {pkg.duration}
-          </span>
-        </div>
-        <div className="absolute inset-0 p-5 flex flex-col justify-end">
-          <h3 className="text-white font-bold text-xl leading-tight mb-1 drop-shadow">{pkg.packageName}</h3>
-          <p className="text-white/80 text-xs mb-3 line-clamp-2">{pkg.packageDescription}</p>
-          <span className="text-white text-xs font-bold px-3 py-1.5 rounded-full self-start bg-green-500">
-            Starting from ₱{pkg.pricePerPerson.toLocaleString()}.00
-          </span>
-        </div>
-      </div>
-    </Link>
-  )
-}
 
 export default function TourPackagesPage() {
   const [packages, setPackages] = useState<FirestorePackage[]>([])
@@ -139,9 +113,20 @@ export default function TourPackagesPage() {
             {packages.length === 0 ? 'No tour packages available yet.' : 'No packages match this category.'}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5 mb-8">
             {visible.map((pkg) => (
-              <PackageCard key={pkg.id} pkg={pkg} />
+              <PackageCard
+                key={pkg.id}
+                image={pkg.packageImages[0]}
+                title={pkg.packageName}
+                description={pkg.packageDescription}
+                price={pkg.pricePerPerson}
+                pricePrefix="Starting from"
+                tag={pkg.packageTag}
+                duration={pkg.duration}
+                rating={pkg.packageRating}
+                href={`/tour-packages/${pkg.slug}`}
+              />
             ))}
           </div>
         )}

@@ -64,4 +64,12 @@ skills-lock.json
 docs
 .idea
 
+#Playwright
+#tests
+test-results
+tsconfig.tsbuildinfo
+playwright-report
+CLAUDE.original.md
+
+
 
