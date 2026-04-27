@@ -406,7 +406,7 @@ function EditActivityModal({ activity, onClose, operatorId }: { activity: Operat
       await updateDoc(doc(firebaseDb, 'activities', activity.id), {
         activityName: form.activityName.trim(),
         activityDetails: form.activityDetails.trim(),
-        pricePerGuest: Number(form.pricePerGuest),
+        pricePerGuest: parseFloat(form.pricePerGuest),
         activityLocation: form.activityLocation.trim(),
         activityTag: form.activityTag,
         status: form.status,
@@ -434,27 +434,23 @@ function EditActivityModal({ activity, onClose, operatorId }: { activity: Operat
 
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
           {/* Status */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-2">Status</label>
-            <div className="flex gap-2">
-              {(['active', 'disabled'] as const).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => field('status', s)}
-                  className={`px-4 py-1.5 rounded-full text-xs font-semibold border transition-colors capitalize ${
-                    form.status === s
-                      ? s === 'active' ? 'bg-green-500 text-white border-green-500' : 'bg-gray-400 text-white border-gray-400'
-                      : 'border-gray-300 text-gray-500 hover:border-gray-400'
-                  }`}
-                >
-                  {s === 'active' ? 'Active' : 'Disabled'}
-                </button>
-              ))}
+          <div className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+            <div>
+              <p className="text-xs font-semibold text-gray-700">Status</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {form.status === 'active' ? 'Active — visible to guests.' : 'Disabled — hidden from guests.'}
+              </p>
             </div>
-            <p className="text-xs text-gray-400 mt-1">
-              {form.status === 'active' ? 'Visible to guests.' : 'Hidden from guests.'}
-            </p>
+            <div className="flex items-center gap-2">
+              <span className={`text-xs font-semibold ${form.status === 'active' ? 'text-green-600' : 'text-gray-400'}`}>
+                {form.status === 'active' ? 'Active' : 'Disabled'}
+              </span>
+              <ToggleSwitch
+                checked={form.status === 'active'}
+                onChange={(c) => field('status', c ? 'active' : 'disabled')}
+                ariaLabel="Toggle activity status"
+              />
+            </div>
           </div>
 
           <div>
@@ -611,7 +607,7 @@ function AddActivityModal({ onClose, operatorId }: { onClose: () => void; operat
       await addDoc(collection(firebaseDb, 'activities'), {
         activityName: form.activityName.trim(),
         activityDetails: form.activityDetails.trim(),
-        pricePerGuest: Number(form.pricePerGuest),
+        pricePerGuest: parseFloat(form.pricePerGuest),
         activityLocation: form.activityLocation.trim(),
         activityTag: form.activityTag,
         activityRating: 0,

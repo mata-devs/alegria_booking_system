@@ -1,7 +1,6 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useBooking } from '../context/BookingContext'
 import type { Activity } from '../types'
 import PackageCard from './ui/PackageCard'
 
@@ -11,11 +10,11 @@ interface Props {
 
 export default function ActivityCard({ activity }: Props) {
   const router = useRouter()
-  const { updateBooking } = useBooking()
 
-  const handleBook = () => {
-    updateBooking({ item: activity })
-    router.push('/booking/guest-info')
+  const handleClick = () => {
+    if (activity.firestoreId) {
+      router.push(`/activities/${activity.firestoreId}`)
+    }
   }
 
   return (
@@ -27,9 +26,7 @@ export default function ActivityCard({ activity }: Props) {
       tag={activity.category}
       location={activity.location}
       rating={activity.rating}
-      onClick={handleBook}
-      ctaLabel="Reserve now"
-      onCta={handleBook}
+      onClick={handleClick}
     />
   )
 }

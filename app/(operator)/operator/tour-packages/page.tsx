@@ -51,6 +51,7 @@ interface OperatorPackage {
   packageName: string;
   packageDescription: string;
   pricePerPerson: number;
+  minimumNumberOfPeople: number;
   packageLocation: string;
   duration: string;
   inclusions: string[];
@@ -332,6 +333,7 @@ function OperatorPackageCard({ pkg, onViewDetails }: { pkg: OperatorPackage; onV
       rating={pkg.packageRating}
       location={pkg.packageLocation}
       createdAt={`Created: ${createdDate}`}
+      minGuests={pkg.minimumNumberOfPeople ?? 1}
       status={<StatusBadge status={pkg.status} />}
       ctaLabel="View Details"
       onCta={() => onViewDetails(pkg)}
@@ -496,6 +498,7 @@ interface AddFormState {
   packageName: string;
   packageDescription: string;
   pricePerPerson: string;
+  minimumNumberOfPeople: string;
   packageLocation: string;
   duration: string;
   packageTag: ActivityTag | '';
@@ -508,6 +511,7 @@ const EMPTY_FORM: AddFormState = {
   packageName: '',
   packageDescription: '',
   pricePerPerson: '',
+  minimumNumberOfPeople: '1',
   packageLocation: '',
   duration: '',
   packageTag: '',
@@ -516,7 +520,7 @@ const EMPTY_FORM: AddFormState = {
   packageItinerary: [],
 };
 
-type AddFormErrors = Partial<Record<keyof AddFormState | 'images', string>>;
+type AddFormErrors = Partial<Record<keyof AddFormState | 'images' | 'minimumNumberOfPeople', string>>;
 
 function AddPackageModal({ onClose, operatorId }: { onClose: () => void; operatorId: string }) {
   const [form, setForm] = useState<AddFormState>(EMPTY_FORM);
@@ -557,6 +561,7 @@ function AddPackageModal({ onClose, operatorId }: { onClose: () => void; operato
     if (!form.packageName.trim()) e.packageName = 'Required';
     if (!form.packageDescription.trim()) e.packageDescription = 'Required';
     if (!form.pricePerPerson || Number(form.pricePerPerson) <= 0) e.pricePerPerson = 'Enter a valid price';
+    if (!form.minimumNumberOfPeople || Number(form.minimumNumberOfPeople) < 1) e.minimumNumberOfPeople = 'Minimum 1';
     if (!CEBU_MUNICIPALITIES.includes(form.packageLocation as typeof CEBU_MUNICIPALITIES[number]))
       e.packageLocation = 'Select a valid municipality';
     if (!form.duration.trim()) e.duration = 'Required';
@@ -583,7 +588,8 @@ function AddPackageModal({ onClose, operatorId }: { onClose: () => void; operato
       await setDoc(docRef, {
         packageName: form.packageName.trim(),
         packageDescription: form.packageDescription.trim(),
-        pricePerPerson: Number(form.pricePerPerson),
+        pricePerPerson: parseFloat(form.pricePerPerson),
+        minimumNumberOfPeople: Number(form.minimumNumberOfPeople),
         packageLocation: form.packageLocation,
         duration: form.duration.trim(),
         packageTag: form.packageTag,
@@ -646,6 +652,14 @@ function AddPackageModal({ onClose, operatorId }: { onClose: () => void; operato
                 placeholder="e.g. 2 Days / 1 Night" />
               {errors.duration && <p className="text-red-500 text-xs mt-1">{errors.duration}</p>}
             </div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1">Minimum Number of Guests</label>
+            <p className="text-xs text-gray-400 mb-1.5">Guests required to confirm this package booking.</p>
+            <input type="number" min="1" value={form.minimumNumberOfPeople} onChange={(e) => field('minimumNumberOfPeople', e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+              placeholder="e.g. 4" />
+            {errors.minimumNumberOfPeople && <p className="text-red-500 text-xs mt-1">{errors.minimumNumberOfPeople}</p>}
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">Package Location</label>
@@ -718,6 +732,7 @@ interface EditFormState {
   packageName: string;
   packageDescription: string;
   pricePerPerson: string;
+  minimumNumberOfPeople: string;
   packageLocation: string;
   duration: string;
   packageTag: ActivityTag | '';
@@ -727,13 +742,14 @@ interface EditFormState {
   packageItinerary: ItineraryStep[];
 }
 
-type EditFormErrors = Partial<Record<keyof EditFormState | 'images', string>>;
+type EditFormErrors = Partial<Record<keyof EditFormState | 'images' | 'minimumNumberOfPeople', string>>;
 
 function EditPackageModal({ pkg, onClose, onDelete, operatorId }: { pkg: OperatorPackage; onClose: () => void; onDelete: () => void; operatorId: string }) {
   const [form, setForm] = useState<EditFormState>({
     packageName: pkg.packageName,
     packageDescription: pkg.packageDescription,
     pricePerPerson: String(pkg.pricePerPerson),
+    minimumNumberOfPeople: String(pkg.minimumNumberOfPeople ?? 1),
     packageLocation: pkg.packageLocation,
     duration: pkg.duration,
     packageTag: (ACTIVITY_TAGS as ReadonlyArray<string>).includes(pkg.packageTag) ? pkg.packageTag as ActivityTag : '',
@@ -783,6 +799,7 @@ function EditPackageModal({ pkg, onClose, onDelete, operatorId }: { pkg: Operato
     if (!form.packageName.trim()) e.packageName = 'Required';
     if (!form.packageDescription.trim()) e.packageDescription = 'Required';
     if (!form.pricePerPerson || Number(form.pricePerPerson) <= 0) e.pricePerPerson = 'Enter a valid price';
+    if (!form.minimumNumberOfPeople || Number(form.minimumNumberOfPeople) < 1) e.minimumNumberOfPeople = 'Minimum 1';
     if (!CEBU_MUNICIPALITIES.includes(form.packageLocation as typeof CEBU_MUNICIPALITIES[number]))
       e.packageLocation = 'Select a valid municipality';
     if (!form.duration.trim()) e.duration = 'Required';
@@ -807,7 +824,8 @@ function EditPackageModal({ pkg, onClose, onDelete, operatorId }: { pkg: Operato
       await updateDoc(doc(firebaseDb, 'tourPackages', pkg.id), {
         packageName: form.packageName.trim(),
         packageDescription: form.packageDescription.trim(),
-        pricePerPerson: Number(form.pricePerPerson),
+        pricePerPerson: parseFloat(form.pricePerPerson),
+        minimumNumberOfPeople: Number(form.minimumNumberOfPeople),
         packageLocation: form.packageLocation,
         duration: form.duration.trim(),
         packageTag: form.packageTag,
@@ -881,6 +899,14 @@ function EditPackageModal({ pkg, onClose, onDelete, operatorId }: { pkg: Operato
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
               {errors.duration && <p className="text-red-500 text-xs mt-1">{errors.duration}</p>}
             </div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1">Minimum Number of Guests</label>
+            <p className="text-xs text-gray-400 mb-1.5">Guests required to confirm this package booking.</p>
+            <input type="number" min="1" value={form.minimumNumberOfPeople} onChange={(e) => field('minimumNumberOfPeople', e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+              placeholder="e.g. 4" />
+            {errors.minimumNumberOfPeople && <p className="text-red-500 text-xs mt-1">{errors.minimumNumberOfPeople}</p>}
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">Package Location</label>

@@ -1,22 +1,20 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as nodemailer from "nodemailer";
 import * as logger from "firebase-functions/logger";
-import { defineSecret } from "firebase-functions/params";
+import { defineString, defineInt } from "firebase-functions/params";
 import { db } from "../shared/firebase";
 import { assertSuperAdmin } from "../shared/helpers";
 
-const smtpHost = defineSecret("SMTP_HOST");
-const smtpPort = defineSecret("SMTP_PORT");
-const smtpUser = defineSecret("SMTP_USER");
-const smtpPass = defineSecret("SMTP_PASS");
-const smtpFrom = defineSecret("SMTP_FROM");
+const smtpHost = defineString("SMTP_HOST");
+const smtpPort = defineInt("SMTP_PORT");
+const smtpUser = defineString("SMTP_USER");
+const smtpPass = defineString("SMTP_PASS");
+const smtpFrom = defineString("SMTP_FROM");
 
 export const sendSignupLinkEmail = onCall(
   {
     region: "us-central1",
-    invoker: "public",
     cors: true,
-    secrets: [smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom],
   },
   async (request) => {
     if (!request.auth) {
@@ -46,8 +44,8 @@ export const sendSignupLinkEmail = onCall(
 
     const transporter = nodemailer.createTransport({
       host: smtpHost.value(),
-      port: parseInt(smtpPort.value(), 10),
-      secure: parseInt(smtpPort.value(), 10) === 465,
+      port: smtpPort.value(),
+      secure: smtpPort.value() === 465,
       auth: {
         user: smtpUser.value(),
         pass: smtpPass.value(),

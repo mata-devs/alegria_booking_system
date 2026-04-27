@@ -7,6 +7,7 @@ export interface Location {
 
 export interface Activity {
   id: number
+  firestoreId?: string
   category: string
   title: string
   location: string

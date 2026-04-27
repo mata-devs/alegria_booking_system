@@ -3,92 +3,102 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { locations } from '../data/mockData'
+import { collection, getDocs, query, where as firestoreWhere } from 'firebase/firestore'
+import { firebaseDb } from '@/app/lib/firebase'
 
 interface Props {
   className?: string
   defaultWhere?: string
+  onSearch?: (params: { where: string; when: string; travelers: string }) => void
 }
 
-export default function SearchBar({ className = '', defaultWhere = '' }: Props) {
+export default function SearchBar({ className = '', defaultWhere = '', onSearch }: Props) {
   const [where, setWhere] = useState(defaultWhere)
   const [when, setWhen] = useState('')
   const [travelers, setTravelers] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
-  const wrapperRef = useRef<HTMLDivElement>(null)
+  const [locationData, setLocationData] = useState<{ name: string; count: number }[]>([])
+  const desktopWhereRef = useRef<HTMLDivElement>(null)
+  const mobileWrapperRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
 
+  useEffect(() => {
+    async function fetchLocations() {
+      try {
+        const snap = await getDocs(query(collection(firebaseDb, 'activities'), firestoreWhere('status', '==', 'active')))
+        const counts: Record<string, number> = {}
+        snap.docs.forEach((d) => {
+          const loc = d.data().activityLocation as string
+          if (loc) counts[loc] = (counts[loc] ?? 0) + 1
+        })
+        setLocationData(
+          Object.entries(counts)
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => a.name.localeCompare(b.name)),
+        )
+      } catch {
+        // silently fail — suggestions just won't populate
+      }
+    }
+    fetchLocations()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const suggestions = where.trim()
-    ? locations.filter((l) => l.name.toLowerCase().includes(where.toLowerCase()))
-    : locations
+    ? locationData.filter((l) => l.name.toLowerCase().includes(where.toLowerCase()))
+    : locationData
 
   const handleSearch = () => {
-    router.push(`/activities?location=${where}&date=${when}&travelers=${travelers}`)
+    if (onSearch) {
+      onSearch({ where, when, travelers })
+    } else {
+      router.push(`/activities?location=${where}&date=${when}&travelers=${travelers}`)
+    }
   }
 
   const selectLocation = (name: string) => {
     setWhere(name)
     setShowSuggestions(false)
+    if (onSearch) {
+      onSearch({ where: name, when, travelers })
+    } else {
+      router.push(
+        `/activities?location=${encodeURIComponent(name)}&date=${encodeURIComponent(when)}&travelers=${encodeURIComponent(travelers)}`
+      )
+    }
   }
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        setShowSuggestions(false)
-      }
+      const target = e.target as Node
+      const insideDesktop = desktopWhereRef.current?.contains(target)
+      const insideMobile = mobileWrapperRef.current?.contains(target)
+      if (!insideDesktop && !insideMobile) setShowSuggestions(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const WhereField = ({ mobile = false }: { mobile?: boolean }) => (
-    <div ref={!mobile ? wrapperRef : undefined} className="relative flex-1 min-w-0">
-      <div className={`flex items-center gap-3 ${mobile ? 'px-4 py-4' : 'px-6 py-4'}`}>
-        <div className="bg-green-50 rounded-full p-2 shrink-0">
-          <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        </div>
-        <div className="flex flex-col min-w-0 w-full">
-          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Where</span>
-          <input
-            type="text"
-            id={mobile ? 'where-mobile' : 'where-desktop'}
-            name="where"
-            autoComplete="off"
-            aria-label="Where in Cebu?"
-            placeholder="Where in Cebu?"
-            value={where}
-            onChange={(e) => { setWhere(e.target.value); setShowSuggestions(true) }}
-            onFocus={() => setShowSuggestions(true)}
-            className="outline-none text-sm font-medium text-gray-800 placeholder-gray-400 w-full bg-transparent"
-          />
-        </div>
-      </div>
-
-      {showSuggestions && (
-        <div className="absolute top-full left-0 right-0 bg-white border border-gray-100 rounded-2xl shadow-xl z-50 mt-2 overflow-y-auto" style={{ maxHeight: '232px' }}>
-          {suggestions.length > 0 ? (
-            suggestions.map((loc) => (
-              <button
-                key={loc.id}
-                onMouseDown={() => selectLocation(loc.name)}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-green-50 transition-colors text-left"
-              >
-                <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0">
-                  <Image src={loc.image} alt={loc.name} fill className="object-cover" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-800">{loc.name}</p>
-                  <p className="text-xs text-gray-400">{loc.activityCount} activities · Cebu, Philippines</p>
-                </div>
-              </button>
-            ))
-          ) : (
-            <div className="px-4 py-3 text-sm text-gray-400">No locations found</div>
-          )}
-        </div>
+  const suggestionDropdown = (
+    <div className="absolute top-full left-0 right-0 bg-white border border-gray-100 rounded-2xl shadow-xl z-50 mt-2 overflow-y-auto" style={{ maxHeight: '232px' }}>
+      {suggestions.length > 0 ? (
+        suggestions.map((loc) => (
+          <button
+            key={loc.name}
+            onMouseDown={(e) => { e.preventDefault(); selectLocation(loc.name) }}
+            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-green-50 transition-colors text-left"
+          >
+            <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0">
+              <Image src={`https://picsum.photos/seed/${encodeURIComponent(loc.name)}/80/80`} alt={loc.name} fill className="object-cover" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-800">{loc.name}</p>
+              <p className="text-xs text-gray-400">{loc.count} {loc.count === 1 ? 'activity' : 'activities'} · Cebu, Philippines</p>
+            </div>
+          </button>
+        ))
+      ) : (
+        <div className="px-4 py-3 text-sm text-gray-400">No locations found</div>
       )}
     </div>
   )
@@ -97,7 +107,32 @@ export default function SearchBar({ className = '', defaultWhere = '' }: Props) 
     <div className={`${className}`}>
       {/* Desktop */}
       <div className="hidden sm:flex bg-white rounded-full shadow-2xl items-stretch overflow-visible relative">
-        <WhereField />
+        <div ref={desktopWhereRef} className="relative flex-1 min-w-0">
+          <div className="flex items-center gap-3 px-6 py-4">
+            <div className="bg-green-50 rounded-full p-2 shrink-0">
+              <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
+            <div className="flex flex-col min-w-0 w-full">
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Where</span>
+              <input
+                type="text"
+                id="where-desktop"
+                name="where"
+                autoComplete="off"
+                aria-label="Where in Cebu?"
+                placeholder="Where in Cebu?"
+                value={where}
+                onChange={(e) => { setWhere(e.target.value); setShowSuggestions(true); if (e.target.value === '' && onSearch) onSearch({ where: '', when, travelers }) }}
+                onFocus={() => setShowSuggestions(true)}
+                className="outline-none text-sm font-medium text-gray-800 placeholder-gray-400 w-full bg-transparent"
+              />
+            </div>
+          </div>
+          {showSuggestions && suggestionDropdown}
+        </div>
         <div className="w-px my-4 bg-gray-200 shrink-0" />
         <div className="flex items-center gap-3 px-6 py-4 flex-1 min-w-0">
           <div className="bg-green-50 rounded-full p-2 shrink-0">
@@ -143,8 +178,33 @@ export default function SearchBar({ className = '', defaultWhere = '' }: Props) 
       </div>
 
       {/* Mobile */}
-      <div ref={wrapperRef} className="sm:hidden bg-white rounded-2xl shadow-2xl overflow-visible">
-        <WhereField mobile />
+      <div ref={mobileWrapperRef} className="sm:hidden bg-white rounded-2xl shadow-2xl overflow-visible">
+        <div className="relative">
+          <div className="flex items-center gap-3 px-4 py-4">
+            <div className="bg-green-50 rounded-full p-2 shrink-0">
+              <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
+            <div className="flex flex-col min-w-0 w-full">
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Where</span>
+              <input
+                type="text"
+                id="where-mobile"
+                name="where"
+                autoComplete="off"
+                aria-label="Where in Cebu?"
+                placeholder="Where in Cebu?"
+                value={where}
+                onChange={(e) => { setWhere(e.target.value); setShowSuggestions(true); if (e.target.value === '' && onSearch) onSearch({ where: '', when, travelers }) }}
+                onFocus={() => setShowSuggestions(true)}
+                className="outline-none text-sm font-medium text-gray-800 placeholder-gray-400 w-full bg-transparent"
+              />
+            </div>
+          </div>
+          {showSuggestions && suggestionDropdown}
+        </div>
         <div className="flex items-center gap-3 px-4 py-4 border-t border-gray-100">
           <div className="bg-green-50 rounded-full p-2 shrink-0">
             <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">

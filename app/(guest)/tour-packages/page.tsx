@@ -1,19 +1,22 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import Footer from '@/app/components/Footer'
+import SearchBar from '@/app/components/SearchBar'
 import PackageCard from '@/app/components/ui/PackageCard'
-import { collection, query, where, onSnapshot } from 'firebase/firestore'
+import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
 import { ACTIVITY_TAGS } from '@/app/lib/activity-tags'
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/app/components/ui/drawer'
 
 interface FirestorePackage {
   id: string
   packageName: string
   packageDescription: string
   pricePerPerson: number
+  minimumNumberOfPeople: number
   packageLocation: string
   duration: string
   packageTag: string
@@ -30,6 +33,14 @@ export default function TourPackagesPage() {
   const [loading, setLoading] = useState(true)
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
   const [visibleCount, setVisibleCount] = useState(INITIAL_COUNT)
+  const [searchWhere, setSearchWhere] = useState('')
+  const [searchDrawerOpen, setSearchDrawerOpen] = useState(false)
+  const [popularActivities, setPopularActivities] = useState<{
+    id: string; activityName: string; activityTag: string;
+    activityLocation: string; activityRating: number;
+    pricePerGuest: number; activityImages: string[];
+  }[]>([])
+  const carouselRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const q = query(
@@ -40,12 +51,26 @@ export default function TourPackagesPage() {
       setPackages(snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirestorePackage)))
       setLoading(false)
     })
+
+    async function fetchActivities() {
+      try {
+        const snap = await getDocs(query(collection(firebaseDb, 'activities'), where('status', '==', 'active')))
+        setPopularActivities(snap.docs.slice(0, 7).map((d) => ({ id: d.id, ...d.data() } as typeof popularActivities[0])))
+      } catch { /* ignore */ }
+    }
+    fetchActivities()
+
     return unsub
   }, [])
 
-  const filtered = activeFilter
-    ? packages.filter((p) => p.packageTag === activeFilter)
-    : packages
+  const filtered = packages.filter((p) => {
+    const matchesTag = !activeFilter || p.packageTag === activeFilter
+    const term = searchWhere.trim().toLowerCase()
+    const matchesSearch = !term ||
+      p.packageName.toLowerCase().includes(term) ||
+      p.packageLocation.toLowerCase().includes(term)
+    return matchesTag && matchesSearch
+  })
 
   const visible = filtered.slice(0, visibleCount)
 
@@ -78,8 +103,34 @@ export default function TourPackagesPage() {
         </div>
       </section>
 
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-5">
-        <div className="flex items-center justify-center gap-2 flex-wrap">
+      {/* Desktop search bar */}
+      <div className="relative z-10 -mt-8 px-4 sm:px-6 md:px-16 mb-4 hidden sm:block">
+        <SearchBar
+          className="max-w-4xl mx-auto"
+          onSearch={({ where }) => { setSearchWhere(where); setVisibleCount(INITIAL_COUNT) }}
+        />
+      </div>
+
+      {/* Mobile search drawer */}
+      <Drawer open={searchDrawerOpen} onOpenChange={setSearchDrawerOpen}>
+        <DrawerContent className="pb-8">
+          <DrawerHeader>
+            <DrawerTitle>Search Tour Packages</DrawerTitle>
+          </DrawerHeader>
+          <div className="px-4 pb-2">
+            <SearchBar
+              onSearch={({ where }) => {
+                setSearchWhere(where)
+                setVisibleCount(INITIAL_COUNT)
+                setSearchDrawerOpen(false)
+              }}
+            />
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-4">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setActiveFilter(null)}
             className={`flex items-center gap-1.5 border px-5 py-2 rounded-full text-sm font-medium transition-colors ${
@@ -109,7 +160,7 @@ export default function TourPackagesPage() {
           <div className="text-sm text-gray-400 py-20 text-center">Loading packages…</div>
         ) : visible.length === 0 ? (
           <div className="text-sm text-gray-400 py-20 text-center">
-            {packages.length === 0 ? 'No tour packages available yet.' : 'No packages match this category.'}
+            {packages.length === 0 ? 'No tour packages available yet.' : 'No packages match your search.'}
           </div>
         ) : (
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5 mb-8">
@@ -118,12 +169,12 @@ export default function TourPackagesPage() {
                 key={pkg.id}
                 image={pkg.packageImages[0]}
                 title={pkg.packageName}
-                description={pkg.packageDescription}
                 price={pkg.pricePerPerson}
                 pricePrefix="Starting from"
                 tag={pkg.packageTag}
                 duration={pkg.duration}
                 rating={pkg.packageRating}
+                minGuests={pkg.minimumNumberOfPeople ?? 1}
                 href={`/tour-packages/${pkg.slug}`}
               />
             ))}
@@ -149,6 +200,79 @@ export default function TourPackagesPage() {
           )}
         </div>
       </main>
+
+      {popularActivities.length > 0 && (
+        <section className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pb-16">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-gray-900">Popular Activities</h2>
+            <Link href="/activities" className="text-sm text-green-600 font-medium hover:underline">See more</Link>
+          </div>
+          <div className="relative">
+            <button
+              onClick={() => carouselRef.current?.scrollBy({ left: -320, behavior: 'smooth' })}
+              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 bg-white shadow-md border border-gray-200 rounded-full p-2 hover:bg-gray-50 transition-colors hidden sm:flex"
+              aria-label="Scroll left"
+            >
+              <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <div
+              ref={carouselRef}
+              className="flex gap-4 overflow-x-auto scrollbar-hide pb-2"
+              style={{ scrollSnapType: 'x mandatory' }}
+            >
+              {popularActivities.map((act) => (
+                <div key={act.id} className="shrink-0 w-44 sm:w-52" style={{ scrollSnapAlign: 'start' }}>
+                  <PackageCard
+                    image={act.activityImages?.[0] ?? ''}
+                    title={act.activityName}
+                    price={act.pricePerGuest}
+                    pricePrefix="From"
+                    tag={act.activityTag}
+                    rating={act.activityRating}
+                    location={act.activityLocation}
+                  />
+                </div>
+              ))}
+              <div className="shrink-0 w-44 sm:w-52" style={{ scrollSnapAlign: 'start' }}>
+                <Link href="/activities" className="block h-full">
+                  <div className="relative rounded-2xl overflow-hidden aspect-[3/4] bg-green-500 flex flex-col items-center justify-center gap-3 group hover:bg-green-600 transition-colors">
+                    <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                      </svg>
+                    </div>
+                    <p className="text-white font-bold text-sm text-center px-4">See All Activities</p>
+                  </div>
+                </Link>
+              </div>
+            </div>
+            <button
+              onClick={() => carouselRef.current?.scrollBy({ left: 320, behavior: 'smooth' })}
+              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 bg-white shadow-md border border-gray-200 rounded-full p-2 hover:bg-gray-50 transition-colors hidden sm:flex"
+              aria-label="Scroll right"
+            >
+              <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* Mobile floating search button */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 sm:hidden">
+        <button
+          onClick={() => setSearchDrawerOpen(true)}
+          className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-5 py-3 rounded-full shadow-lg text-sm font-semibold transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+          </svg>
+          Search
+        </button>
+      </div>
 
       <Footer />
     </div>

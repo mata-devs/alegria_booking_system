@@ -5,6 +5,8 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useParams, useRouter } from 'next/navigation'
 import Footer from '@/app/components/Footer'
+import { BentoGallery, Lightbox } from '@/app/components/ui/BentoGallery'
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/app/components/ui/drawer'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
 import { travelerReviews } from '@/app/data/mockData'
@@ -75,9 +77,10 @@ export default function TourPackageDetail() {
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
 
-  const [galleryIdx, setGalleryIdx] = useState(0)
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null)
   const [date, setDate] = useState('')
   const [travelers, setTravelers] = useState(1)
+  const [bookingDrawerOpen, setBookingDrawerOpen] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
   const [chatInput, setChatInput] = useState('')
   const [messages, setMessages] = useState<{ from: 'user' | 'bot'; text: string }[]>([
@@ -155,7 +158,7 @@ export default function TourPackageDetail() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f0fdf4]">
-      <main className="flex-1 max-w-7xl mx-auto w-full px-6 lg:px-8 py-8">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-6 lg:px-8 py-8 pb-28 lg:pb-8">
         <nav className="text-sm text-gray-500 mb-5">
           <Link href="/" className="hover:text-green-600">Home</Link>
           <span className="mx-2">›</span>
@@ -165,23 +168,20 @@ export default function TourPackageDetail() {
         </nav>
 
         {/* Gallery */}
-        <div className="mb-8 rounded-2xl overflow-hidden">
-          <div className="relative h-72 md:h-96 w-full">
-            <Image src={images[galleryIdx]} alt={pkg.packageName} fill className="object-cover" priority />
-          </div>
-          {images.length > 1 && (
-            <div className="grid gap-2 mt-2" style={{ gridTemplateColumns: `repeat(${Math.min(images.length - 1, 3)}, 1fr)` }}>
-              {images.slice(1, 4).map((img, i) => (
-                <button key={i} onClick={() => setGalleryIdx(i + 1)}
-                  className={`relative h-32 rounded-xl overflow-hidden border-2 transition-colors ${galleryIdx === i + 1 ? 'border-green-500' : 'border-transparent'}`}>
-                  <Image src={img} alt={`${pkg.packageName} ${i + 2}`} fill className="object-cover" />
-                </button>
-              ))}
-            </div>
-          )}
+        <div className="mb-8">
+          <BentoGallery images={images} alt={pkg.packageName} onImageClick={setLightboxIdx} />
         </div>
 
-        <div className="flex flex-col-reverse lg:flex-row gap-8">
+        {lightboxIdx !== null && (
+          <Lightbox
+            images={images}
+            idx={lightboxIdx}
+            onClose={() => setLightboxIdx(null)}
+            onChange={setLightboxIdx}
+          />
+        )}
+
+        <div className="flex flex-col lg:flex-row gap-8">
           {/* Left content */}
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl font-extrabold text-gray-900 mb-1">{pkg.packageName}</h1>
@@ -303,8 +303,8 @@ export default function TourPackageDetail() {
             </section>
           </div>
 
-          {/* Booking sidebar */}
-          <div className="w-full lg:w-72 shrink-0 lg:sticky lg:top-6">
+          {/* Booking sidebar — desktop only */}
+          <div className="hidden lg:block w-72 shrink-0">
             <div className="bg-white rounded-2xl shadow-md p-6 sticky top-24">
               <div className="mb-5">
                 <p className="text-xs text-gray-400 mb-0.5">Starting from</p>
@@ -318,7 +318,7 @@ export default function TourPackageDetail() {
                   <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
-                  <input type="date" id="tour-date" name="tourDate" autoComplete="off" aria-label="Tour date"
+                  <input type="date" id="tour-date-desktop" name="tourDate" autoComplete="off" aria-label="Tour date"
                     value={date} onChange={(e) => setDate(e.target.value)}
                     className="outline-none text-sm text-gray-700 flex-1 bg-transparent [color-scheme:light]"
                     style={{ colorScheme: 'light' }} />
@@ -349,10 +349,15 @@ export default function TourPackageDetail() {
 
               <button
                 onClick={handleBook}
-                className="w-full bg-green-500 hover:bg-green-600 active:scale-95 text-white font-bold py-3.5 rounded-full transition-all text-sm shadow-md"
+                className="w-full bg-green-500 hover:bg-green-600 active:scale-95 text-white font-bold py-3.5 rounded-full transition-all text-sm shadow-md flex items-center justify-center gap-2"
               >
-                Book Now
+                Reserve This Adventure
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
               </button>
+
+              <p className="text-center text-xs text-gray-400 mt-3">No charges yet — review before paying</p>
             </div>
           </div>
         </div>
@@ -360,7 +365,90 @@ export default function TourPackageDetail() {
 
       <Footer />
 
-      {/* Chatbot */}
+      {/* Mobile sticky booking bar */}
+      <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-gray-100 shadow-2xl px-4 py-3 flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-gray-400 leading-none mb-0.5">Starting from</p>
+          <div className="flex items-baseline gap-1">
+            <span className="text-xl font-extrabold text-gray-900">₱{pkg.pricePerPerson.toLocaleString()}</span>
+            <span className="text-xs text-gray-400">/ person</span>
+          </div>
+        </div>
+        <button
+          onClick={() => setBookingDrawerOpen(true)}
+          className="flex items-center gap-2 bg-green-500 hover:bg-green-600 active:scale-95 text-white font-bold px-5 py-3 rounded-full text-sm transition-all shadow-md shrink-0"
+        >
+          Book This Trip
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Mobile booking drawer */}
+      <Drawer open={bookingDrawerOpen} onOpenChange={setBookingDrawerOpen}>
+        <DrawerContent className="pb-6">
+          <DrawerHeader className="text-left">
+            <DrawerTitle className="text-lg">You&apos;re One Step Away 🌴</DrawerTitle>
+            <DrawerDescription className="text-gray-500 text-sm truncate">{pkg.packageName}</DrawerDescription>
+          </DrawerHeader>
+
+          <div className="px-4 space-y-4">
+            <div className="flex items-baseline gap-1 mb-1">
+              <span className="text-2xl font-extrabold text-gray-900">₱{pkg.pricePerPerson.toLocaleString()}</span>
+              <span className="text-sm text-gray-400">/ person</span>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Date</label>
+              <div className="flex items-center border border-gray-200 rounded-xl px-4 py-3 gap-3 bg-gray-50">
+                <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <input type="date" id="tour-date-mobile" name="tourDateMobile" autoComplete="off" aria-label="Tour date"
+                  value={date} onChange={(e) => setDate(e.target.value)}
+                  className="outline-none text-sm text-gray-700 flex-1 bg-transparent [color-scheme:light]"
+                  style={{ colorScheme: 'light' }} />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Travelers</label>
+              <div className="flex items-center border border-gray-200 rounded-xl px-4 py-3 gap-3 bg-gray-50 justify-between">
+                <button onClick={() => setTravelers((t) => Math.max(1, t - 1))}
+                  className="w-7 h-7 rounded-full border border-gray-300 text-gray-500 hover:border-green-500 hover:text-green-500 flex items-center justify-center transition-colors text-lg leading-none">−</button>
+                <span className="text-sm font-semibold text-gray-800">{travelers} {travelers === 1 ? 'guest' : 'guests'}</span>
+                <button onClick={() => setTravelers((t) => t + 1)}
+                  className="w-7 h-7 rounded-full border border-gray-300 text-gray-500 hover:border-green-500 hover:text-green-500 flex items-center justify-center transition-colors text-lg leading-none">+</button>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-100 pt-3 space-y-2 text-sm">
+              <div className="flex justify-between text-gray-500">
+                <span>₱{pkg.pricePerPerson.toLocaleString()} × {travelers}</span>
+                <span>₱{(pkg.pricePerPerson * travelers).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between font-bold text-gray-900 pt-2 border-t border-gray-100 text-base">
+                <span>Total</span>
+                <span>₱{(pkg.pricePerPerson * travelers).toLocaleString()}</span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => { setBookingDrawerOpen(false); handleBook() }}
+              className="w-full bg-green-500 hover:bg-green-600 active:scale-95 text-white font-bold py-4 rounded-full transition-all shadow-md flex items-center justify-center gap-2 text-sm"
+            >
+              Confirm & Continue
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
+            </button>
+            <p className="text-center text-xs text-gray-400">No charges yet — review before paying</p>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Chatbot — temporarily disabled 2026-04-27, conflicts with mobile booking bar. Re-enable when layout is resolved.
       <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
         {chatOpen && (
           <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col"
@@ -471,6 +559,7 @@ export default function TourPackageDetail() {
           )}
         </button>
       </div>
+      */}
     </div>
   )
 }
