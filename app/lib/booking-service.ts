@@ -1,5 +1,5 @@
 const API_URL =
-    process.env.NEXT_PUBLIC_FUNCTIONS_BASE_URL ??
+    process.env.NEXT_PUBLIC_FUNCTIONS_BASE_URL ||
     "http://localhost:5001/alegria-booking-system/asia-southeast1/api";
 
 export type PaymentMethod = "Gcash / Maya" | "BDO" | "BPI";
@@ -31,6 +31,13 @@ export interface BookingPayload {
     receiptDataUrl: string;
     idempotencyKey?: string;
 }
+
+export const confirmBookingPayment = async (bookingId: string) => {
+    const res = await fetch(`${API_URL}/bookings/${bookingId}/confirm`, { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.error || "Failed to confirm booking");
+    return data as { bookingId: string };
+};
 
 export const createBooking = async (payload: BookingPayload) => {
     const idempotencyKey = payload.idempotencyKey ?? crypto.randomUUID();

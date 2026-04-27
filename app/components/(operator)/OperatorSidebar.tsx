@@ -15,7 +15,23 @@ import {
   Zap,
   Ticket,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { firebaseDb } from '@/app/lib/firebase';
+
+function useReservedCount(operatorUid: string | undefined) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!operatorUid) return;
+    const q = query(
+      collection(firebaseDb, 'bookings'),
+      where('operatorUid', '==', operatorUid),
+      where('status', '==', 'reserved'),
+    );
+    return onSnapshot(q, (snap) => setCount(snap.size));
+  }, [operatorUid]);
+  return count;
+}
 
 const NAV_ITEMS = [
   { label: 'Bookings', href: '/operator/bookings', icon: ClipboardList },
@@ -36,8 +52,10 @@ interface OperatorSidebarProps {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export default function OperatorSidebar({ isCollapsed, onToggleCollapse, onHoverEnter, onHoverLeave }: OperatorSidebarProps) {
   const pathname = usePathname();
-  const { signOutUser } = useAuth();
+  const { signOutUser, authState } = useAuth();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const operatorUid = authState.status === 'authenticated' ? authState.user.uid : undefined;
+  const reservedCount = useReservedCount(operatorUid);
 
   return (
     <>
@@ -98,11 +116,23 @@ export default function OperatorSidebar({ isCollapsed, onToggleCollapse, onHover
                     : 'text-white/90 hover:bg-white/10'
                 }`}
               >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/20">
+                <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/20">
                   <item.icon className="h-5 w-5" />
+                  {item.href === '/operator/bookings' && reservedCount > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white leading-none">
+                      {reservedCount > 9 ? '9+' : reservedCount}
+                    </span>
+                  )}
                 </span>
                 {!isCollapsed && (
-                  <span className="whitespace-pre-line leading-tight">{item.label}</span>
+                  <span className="relative whitespace-pre-line leading-tight">
+                    {item.label}
+                    {item.href === '/operator/bookings' && reservedCount > 0 && (
+                      <span className="ml-2 inline-flex items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white leading-none">
+                        {reservedCount > 99 ? '99+' : reservedCount}
+                      </span>
+                    )}
+                  </span>
                 )}
               </Link>
             );

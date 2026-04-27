@@ -10,6 +10,7 @@ import FilterModal, {
   type Status,
 } from '@/app/(operator)/operator/bookings/modalfilter';import { useOperatorBookings, type FirestoreBooking } from '@/app/hooks/useOperatorBookings';
 import { useAuth } from '@/app/context/AuthContext';
+import { confirmBookingPayment } from '@/app/lib/booking-service';
 
 /* ── Map Firestore document → UI Booking type ─────────────── */
 
@@ -57,7 +58,7 @@ function firestoreToBooking(doc: FirestoreBooking): Booking {
       option: doc.paymentMethod,
     },
     status: statusMap[doc.status] ?? 'Reserved',
-    uploads: doc.receiptUrl ? [{ id: 'receipt', name: 'Payment Receipt' }] : [],
+    uploads: doc.receiptUrl ? [{ id: 'receipt', name: 'Payment Receipt', url: doc.receiptUrl }] : [],
   };
 }
 
@@ -84,6 +85,16 @@ export default function Page() {
   const selectedBooking = selectedId ? bookingsById[selectedId] : undefined;
   const [searchBy, setSearchBy] = useState<'Representative' | 'Booking ID'>('Representative');
   const [query, setQuery] = useState('');
+
+  const handleStatusChange = async (bookingId: string, newStatus: BookingStatus) => {
+    if (newStatus === 'Paid') {
+      try {
+        await confirmBookingPayment(bookingId);
+      } catch (err) {
+        console.error('Failed to confirm booking payment:', err);
+      }
+    }
+  };
 
   const filteredBookings = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -166,6 +177,7 @@ export default function Page() {
         <BookingDetailsCard
           booking={selectedBooking}
           onClose={selectedBooking ? () => setSelectedId(undefined) : undefined}
+          onStatusChange={handleStatusChange}
         />
         <CalendarAvailability />
       </div>

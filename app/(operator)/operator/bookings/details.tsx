@@ -20,6 +20,7 @@ export type Guest = {
 export type UploadedFile = {
   id: string;
   name: string;
+  url?: string;
 };
 
 export type Booking = {
@@ -69,11 +70,13 @@ function uid() {
 interface BookingDetailsCardProps {
   booking?: Booking;
   onClose?: () => void;
+  onStatusChange?: (bookingId: string, newStatus: BookingStatus) => void | Promise<void>;
 }
 
 export default function BookingDetailsCard({
                                              booking,
                                              onClose,
+                                             onStatusChange,
                                            }: BookingDetailsCardProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const printSheetRef = useRef<HTMLDivElement | null>(null);
@@ -82,13 +85,14 @@ export default function BookingDetailsCard({
   const [visibleUploads, setVisibleUploads] = useState<UploadedFile[]>([]);
   const [status, setStatus] = useState<BookingStatus>('Reserved');
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<BookingStatus | null>(null);
+  const [isConfirming, setIsConfirming] = useState(false);
 
   useEffect(() => {
     if (!booking) return;
     setVisibleUploads(booking.uploads ?? []);
     setStatus(booking.status);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [booking?.id]);
+  }, [booking?.id, booking?.status]);
 
   const totals = useMemo(() => {
     if (!booking) return null;
@@ -376,15 +380,26 @@ export default function BookingDetailsCard({
                           key={f.id}
                           className="flex items-center justify-between px-3 py-2 text-sm hover:bg-gray-50 transition-colors"
                       >
-                        <div className="flex items-center gap-2 text-gray-700">
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-gray-100 border border-gray-200">
-                      <Image src="/photos.png" alt="" width={25} height={2} />
-                    </span>
-                          <span className="font-medium text-sm">{f.name}</span>
+                        <div className="flex items-center gap-2 text-gray-700 min-w-0">
+                          <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-gray-100 border border-gray-200">
+                            <Image src="/photos.png" alt="" width={25} height={2} />
+                          </span>
+                          {f.url ? (
+                            <a
+                              href={f.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-medium text-sm text-[#558B2F] underline underline-offset-2 truncate"
+                            >
+                              {f.name}
+                            </a>
+                          ) : (
+                            <span className="font-medium text-sm truncate">{f.name}</span>
+                          )}
                         </div>
 
                         <button
-                            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-red-500 hover:bg-red-50 transition-colors"
+                            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-red-500 hover:bg-red-50 transition-colors"
                             type="button"
                             aria-label="Delete file"
                             onClick={() => removeUpload(f.id)}
@@ -434,7 +449,15 @@ export default function BookingDetailsCard({
 
                 <select
                     value={status}
-                    onChange={(e) => setStatus(e.target.value as BookingStatus)}
+                    onChange={(e) => {
+                      const next = e.target.value as BookingStatus;
+                      if (next === 'Paid') {
+                        setPendingStatus(next);
+                      } else {
+                        setStatus(next);
+                        if (booking) onStatusChange?.(booking.id, next);
+                      }
+                    }}
                     className="appearance-none bg-transparent pr-6 font-medium outline-none cursor-pointer"
                 >
                   <option value="Reserved">Reserved</option>
@@ -595,6 +618,64 @@ export default function BookingDetailsCard({
                 </div>
               </div>
             </div>
+        )}
+
+        {/* Confirm Payment Modal */}
+        {pendingStatus === 'Paid' && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl overflow-hidden">
+              {/* Header */}
+              <div className="bg-[#558B2F] px-6 py-4">
+                <h3 className="text-base font-bold text-white">Confirm Payment</h3>
+              </div>
+
+              {/* Body */}
+              <div className="px-6 py-5 space-y-3">
+                <p className="text-sm text-gray-700">
+                  Mark booking <span className="font-bold text-gray-900">{booking?.bookingIdLabel ?? booking?.id}</span> as <span className="font-bold text-green-700">Paid</span>?
+                </p>
+                <p className="text-xs text-gray-500">
+                  This will update the booking status and send a confirmation email with a QR code to the representative.
+                </p>
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-6 py-3">
+                <button
+                  type="button"
+                  disabled={isConfirming}
+                  onClick={() => setPendingStatus(null)}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isConfirming}
+                  onClick={async () => {
+                    if (!booking) return;
+                    setIsConfirming(true);
+                    try {
+                      await onStatusChange?.(booking.id, 'Paid');
+                      setStatus('Paid');
+                      setPendingStatus(null);
+                    } finally {
+                      setIsConfirming(false);
+                    }
+                  }}
+                  className="rounded-lg bg-[#558B2F] px-4 py-2 text-sm font-bold text-white hover:bg-[#4a7a28] transition-colors disabled:opacity-60 flex items-center gap-2"
+                >
+                  {isConfirming && (
+                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
+                    </svg>
+                  )}
+                  {isConfirming ? 'Confirming…' : 'Confirm Payment'}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </>
   );

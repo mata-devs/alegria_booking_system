@@ -1,5 +1,7 @@
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
+import * as QRCode from "qrcode";
 import { db, storage } from "../../shared/firebase";
+import { createTransporter, getFromAddress } from "../../shared/mailer";
 
 const BOOKING_ADVANCE_DAYS = 180;
 const MAX_PERSONS_PER_SLOT = 30; //this is for the time slot (should be in the dedicated `activity` collection)
@@ -340,10 +342,10 @@ export async function createBooking(data: CreateBookingInput) {
   }
 
   const activity = (await getActivity(data.activityId)) as
-    | (Record<string, unknown> & { maxSlots?: number; pricePerGuest?: number; isActive?: boolean })
+    | (Record<string, unknown> & { maxSlots?: number; pricePerGuest?: number; status?: string; activityName?: string })
     | null;
   if (!activity) throw new Error("Activity not found");
-  if (!activity.isActive) throw new Error("Activity is not active");
+  if (activity.status !== "active") throw new Error("Activity is not active");
 
   const numberOfGuests = data.guests.length + 1;
   if (numberOfGuests > MAX_PERSONS_PER_SLOT) {
@@ -379,6 +381,9 @@ export async function createBooking(data: CreateBookingInput) {
         status: booking.status,
         operatorUid: booking.operatorUid,
         paymentExpiresAt: booking.paymentExpiresAt ?? null,
+        activityName: (activity.activityName as string | undefined) ?? data.activityId,
+        numberOfGuests: booking.numberOfGuests ?? data.guests.length + 1,
+        pricing,
       };
     }
   }
@@ -470,6 +475,9 @@ export async function createBooking(data: CreateBookingInput) {
         status: "reserved",
         operatorUid,
         paymentExpiresAt: paymentExpiresAtTs,
+        activityName: (activity.activityName as string | undefined) ?? data.activityId,
+        numberOfGuests,
+        pricing,
       };
     } catch (err) {
       // Transaction failed after receipt already uploaded: delete orphan to keep storage clean.
@@ -563,4 +571,131 @@ export async function expireUnpaidBookings(batchLimit = 20) {
       }
     });
   }
+}
+
+export async function confirmPayment(bookingId: string) {
+  const bookingRef = db.collection("bookings").doc(bookingId);
+  const snap = await bookingRef.get();
+  if (!snap.exists) throw new Error("Booking not found");
+
+  const booking = snap.data() as any;
+
+  const now = FieldValue.serverTimestamp();
+  await bookingRef.update({ status: "paid", paymentStatus: "paid", updatedAt: now });
+
+  if (booking.paymentId) {
+    await db.collection("payments").doc(booking.paymentId).update({ status: "paid", updatedAt: now });
+  }
+
+  const rep = booking.representative as {
+    fullName?: string;
+    email?: string;
+    phoneNumber?: string;
+    age?: number;
+    gender?: string;
+    nationality?: string;
+  } | undefined;
+
+  if (rep?.email) {
+    const tourDate: Date | null = booking.tourDate?.toDate?.() ?? null;
+    const tourDateFormatted = tourDate
+      ? tourDate.toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric", timeZone: "Asia/Manila" })
+      : "—";
+
+    const fmt = (n: number) =>
+      `₱${Number(n).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    const qrBuffer = await QRCode.toBuffer(bookingId, { width: 220, margin: 2 });
+
+    await createTransporter().sendMail({
+      from: getFromAddress(),
+      to: rep.email,
+      subject: `Booking Confirmed – ${bookingId}`,
+      html: `
+        <div style="font-family:sans-serif;max-width:580px;margin:0 auto;color:#1f2937">
+
+          <div style="background:#558B2F;padding:24px 32px;border-radius:12px 12px 0 0">
+            <h1 style="margin:0;color:#fff;font-size:22px">Booking Confirmed!</h1>
+            <p style="margin:6px 0 0;color:#d9f99d;font-size:14px">Booking ID: <strong>${bookingId}</strong></p>
+          </div>
+
+          <div style="border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;padding:28px 32px">
+
+            <p style="margin:0 0 20px">Hi <strong>${rep.fullName ?? "Guest"}</strong>, your payment has been verified and your booking is now <strong>confirmed</strong>.</p>
+
+            <!-- QR Code -->
+            <div style="text-align:center;margin:0 0 28px">
+              <p style="margin:0 0 10px;font-size:13px;color:#6b7280">Present this QR code on the day of your tour</p>
+              <img src="cid:booking-qr" alt="Booking QR Code" width="160" style="border:6px solid #f3f4f6;border-radius:8px" />
+              <p style="margin:8px 0 0;font-size:16px;font-weight:700;letter-spacing:.1em;color:#1f2937">${bookingId}</p>
+            </div>
+
+            <!-- Booking Details -->
+            <h3 style="margin:0 0 10px;font-size:13px;text-transform:uppercase;color:#558B2F;letter-spacing:.05em">Booking Details</h3>
+            <table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:14px">
+              <tr>
+                <td style="padding:6px 0;color:#6b7280;width:42%">Tour Date</td>
+                <td style="padding:6px 0;font-weight:600">${tourDateFormatted}</td>
+              </tr>
+              <tr style="border-top:1px solid #f3f4f6">
+                <td style="padding:6px 0;color:#6b7280">Payment Method</td>
+                <td style="padding:6px 0">${booking.paymentMethod ?? "—"}</td>
+              </tr>
+              <tr style="border-top:1px solid #f3f4f6">
+                <td style="padding:6px 0;color:#6b7280">Status</td>
+                <td style="padding:6px 0"><span style="background:#dcfce7;color:#14532d;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600">Confirmed & Paid</span></td>
+              </tr>
+            </table>
+
+            <!-- Representative -->
+            <h3 style="margin:0 0 10px;font-size:13px;text-transform:uppercase;color:#558B2F;letter-spacing:.05em">Representative</h3>
+            <table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:14px">
+              <tr><td style="padding:5px 0;color:#6b7280;width:42%">Name</td><td style="padding:5px 0">${rep.fullName ?? "—"}</td></tr>
+              <tr style="border-top:1px solid #f3f4f6"><td style="padding:5px 0;color:#6b7280">Email</td><td style="padding:5px 0">${rep.email}</td></tr>
+              <tr style="border-top:1px solid #f3f4f6"><td style="padding:5px 0;color:#6b7280">Phone</td><td style="padding:5px 0">${rep.phoneNumber ?? "—"}</td></tr>
+              <tr style="border-top:1px solid #f3f4f6"><td style="padding:5px 0;color:#6b7280">Age / Gender</td><td style="padding:5px 0">${rep.age ?? "—"} yrs · ${rep.gender ?? "—"}</td></tr>
+              <tr style="border-top:1px solid #f3f4f6"><td style="padding:5px 0;color:#6b7280">Nationality</td><td style="padding:5px 0">${rep.nationality ?? "—"}</td></tr>
+            </table>
+
+            <!-- Guests -->
+            ${Array.isArray(booking.guests) && booking.guests.length > 0 ? `
+            <h3 style="margin:0 0 10px;font-size:13px;text-transform:uppercase;color:#558B2F;letter-spacing:.05em">Additional Guests (${booking.guests.length})</h3>
+            <table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:14px">
+              ${(booking.guests as any[]).map((g: any, i: number) => `
+              <tr style="${i > 0 ? "border-top:1px solid #f3f4f6" : ""}">
+                <td style="padding:5px 0;color:#6b7280;width:42%">Guest ${i + 1}</td>
+                <td style="padding:5px 0">${g.fullName} · ${g.age} yrs · ${g.gender} · ${g.nationality}</td>
+              </tr>`).join("")}
+            </table>` : ""}
+
+            <!-- Payment Breakdown -->
+            <h3 style="margin:0 0 10px;font-size:13px;text-transform:uppercase;color:#558B2F;letter-spacing:.05em">Payment Summary</h3>
+            <table style="width:100%;border-collapse:collapse;font-size:14px">
+              <tr><td style="padding:6px 0;color:#6b7280;width:42%">Price per Guest</td><td style="padding:6px 0">${fmt(booking.pricePerGuest ?? 0)} × ${booking.numberOfGuests ?? 1}</td></tr>
+              <tr style="border-top:1px solid #f3f4f6"><td style="padding:6px 0;color:#6b7280">Base Amount</td><td style="padding:6px 0">${fmt(booking.baseAmount ?? 0)}</td></tr>
+              <tr style="border-top:1px solid #f3f4f6"><td style="padding:6px 0;color:#6b7280">Service Charge (5%)</td><td style="padding:6px 0">${fmt(booking.serviceCharge ?? 0)}</td></tr>
+              ${(booking.discountAmount ?? 0) > 0 ? `
+              <tr style="border-top:1px solid #f3f4f6"><td style="padding:6px 0;color:#6b7280">Discount (${booking.discountPercentage ?? 0}%${booking.promoCode ? ` · ${booking.promoCode}` : ""})</td><td style="padding:6px 0;color:#16a34a">− ${fmt(booking.discountAmount)}</td></tr>` : ""}
+              <tr style="border-top:2px solid #e5e7eb">
+                <td style="padding:10px 0;font-weight:700;font-size:15px">Total Paid</td>
+                <td style="padding:10px 0;font-weight:700;font-size:15px;color:#558B2F">${fmt(booking.finalPrice ?? 0)}</td>
+              </tr>
+            </table>
+
+            <p style="margin:24px 0 0;font-size:13px;color:#6b7280">Thank you for booking with us. We look forward to seeing you on your tour day!</p>
+          </div>
+
+        </div>
+      `,
+      attachments: [
+        {
+          filename: `booking-${bookingId}-qr.png`,
+          content: qrBuffer,
+          cid: "booking-qr",
+        },
+      ],
+    });
+  }
+
+  return { bookingId };
 }

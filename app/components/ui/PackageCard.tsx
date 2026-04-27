@@ -125,8 +125,8 @@ export default function PackageCard({
           {title}
         </h3>
 
-        {/* Description — hidden on mobile (too cramped at 2-col), visible sm+. Adjust text-sm here */}
-        {description && (
+        {/* Description — hidden on mobile and on wide cards (h-52 too compact); visible sm+ on tall cards */}
+        {description && !wide && (
           <p className="hidden sm:block text-white/80 text-sm line-clamp-2 leading-relaxed">{description}</p>
         )}
 
