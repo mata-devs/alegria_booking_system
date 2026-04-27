@@ -1,16 +1,15 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Footer from '@/app/components/Footer'
 import { BentoGallery, Lightbox } from '@/app/components/ui/BentoGallery'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/app/components/ui/drawer'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
 import { travelerReviews } from '@/app/data/mockData'
-import { useBooking } from '@/app/context/BookingContext'
 
 interface ItineraryStep {
   itineraryTime: string
@@ -32,6 +31,8 @@ interface FirestorePackage {
   packageTag: string
   packageRating: number
   slug: string
+  minimumNumberOfPeople: number
+  maximumNumberOfPeople?: number
 }
 
 function StarRating({ rating }: { rating: number }) {
@@ -67,19 +68,22 @@ function getBotReply(input: string): string {
   return match?.reply ?? "Great question! Contact us at hello@suroyCebu.com or call +63 912 345 6789 for specific inquiries. 😊"
 }
 
-export default function TourPackageDetail() {
+function TourPackageDetailInner() {
   const params = useParams()
   const slug = params.packageId as string
   const router = useRouter()
-  const { updateBooking } = useBooking()
+  const searchParams = useSearchParams()
 
   const [pkg, setPkg] = useState<FirestorePackage | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
 
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null)
-  const [date, setDate] = useState('')
-  const [travelers, setTravelers] = useState(1)
+  const [date, setDate] = useState(() => searchParams.get('date') ?? '')
+  const [travelers, setTravelers] = useState(() => {
+    const t = searchParams.get('travelers')
+    return t ? Math.max(1, parseInt(t, 10)) : 1
+  })
   const [bookingDrawerOpen, setBookingDrawerOpen] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
   const [chatInput, setChatInput] = useState('')
@@ -96,8 +100,13 @@ export default function TourPackageDetail() {
         const q = query(collection(firebaseDb, 'tourPackages'), where('slug', '==', slug))
         const snap = await getDocs(q)
         if (snap.empty) { setNotFound(true); setLoading(false); return }
-        const doc = snap.docs[0]
-        setPkg({ id: doc.id, ...doc.data() } as FirestorePackage)
+        const docSnap = snap.docs[0]
+        const loaded = { id: docSnap.id, ...docSnap.data() } as FirestorePackage
+        setPkg(loaded)
+        // sync travelers to min if URL didn't specify
+        if (!searchParams.get('travelers')) {
+          setTravelers(Math.max(1, loaded.minimumNumberOfPeople ?? 1))
+        }
       } catch (err) {
         console.error(err)
         setNotFound(true)
@@ -106,6 +115,7 @@ export default function TourPackageDetail() {
       }
     }
     load()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug])
 
   const sendMessage = () => {
@@ -117,24 +127,21 @@ export default function TourPackageDetail() {
     setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
   }
 
+  const minGuests = Math.max(1, pkg?.minimumNumberOfPeople ?? 1)
+  const maxGuests = Math.min(pkg?.maximumNumberOfPeople ?? 10, 10)
+
   const handleBook = () => {
     if (!pkg) return
-    updateBooking({
-      item: {
-        id: 0,
-        title: pkg.packageName,
-        description: pkg.packageDescription,
-        price: pkg.pricePerPerson,
-        image: pkg.packageImages[0] ?? '',
-        theme: 'green',
-        duration: pkg.duration,
-        inclusions: pkg.inclusions,
-        municipalityId: pkg.slug,
-      },
+    const qs = new URLSearchParams({
+      activityId: pkg.id,
+      activityName: pkg.packageName,
       date,
-      guestCount: travelers,
+      guests: travelers.toString(),
+      price: pkg.pricePerPerson.toString(),
+      minGuests: minGuests.toString(),
+      maxGuests: maxGuests.toString(),
     })
-    router.push('/booking/guest-info')
+    router.push(`/booking/guest-info?${qs.toString()}`)
   }
 
   if (loading) {
@@ -328,12 +335,15 @@ export default function TourPackageDetail() {
               <div className="mb-5">
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Travelers</label>
                 <div className="flex items-center border border-gray-200 rounded-xl px-4 py-3 gap-3 bg-gray-50 justify-between">
-                  <button onClick={() => setTravelers((t) => Math.max(1, t - 1))}
-                    className="w-7 h-7 rounded-full border border-gray-300 text-gray-500 hover:border-green-500 hover:text-green-500 flex items-center justify-center transition-colors text-lg leading-none">−</button>
+                  <button onClick={() => setTravelers((t) => Math.max(minGuests, t - 1))}
+                    disabled={travelers <= minGuests}
+                    className="w-7 h-7 rounded-full border border-gray-300 text-gray-500 hover:border-green-500 hover:text-green-500 flex items-center justify-center transition-colors text-lg leading-none disabled:opacity-30 disabled:cursor-not-allowed">−</button>
                   <span className="text-sm font-semibold text-gray-800">{travelers} {travelers === 1 ? 'guest' : 'guests'}</span>
-                  <button onClick={() => setTravelers((t) => t + 1)}
-                    className="w-7 h-7 rounded-full border border-gray-300 text-gray-500 hover:border-green-500 hover:text-green-500 flex items-center justify-center transition-colors text-lg leading-none">+</button>
+                  <button onClick={() => setTravelers((t) => Math.min(maxGuests, t + 1))}
+                    disabled={travelers >= maxGuests}
+                    className="w-7 h-7 rounded-full border border-gray-300 text-gray-500 hover:border-green-500 hover:text-green-500 flex items-center justify-center transition-colors text-lg leading-none disabled:opacity-30 disabled:cursor-not-allowed">+</button>
                 </div>
+                <p className="text-xs text-gray-400 mt-1.5">Min {minGuests} · Max {maxGuests} guests</p>
               </div>
 
               <div className="border-t border-gray-100 pt-4 mb-5 space-y-2 text-sm">
@@ -415,12 +425,15 @@ export default function TourPackageDetail() {
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Travelers</label>
               <div className="flex items-center border border-gray-200 rounded-xl px-4 py-3 gap-3 bg-gray-50 justify-between">
-                <button onClick={() => setTravelers((t) => Math.max(1, t - 1))}
-                  className="w-7 h-7 rounded-full border border-gray-300 text-gray-500 hover:border-green-500 hover:text-green-500 flex items-center justify-center transition-colors text-lg leading-none">−</button>
+                <button onClick={() => setTravelers((t) => Math.max(minGuests, t - 1))}
+                  disabled={travelers <= minGuests}
+                  className="w-7 h-7 rounded-full border border-gray-300 text-gray-500 hover:border-green-500 hover:text-green-500 flex items-center justify-center transition-colors text-lg leading-none disabled:opacity-30 disabled:cursor-not-allowed">−</button>
                 <span className="text-sm font-semibold text-gray-800">{travelers} {travelers === 1 ? 'guest' : 'guests'}</span>
-                <button onClick={() => setTravelers((t) => t + 1)}
-                  className="w-7 h-7 rounded-full border border-gray-300 text-gray-500 hover:border-green-500 hover:text-green-500 flex items-center justify-center transition-colors text-lg leading-none">+</button>
+                <button onClick={() => setTravelers((t) => Math.min(maxGuests, t + 1))}
+                  disabled={travelers >= maxGuests}
+                  className="w-7 h-7 rounded-full border border-gray-300 text-gray-500 hover:border-green-500 hover:text-green-500 flex items-center justify-center transition-colors text-lg leading-none disabled:opacity-30 disabled:cursor-not-allowed">+</button>
               </div>
+              <p className="text-xs text-gray-400 mt-1.5">Min {minGuests} · Max {maxGuests} guests</p>
             </div>
 
             <div className="border-t border-gray-100 pt-3 space-y-2 text-sm">
@@ -561,5 +574,13 @@ export default function TourPackageDetail() {
       </div>
       */}
     </div>
+  )
+}
+
+export default function TourPackageDetail() {
+  return (
+    <Suspense>
+      <TourPackageDetailInner />
+    </Suspense>
   )
 }

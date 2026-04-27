@@ -34,6 +34,8 @@ export default function TourPackagesPage() {
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
   const [visibleCount, setVisibleCount] = useState(INITIAL_COUNT)
   const [searchWhere, setSearchWhere] = useState('')
+  const [searchDate, setSearchDate] = useState('')
+  const [searchTravelers, setSearchTravelers] = useState('')
   const [searchDrawerOpen, setSearchDrawerOpen] = useState(false)
   const [popularActivities, setPopularActivities] = useState<{
     id: string; activityName: string; activityTag: string;
@@ -107,7 +109,7 @@ export default function TourPackagesPage() {
       <div className="relative z-10 -mt-8 px-4 sm:px-6 md:px-16 mb-4 hidden sm:block">
         <SearchBar
           className="max-w-4xl mx-auto"
-          onSearch={({ where }) => { setSearchWhere(where); setVisibleCount(INITIAL_COUNT) }}
+          onSearch={({ where, when, travelers }) => { setSearchWhere(where); setSearchDate(when); setSearchTravelers(travelers); setVisibleCount(INITIAL_COUNT) }}
         />
       </div>
 
@@ -119,8 +121,10 @@ export default function TourPackagesPage() {
           </DrawerHeader>
           <div className="px-4 pb-2">
             <SearchBar
-              onSearch={({ where }) => {
+              onSearch={({ where, when, travelers }) => {
                 setSearchWhere(where)
+                setSearchDate(when)
+                setSearchTravelers(travelers)
                 setVisibleCount(INITIAL_COUNT)
                 setSearchDrawerOpen(false)
               }}
@@ -175,7 +179,7 @@ export default function TourPackagesPage() {
                 duration={pkg.duration}
                 rating={pkg.packageRating}
                 minGuests={pkg.minimumNumberOfPeople ?? 1}
-                href={`/tour-packages/${pkg.slug}`}
+                href={`/tour-packages/${pkg.slug}${searchDate || searchTravelers ? `?date=${searchDate}&travelers=${searchTravelers}` : ''}`}
               />
             ))}
           </div>

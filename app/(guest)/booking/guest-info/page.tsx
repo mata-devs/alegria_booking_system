@@ -1,297 +1,319 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useBooking } from '@/app/context/BookingContext'
-import { tourOperators } from '@/app/data/mockData'
-import type { Representative, Guest } from '@/app/types'
+import React, { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { representativeFormSchema, guestSchema } from "@/app/lib/schema";
+import type { PaymentMethod } from "@/app/lib/booking-service";
+import { useSessionStorage } from "@/app/hooks/useSessionStorage";
+import { RepresentativeForm } from "./_components/RepresentativeForm";
+import { GuestsList } from "./_components/GuestsList";
+import { BookingSidebar } from "./_components/BookingSidebar";
+import { TourOperatorDropdown } from "./_components/TourOperatorDropdown";
+import { FormActions } from "./_components/FormActions";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/app/components/ui/drawer";
+import { Loader2 } from "lucide-react";
 
-const nationalities = ['Filipino', 'American', 'British', 'Australian', 'Japanese', 'Korean', 'Chinese', 'German', 'French', 'Other']
-const genders = ['Male', 'Female', 'Prefer not to say']
+const MAX_GUESTS = 30;
+const PAYMENT_METHODS: PaymentMethod[] = ["Gcash / Maya", "BDO", "BPI"];
 
-const inputCls = 'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-green-400 focus:ring-1 focus:ring-green-400 bg-white'
-const selectCls = 'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-green-400 bg-white appearance-none'
+interface GuestFormData {
+    repName: string;
+    repAge: string;
+    repGender: string;
+    repEmail: string;
+    repPhone: string;
+    repNationality: string;
+    tourOperator: string;
+    idempotencyKey: string;
+}
 
-export default function GuestInfoForm() {
-  const router = useRouter()
-  const { booking, updateBooking, basePrice, subtotal, serviceCharge, total } = useBooking()
+interface AdditionalGuest {
+    name: string;
+    age: string;
+    gender: string;
+    nationality: string;
+}
 
-  const [rep, setRep] = useState<Representative>({ name: '', age: '', email: '', gender: '', phone: '', nationality: '' })
-  const [guests, setGuests] = useState<Guest[]>([
-    { name: '', age: '', nationality: '', gender: '' },
-    { name: '', age: '', nationality: '', gender: '' },
-  ])
-  const [tourOperator, setTourOperator] = useState('')
-  const [operatorOpen, setOperatorOpen] = useState(false)
-  const [promoCode, setPromoCode] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState('Cash')
+const createEmptyGuest = (): AdditionalGuest => ({ name: "", age: "", gender: "", nationality: "PH" });
 
-  const updateRep = (field: keyof Representative, val: string) =>
-    setRep((r) => ({ ...r, [field]: val }))
+const normalizeGuestCount = (count: number) => {
+    if (Number.isNaN(count) || count < 1) return 1;
+    return Math.min(count, MAX_GUESTS);
+};
 
-  const updateGuest = (i: number, field: keyof Guest, val: string) =>
-    setGuests((g) => g.map((guest, idx) => (idx === i ? { ...guest, [field]: val } : guest)))
+const syncGuestsToCount = (current: AdditionalGuest[], total: number) => {
+    const target = Math.max(0, normalizeGuestCount(total) - 1);
+    return Array.from({ length: target }, (_, i) => current[i] ?? createEmptyGuest());
+};
 
-  const addGuest = () => setGuests((g) => [...g, { name: '', age: '', nationality: '', gender: '' }])
+const getInitialGuests = (total: number) => {
+    const empty = syncGuestsToCount([], total);
+    if (typeof window === "undefined") return empty;
+    try {
+        const stored = window.sessionStorage.getItem("guestFormGuests");
+        if (!stored) return empty;
+        const parsed = JSON.parse(stored);
+        return syncGuestsToCount(Array.isArray(parsed) ? parsed : [], total);
+    } catch {
+        return empty;
+    }
+};
 
-  const handleNext = () => {
-    updateBooking({ representative: rep, guests, tourOperator, promoCode, paymentMethod })
-    router.push('/booking/payment')
-  }
+function GuestBookingContent() {
+    const searchParams = useSearchParams();
+    const router = useRouter();
 
-  const paymentMethods = [
-    {
-      id: 'Cash', label: 'Cash',
-      icon: (
-        <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-          <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-          </svg>
-        </div>
-      )
-    },
-    {
-      id: 'GCash', label: 'GCash',
-      icon: (
-        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-          <span className="text-blue-600 font-bold text-xs">G</span>
-        </div>
-      )
-    },
-    {
-      id: 'Card', label: 'Credit/Debit card',
-      icon: (
-        <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
-          <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-          </svg>
-        </div>
-      )
-    },
-  ]
+    const selectedActivityId = searchParams.get("activityId") || "";
+    const activityName = searchParams.get("activityName") || undefined;
+    const bookingDate = searchParams.get("date") || "";
+    const rawGuests = searchParams.get("guests");
+    const initialGuestCount = rawGuests ? parseInt(rawGuests, 10) : 1;
+    const requestedGuestCount = normalizeGuestCount(initialGuestCount);
+    const priceOverride = searchParams.get("price") ? Number(searchParams.get("price")) : undefined;
+    const minGuests = searchParams.get("minGuests") ? Number(searchParams.get("minGuests")) : undefined;
+    const maxGuests = searchParams.get("maxGuests") ? Number(searchParams.get("maxGuests")) : undefined;
 
-  return (
-    <div className="min-h-screen flex flex-col bg-[#f0fdf4]">
-      <div className="flex-1 max-w-7xl mx-auto w-full px-6 lg:px-8 py-8 pb-28">
-        <nav className="text-sm text-gray-500 mb-6 flex items-center gap-1">
-          <Link href="/" className="hover:text-green-600">Home</Link>
-          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-          <Link href="/locations" className="hover:text-green-600">Cebu Locations</Link>
-          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-          <span className="text-gray-800 font-medium">Alegria</span>
-        </nav>
+    const [isMounted, setIsMounted] = useState(false);
+    const [summaryDrawerOpen, setSummaryDrawerOpen] = useState(false);
+    const [promoOperatorUid, setPromoOperatorUid] = useState<string | null>(null);
+    const [continuing, setContinuing] = useState(false);
+    const [continueError, setContinueError] = useState<string | null>(null);
+    const [submitted, setSubmitted] = useState(false);
+    const [repErrors, setRepErrors] = useState<Partial<Record<string, string>>>({});
+    const [guestErrors, setGuestErrors] = useState<Record<number, Partial<Record<string, string>>>>({});
 
-        <div className="flex flex-col lg:flex-row gap-8 items-start">
-          <div className="flex-1 min-w-0 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="overflow-y-auto px-5 sm:px-8 py-8">
-              <h1 className="text-xl font-bold text-gray-900 text-center mb-8">Guests Information Form</h1>
+    const [formData, setFormData] = useSessionStorage<GuestFormData>("guestFormData", {
+        repName: "", repAge: "", repGender: "", repEmail: "", repPhone: "", repNationality: "PH",
+        tourOperator: "", idempotencyKey: "",
+    });
+    const [guests, setGuests] = useState<AdditionalGuest[]>(() => getInitialGuests(requestedGuestCount));
+    const [appliedPromo, setAppliedPromo] = useState<string>(searchParams.get("promoCode") || "");
+    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("Gcash / Maya");
+    const guestCount = guests.length + 1;
 
-              <section className="mb-8">
-                <h2 className="text-sm font-bold text-gray-800 mb-4">Representative Information</h2>
-                <div className="flex gap-4 mb-4">
-                  <div className="flex-1">
-                    <label htmlFor="rep-name" className="block text-xs text-gray-500 mb-1">Name</label>
-                    <input id="rep-name" name="repName" autoComplete="name" className={inputCls} value={rep.name} onChange={(e) => updateRep('name', e.target.value)} />
-                  </div>
-                  <div className="w-24">
-                    <label htmlFor="rep-age" className="block text-xs text-gray-500 mb-1">Age</label>
-                    <input id="rep-age" name="repAge" autoComplete="off" className={inputCls} type="number" value={rep.age} onChange={(e) => updateRep('age', e.target.value)} />
-                  </div>
-                </div>
-                <div className="flex gap-4 mb-4">
-                  <div className="flex-1">
-                    <label htmlFor="rep-email" className="block text-xs text-gray-500 mb-1">Email</label>
-                    <input id="rep-email" name="repEmail" autoComplete="email" className={inputCls} type="email" value={rep.email} onChange={(e) => updateRep('email', e.target.value)} />
-                  </div>
-                  <div className="flex-1">
-                    <label htmlFor="rep-gender" className="block text-xs text-gray-500 mb-1">Gender</label>
-                    <div className="relative">
-                      <select id="rep-gender" name="repGender" className={selectCls} value={rep.gender} onChange={(e) => updateRep('gender', e.target.value)}>
-                        <option value=""></option>
-                        {genders.map((g) => <option key={g}>{g}</option>)}
-                      </select>
-                      <svg className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+    useEffect(() => { setIsMounted(true); }, []);
+
+    useEffect(() => {
+        try {
+            const ctxRaw = window.sessionStorage.getItem("bookingContext");
+            if (!ctxRaw) return;
+            const ctx = JSON.parse(ctxRaw) as { paymentMethod?: unknown };
+            if (typeof ctx.paymentMethod === "string" && PAYMENT_METHODS.includes(ctx.paymentMethod as PaymentMethod)) {
+                setPaymentMethod(ctx.paymentMethod as PaymentMethod);
+            }
+        } catch { /* ignore */ }
+    }, []);
+
+    useEffect(() => {
+        if (!formData.idempotencyKey) {
+            setFormData((prev) => ({ ...prev, idempotencyKey: crypto.randomUUID() }));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
+        try { window.sessionStorage.setItem("guestFormGuests", JSON.stringify(guests)); } catch { /* ignore */ }
+    }, [guests]);
+
+    const handleGuestCountChange = (nextCount: number) => {
+        setGuests((prev) => syncGuestsToCount(prev, nextCount));
+    };
+
+    const handleSubmit = async () => {
+        setContinueError(null);
+        setSubmitted(true);
+
+        if (!selectedActivityId) {
+            setContinueError("Missing activity. Please go back and choose an activity.");
+            return;
+        }
+        if (!bookingDate) {
+            setContinueError("Missing booking date.");
+            return;
+        }
+
+        const repResult = representativeFormSchema.safeParse(formData);
+        const nextRepErrors: Partial<Record<string, string>> = {};
+        if (!repResult.success) {
+            for (const issue of repResult.error.issues) {
+                const key = String(issue.path[0]);
+                if (!nextRepErrors[key]) nextRepErrors[key] = issue.message;
+            }
+        }
+        setRepErrors(nextRepErrors);
+
+        const nextGuestErrors: Record<number, Partial<Record<string, string>>> = {};
+        for (let i = 0; i < guests.length; i++) {
+            const gResult = guestSchema.safeParse(guests[i]);
+            if (!gResult.success) {
+                const errs: Partial<Record<string, string>> = {};
+                for (const issue of gResult.error.issues) {
+                    const key = String(issue.path[0]);
+                    if (!errs[key]) errs[key] = issue.message;
+                }
+                nextGuestErrors[i] = errs;
+            }
+        }
+        setGuestErrors(nextGuestErrors);
+
+        if (Object.keys(nextRepErrors).length > 0 || Object.keys(nextGuestErrors).length > 0) {
+            setContinueError("Please fix the highlighted errors before continuing.");
+            setTimeout(() => {
+                const el = document.querySelector('[role="alert"]');
+                el?.scrollIntoView({ behavior: "smooth", block: "center" });
+            }, 50);
+            return;
+        }
+
+        try {
+            setContinuing(true);
+            sessionStorage.setItem("bookingContext", JSON.stringify({
+                bookingDate,
+                selectedActivityId,
+                activityName,
+                guestCount,
+                promoCode: appliedPromo || undefined,
+                tourOperatorUid: formData.tourOperator || undefined,
+                paymentMethod,
+            }));
+            router.push("/booking/payment");
+        } catch {
+            setContinuing(false);
+            setContinueError("Failed to continue to payment. Please try again.");
+        }
+    };
+
+    const handleGoBack = () => {
+        if (selectedActivityId) {
+            router.push(`/activities/${selectedActivityId}`);
+        } else {
+            router.push("/activities");
+        }
+    };
+
+    if (!isMounted) return null;
+
+    const sidebarProps = {
+        bookingDate,
+        selectedActivityId,
+        activityName,
+        guestCount,
+        showPaymentMethods: true,
+        onGuestCountChange: handleGuestCountChange,
+        paymentMethod,
+        onPaymentMethodChange: setPaymentMethod,
+        onContinue: handleSubmit,
+        initialPromoCode: appliedPromo,
+        priceOverride,
+        minGuests,
+        maxGuests,
+        onPromoApplied: (promo: { code: string; discount: number; operatorUid?: string }) => {
+            setAppliedPromo(promo.code);
+            if (promo.operatorUid) {
+                setFormData((prev) => ({ ...prev, tourOperator: promo.operatorUid || "" }));
+                setPromoOperatorUid(promo.operatorUid);
+            } else {
+                setPromoOperatorUid(null);
+            }
+        },
+        onPromoRemoved: () => {
+            setAppliedPromo("");
+            setPromoOperatorUid(null);
+            setFormData((prev) => ({ ...prev, tourOperator: "" }));
+        },
+    };
+
+    return (
+        <div className="min-h-screen bg-[#F9FAFB] font-poppins pb-24 lg:pb-20">
+            <main className="max-w-6xl mx-auto px-4 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start py-8">
+                <div className="lg:col-span-8 flex flex-col gap-8 order-1">
+                    <div className="bg-white border border-[#E5E7EB] rounded-2xl p-6 md:p-8 shadow-sm">
+                        <h1 className="text-2xl md:text-3xl font-bold mb-2 text-black">Guest Information</h1>
+                        <p className="text-gray-500 mb-8">Please fill in the details for all guests attending the tour</p>
+                        <RepresentativeForm
+                            formData={formData}
+                            onChange={(field, val) => setFormData((prev) => ({ ...prev, [field]: val }))}
+                            errors={repErrors}
+                            submitted={submitted}
+                        />
+                        <GuestsList
+                            guests={guests}
+                            onUpdateGuest={(idx, field, val) => {
+                                const n = [...guests];
+                                n[idx] = { ...n[idx], [field]: val };
+                                setGuests(n);
+                            }}
+                            onAddGuest={() => setGuests((prev) => syncGuestsToCount(prev, guestCount + 1))}
+                            onRemoveGuest={(idx) => setGuests((prev) => prev.filter((_, i) => i !== idx))}
+                            guestErrors={guestErrors}
+                            submitted={submitted}
+                        />
+                        <TourOperatorDropdown
+                            value={formData.tourOperator}
+                            onChange={(val) => setFormData((prev) => ({ ...prev, tourOperator: val }))}
+                            lockedByPromo={!!promoOperatorUid}
+                        />
                     </div>
-                  </div>
                 </div>
-                <div className="mb-4">
-                  <label htmlFor="rep-phone" className="block text-xs text-gray-500 mb-1">Phone Number</label>
-                  <input id="rep-phone" name="repPhone" autoComplete="tel" className={inputCls} value={rep.phone} onChange={(e) => updateRep('phone', e.target.value)} />
-                </div>
-                <div>
-                  <label htmlFor="rep-nationality" className="block text-xs text-gray-500 mb-1">Nationality</label>
-                  <div className="relative max-w-xs">
-                    <select id="rep-nationality" name="repNationality" className={selectCls} value={rep.nationality} onChange={(e) => updateRep('nationality', e.target.value)}>
-                      <option value=""></option>
-                      {nationalities.map((n) => <option key={n}>{n}</option>)}
-                    </select>
-                    <svg className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                  </div>
-                </div>
-              </section>
 
-              <section className="mb-8">
-                <h2 className="text-sm font-bold text-gray-800 mb-4">Guests Information</h2>
-                {guests.map((guest, i) => (
-                  <div key={i} className="mb-5">
-                    <div className="flex gap-4 mb-3">
-                      <div className="flex-1">
-                        <label htmlFor={`guest-name-${i}`} className="block text-xs text-gray-500 mb-1">Name</label>
-                        <input id={`guest-name-${i}`} name={`guestName${i}`} autoComplete="off" className={inputCls} value={guest.name} onChange={(e) => updateGuest(i, 'name', e.target.value)} />
-                      </div>
-                      <div className="w-24">
-                        <label htmlFor={`guest-age-${i}`} className="block text-xs text-gray-500 mb-1">Age</label>
-                        <input id={`guest-age-${i}`} name={`guestAge${i}`} autoComplete="off" className={inputCls} type="number" value={guest.age} onChange={(e) => updateGuest(i, 'age', e.target.value)} />
-                      </div>
-                    </div>
-                    <div className="flex gap-4">
-                      <div className="flex-1 relative">
-                        <label htmlFor={`guest-nationality-${i}`} className="block text-xs text-gray-500 mb-1">Nationality</label>
-                        <select id={`guest-nationality-${i}`} name={`guestNationality${i}`} className={selectCls} value={guest.nationality} onChange={(e) => updateGuest(i, 'nationality', e.target.value)}>
-                          <option value=""></option>
-                          {nationalities.map((n) => <option key={n}>{n}</option>)}
-                        </select>
-                        <svg className="w-4 h-4 text-gray-400 absolute right-3 bottom-3 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                      </div>
-                      <div className="flex-1 relative">
-                        <label htmlFor={`guest-gender-${i}`} className="block text-xs text-gray-500 mb-1">Gender</label>
-                        <select id={`guest-gender-${i}`} name={`guestGender${i}`} className={selectCls} value={guest.gender} onChange={(e) => updateGuest(i, 'gender', e.target.value)}>
-                          <option value=""></option>
-                          {genders.map((g) => <option key={g}>{g}</option>)}
-                        </select>
-                        <svg className="w-4 h-4 text-gray-400 absolute right-3 bottom-3 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                <button onClick={addGuest} className="flex items-center gap-2 text-sm text-gray-500 hover:text-green-600 mt-1 transition-colors">
-                  <span className="w-6 h-6 rounded-full border-2 border-gray-300 flex items-center justify-center text-gray-400 text-base leading-none hover:border-green-400 hover:text-green-500">+</span>
-                  Add more guest
+                {/* Desktop sidebar */}
+                <div className="hidden lg:flex lg:col-span-4 order-2 min-w-0 w-full justify-center lg:sticky lg:top-8 lg:z-20 lg:h-fit lg:self-start">
+                    <BookingSidebar {...sidebarProps} />
+                </div>
+
+                <div className="lg:col-span-8 order-3">
+                    <FormActions onGoBack={handleGoBack} onSubmit={handleSubmit} submitting={continuing} error={continueError} />
+                </div>
+            </main>
+
+            {/* Mobile sticky bottom bar */}
+            <div className={`lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-gray-100 shadow-2xl px-4 py-3 flex items-center gap-3 ${summaryDrawerOpen ? "hidden" : ""}`}>
+                <div className="flex-1 min-w-0">
+                    {activityName && (
+                        <p className="text-xs text-gray-400 truncate leading-none mb-0.5">{activityName}</p>
+                    )}
+                    <p className="text-sm font-bold text-gray-800 truncate">
+                        {guestCount} {guestCount === 1 ? "guest" : "guests"}{bookingDate ? ` · ${new Date(bookingDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""}
+                    </p>
+                </div>
+                <button
+                    onClick={() => setSummaryDrawerOpen(true)}
+                    className="shrink-0 border border-green-500 text-green-600 font-semibold px-4 py-2.5 rounded-full text-sm transition-colors hover:bg-green-50"
+                >
+                    Summary
                 </button>
-              </section>
-
-              <section>
-                <h2 className="text-sm font-bold text-gray-800 mb-1">Tour operator <span className="font-normal text-gray-400">(optional)</span></h2>
-                <p className="text-xs text-gray-400 mb-3">If you know any tour operators, you can select them. Otherwise leave this unselected.</p>
-                <div className="relative max-w-sm">
-                  <button onClick={() => setOperatorOpen(!operatorOpen)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm text-left flex items-center justify-between bg-white">
-                    <span className={tourOperator ? 'text-gray-900' : 'text-gray-400'}>{tourOperator || 'Select tour operator'}</span>
-                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={operatorOpen ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7'} />
-                    </svg>
-                  </button>
-                  {operatorOpen && (
-                    <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-10 mt-1">
-                      {tourOperators.map((op) => (
-                        <button key={op} className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
-                          onClick={() => { setTourOperator(op); setOperatorOpen(false) }}>
-                          {op}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </section>
+                <button
+                    onClick={handleSubmit}
+                    disabled={continuing}
+                    className="shrink-0 bg-green-500 hover:bg-green-600 active:scale-95 text-white font-bold px-5 py-2.5 rounded-full text-sm transition-all shadow-md disabled:opacity-60"
+                >
+                    {continuing ? "..." : "Continue"}
+                </button>
             </div>
-          </div>
 
-          <div className="w-full lg:w-80 shrink-0">
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sticky top-24">
-              <div className="border border-gray-200 rounded-xl overflow-hidden mb-3">
-                <div className="flex divide-x divide-gray-200">
-                  <div className="flex-1 flex items-center gap-3 px-4 py-3">
-                    <svg className="w-5 h-5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <div>
-                      <p className="text-sm font-bold text-gray-900">Jan 6</p>
-                      <p className="text-xs text-gray-400">Date</p>
+            {/* Mobile booking summary drawer */}
+            <Drawer open={summaryDrawerOpen} onOpenChange={setSummaryDrawerOpen}>
+                <DrawerContent className="pb-6">
+                    <DrawerHeader className="text-left shrink-0">
+                        <DrawerTitle>Booking Summary</DrawerTitle>
+                    </DrawerHeader>
+                    <div className="px-4 overflow-y-auto" style={{ maxHeight: "calc(85vh - 64px)" }}>
+                        <BookingSidebar {...sidebarProps} />
                     </div>
-                  </div>
-                  <div className="flex-1 flex items-center gap-3 px-4 py-3">
-                    <svg className="w-5 h-5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <div>
-                      <p className="text-sm font-bold text-gray-900">8 AM</p>
-                      <p className="text-xs text-gray-400">Time</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="border-t border-gray-200 flex items-center gap-3 px-4 py-3">
-                  <svg className="w-5 h-5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  <div>
-                    <p className="text-sm font-bold text-gray-900">{booking.guestCount ?? 5} Guests</p>
-                    <p className="text-xs text-gray-400">Guests</p>
-                  </div>
-                </div>
-              </div>
+                </DrawerContent>
+            </Drawer>
+        </div>
+    );
+}
 
-              <div className="mb-4">
-                <p className="text-sm font-semibold text-gray-800 mb-1">Promo Code</p>
-                <p className="text-xs text-gray-400 mb-2">Enter your promo code here (optional)</p>
-                <div className="flex items-center border border-gray-300 rounded-xl overflow-hidden">
-                  <input type="text" id="promo-code" name="promoCode" aria-label="Promo code" autoComplete="off" value={promoCode} onChange={(e) => setPromoCode(e.target.value)}
-                    className="flex-1 px-3 py-2.5 text-sm outline-none bg-white" />
-                  <button className="px-4 py-2.5 text-sm font-semibold text-green-500 hover:text-green-600 bg-white border-l border-gray-300 transition-colors">
-                    Apply
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-2 mb-4 pt-2 border-t border-gray-100">
-                <div className="flex justify-between text-sm text-gray-600">
-                  <span>₱{basePrice.toLocaleString()} x {booking.guestCount ?? 5}</span>
-                  <span className="font-medium">₱ {subtotal.toLocaleString()}.00</span>
-                </div>
-                <div className="flex justify-between text-sm text-gray-600">
-                  <span>Service charge</span>
-                  <span className="font-medium">₱ {serviceCharge.toLocaleString()}.00</span>
-                </div>
-                <div className="flex justify-between text-sm font-bold text-gray-900 pt-2 border-t border-gray-100">
-                  <span>Total</span>
-                  <span>₱{total.toLocaleString()}.00</span>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-sm font-semibold text-gray-800 mb-3">Select Payment Method</p>
-                <div className="space-y-2">
-                  {paymentMethods.map((pm) => (
-                    <label key={pm.id}
-                      className={`flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-colors ${
-                        paymentMethod === pm.id ? 'border-green-400 bg-green-50' : 'border-gray-200 hover:border-gray-300'
-                      }`}>
-                      {pm.icon}
-                      <span className="text-sm text-gray-700 flex-1">{pm.label}</span>
-                      <input type="radio" id={`payment-${pm.id}`} name="payment" value={pm.id} checked={paymentMethod === pm.id}
-                        onChange={() => setPaymentMethod(pm.id)}
-                        className="accent-green-500 w-4 h-4" />
-                    </label>
-                  ))}
-                </div>
-              </div>
+export default function GuestInformationFormPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center">
+                <Loader2 className="animate-spin w-10 h-10 text-[#74C00F]" />
             </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 py-4 z-30">
-        <div className="max-w-4xl mx-auto px-10 flex items-center justify-between">
-          <button onClick={() => router.back()}
-            className="px-8 py-3 bg-gray-900 text-white rounded-full text-sm font-semibold hover:bg-gray-800 transition-colors">
-            Go Back
-          </button>
-          <button onClick={handleNext}
-            className="px-10 py-3 bg-green-500 text-white rounded-full text-sm font-semibold hover:bg-green-600 transition-colors">
-            Next
-          </button>
-        </div>
-      </div>
-    </div>
-  )
+        }>
+            <GuestBookingContent />
+        </Suspense>
+    );
 }

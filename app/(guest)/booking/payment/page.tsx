@@ -1,224 +1,443 @@
-'use client'
+"use client";
 
-import { useState, useRef } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import QRCode from 'react-qr-code'
-import { useBooking } from '@/app/context/BookingContext'
+import React, { useEffect, useMemo, useState, Suspense } from "react";
+import Link from "next/link";
+import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { doc, getDoc, collection, getDocs, query, where } from "firebase/firestore";
+import { firestore } from "@/app/lib/firebase";
+import { createBooking, type PaymentMethod } from "@/app/lib/booking-service";
+import { PaymentInstructions } from "./_components/PaymentInstructions";
+import { BookingSummary } from "./_components/BookingSummary";
+import { UploadPayment } from "./_components/UploadPayment";
+
+const MAX_RECEIPT_SIZE_BYTES = 5 * 1024 * 1024;
+
+type UnknownRecord = Record<string, unknown>;
+
+interface BookingContext {
+    bookingDate: string;
+    selectedActivityId: string;
+    activityName?: string;
+    guestCount: number;
+    promoCode?: string;
+    tourOperatorUid?: string;
+    paymentMethod: PaymentMethod;
+}
+
+interface GuestFormData {
+    repName: string;
+    repAge: string;
+    repGender: string;
+    repEmail: string;
+    repPhone: string;
+    repNationality: string;
+    tourOperator: string;
+    idempotencyKey: string;
+}
+
+interface AdditionalGuest {
+    name: string;
+    age: string;
+    gender: string;
+    nationality: string;
+}
+
+type OperatorPaymentInfo = { imageUrl: string | null; accountName: string | null; accountNumber: string | null };
+type OperatorMeta = { companyName: string | null; phoneNumber: string | null };
+
+function readFileAsDataUrl(file: File) {
+    return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.onerror = () => reject(new Error("Failed to read the selected file."));
+        reader.readAsDataURL(file);
+    });
+}
+
+function asRecord(value: unknown): UnknownRecord | null {
+    return typeof value === "object" && value !== null ? (value as UnknownRecord) : null;
+}
+
+function getOperatorPaymentInfo(userData: UnknownRecord | undefined, method: PaymentMethod): OperatorPaymentInfo {
+    const methods = userData?.paymentMethods;
+    if (!Array.isArray(methods)) return { imageUrl: null, accountName: null, accountNumber: null };
+
+    const indexByMethod: Record<PaymentMethod, number> = { "Gcash / Maya": 0, BDO: 1, BPI: 2 };
+    const entry = asRecord(methods[indexByMethod[method]]);
+    if (!entry) return { imageUrl: null, accountName: null, accountNumber: null };
+
+    const str = (v: unknown): string | null =>
+        typeof v === "string" && v.trim() !== "" ? v.trim() : null;
+    const url = (v: unknown): string | null => {
+        const s = str(v);
+        if (!s) return null;
+        try { new URL(s); return s; } catch { return null; }
+    };
+
+    if (method === "Gcash / Maya") {
+        return { imageUrl: url(entry.gcashMayaImageUrl), accountName: str(entry.gcashMayaAccountName), accountNumber: str(entry.gcashMayaAccountNumber) };
+    }
+    if (method === "BDO") {
+        return { imageUrl: url(entry.bdoImageUrl), accountName: str(entry.bdoAccountName), accountNumber: str(entry.bdoAccountNumber) };
+    }
+    return { imageUrl: url(entry.bpiImageUrl), accountName: str(entry.bpiAccountName), accountNumber: str(entry.bpiAccountNumber) };
+}
+
+function loadSessionData(): { context: BookingContext; formData: GuestFormData; guests: AdditionalGuest[] } | null {
+    try {
+        const ctxRaw = sessionStorage.getItem("bookingContext");
+        const formRaw = sessionStorage.getItem("guestFormData");
+        const guestsRaw = sessionStorage.getItem("guestFormGuests");
+        if (!ctxRaw || !formRaw) return null;
+
+        const context = JSON.parse(ctxRaw) as BookingContext;
+        const formData = JSON.parse(formRaw) as GuestFormData;
+        const guests: AdditionalGuest[] = guestsRaw ? JSON.parse(guestsRaw) : [];
+
+        if (!context.selectedActivityId || !context.bookingDate) return null;
+        if (!formData.repName || !formData.repEmail) return null;
+
+        return { context, formData, guests };
+    } catch {
+        return null;
+    }
+}
+
+function PaymentPageContent() {
+    const [sessionData, setSessionData] = useState<ReturnType<typeof loadSessionData>>(null);
+    const [loading, setLoading] = useState(true);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [submittedBookingId, setSubmittedBookingId] = useState<string | null>(null);
+    const [operatorPayment, setOperatorPayment] = useState<OperatorPaymentInfo>({ imageUrl: null, accountName: null, accountNumber: null });
+    const [operatorMeta, setOperatorMeta] = useState<OperatorMeta>({ companyName: null, phoneNumber: null });
+    const [pricingTotal, setPricingTotal] = useState<number | null>(null);
+
+    // ─── SERVICE_CHARGE constant (same as sidebar/summary) ────────────────────
+    // TODO: Move to a global config or fetch from Firestore `activities` collection
+    const SERVICE_CHARGE = 500;
+
+    useEffect(() => {
+        setSessionData(loadSessionData());
+        setLoading(false);
+    }, []);
+
+    const handlePaymentMethodChange = (nextMethod: PaymentMethod) => {
+        setSessionData((prev) => {
+            if (!prev) return prev;
+            const updated = { ...prev, context: { ...prev.context, paymentMethod: nextMethod } };
+            sessionStorage.setItem("bookingContext", JSON.stringify(updated.context));
+            return updated;
+        });
+    };
+
+    useEffect(() => {
+        const uid = sessionData?.context.tourOperatorUid;
+        if (!uid) {
+            setOperatorPayment({ imageUrl: null, accountName: null, accountNumber: null });
+            setOperatorMeta({ companyName: null, phoneNumber: null });
+            return;
+        }
+        let cancelled = false;
+        (async () => {
+            try {
+                const snap = await getDoc(doc(firestore, "users", uid));
+                if (!snap.exists() || cancelled) return;
+                const userData = snap.data() as UnknownRecord;
+                if (!cancelled) {
+                    setOperatorPayment(getOperatorPaymentInfo(userData, sessionData!.context.paymentMethod));
+                    setOperatorMeta({
+                        companyName: typeof userData.companyName === "string" ? userData.companyName : null,
+                        phoneNumber: typeof userData.phoneNumber === "string" ? userData.phoneNumber : null,
+                    });
+                }
+            } catch {
+                if (!cancelled) {
+                    setOperatorPayment({ imageUrl: null, accountName: null, accountNumber: null });
+                    setOperatorMeta({ companyName: null, phoneNumber: null });
+                }
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [sessionData?.context.tourOperatorUid, sessionData?.context.paymentMethod]);
+
+    useEffect(() => {
+        if (!sessionData?.context.selectedActivityId || !sessionData?.context.guestCount) {
+            setPricingTotal(null);
+            return;
+        }
+        let cancelled = false;
+        (async () => {
+            try {
+                const actSnap = await getDoc(doc(firestore, "activities", sessionData.context.selectedActivityId));
+                if (!actSnap.exists() || cancelled) return;
+                const activity = actSnap.data() as Record<string, unknown>;
+                const pricePerGuest = typeof activity.pricePerGuest === "number" ? activity.pricePerGuest : null;
+                if (!pricePerGuest) { setPricingTotal(null); return; }
+
+                let discountPercent: number | null = null;
+                if (sessionData.context.promoCode) {
+                    const codeUpper = sessionData.context.promoCode.trim().toUpperCase();
+                    const snap = await getDocs(query(collection(firestore, "voucherCodes"), where("code", "==", codeUpper)));
+                    if (!snap.empty) {
+                        const voucher = snap.docs[0].data() as Record<string, unknown>;
+                        discountPercent = typeof voucher.discount === "number" ? voucher.discount : null;
+                    }
+                }
+
+                const baseSubtotal = pricePerGuest * sessionData.context.guestCount;
+                const discountAmount = discountPercent ? (baseSubtotal * (discountPercent / 100)) : 0;
+                const subtotal = baseSubtotal - discountAmount;
+                const total = subtotal + SERVICE_CHARGE;
+
+                if (!cancelled) setPricingTotal(total);
+            } catch {
+                if (!cancelled) setPricingTotal(null);
+            }
+        })();
+        return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sessionData?.context.selectedActivityId, sessionData?.context.guestCount, sessionData?.context.promoCode]);
+
+    const summary = useMemo(() => {
+        if (!sessionData) return null;
+        return {
+            activityId: sessionData.context.selectedActivityId,
+            activityName: sessionData.context.activityName,
+            guestTotal: sessionData.context.guestCount,
+            paymentMethod: sessionData.context.paymentMethod,
+        };
+    }, [sessionData]);
+
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0] || null;
+        setError(null);
+        if (!file) { setSelectedFile(null); return; }
+        if (!["image/jpeg", "image/png"].includes(file.type)) {
+            setSelectedFile(null);
+            setError("Please upload a JPG or PNG image file only.");
+            event.target.value = "";
+            return;
+        }
+        if (file.size > MAX_RECEIPT_SIZE_BYTES) {
+            setSelectedFile(null);
+            setError("Receipt image must be 5MB or smaller.");
+            event.target.value = "";
+            return;
+        }
+        setSelectedFile(file);
+    };
+
+    const handleSubmitPayment = async () => {
+        if (!sessionData) { setError("Booking details are missing. Please go back and try again."); return; }
+        if (!selectedFile) { setError("Please upload your payment screenshot before submitting."); return; }
+
+        try {
+            setSubmitting(true);
+            setError(null);
+
+            const { context, formData, guests } = sessionData;
+            const receiptDataUrl = await readFileAsDataUrl(selectedFile);
+
+            const result = await createBooking({
+                tourDate: context.bookingDate,
+                timeSlot: "AM", // whole-day booking — timeSlot retained for backend compatibility
+                activityId: context.selectedActivityId,
+                tourOperatorUid: context.tourOperatorUid || formData.tourOperator || undefined,
+                representative: {
+                    fullName: formData.repName.trim(),
+                    email: formData.repEmail.trim(),
+                    phoneNumber: formData.repPhone.trim(),
+                    age: parseInt(formData.repAge, 10),
+                    gender: formData.repGender as "Male" | "Female" | "Prefer not to say",
+                    nationality: formData.repNationality,
+                },
+                guests: guests.map((g) => ({
+                    fullName: g.name.trim(),
+                    age: parseInt(g.age, 10),
+                    gender: g.gender as "Male" | "Female" | "Prefer not to say",
+                    nationality: g.nationality,
+                })),
+                promoCode: context.promoCode || undefined,
+                paymentMethod: context.paymentMethod,
+                receiptDataUrl,
+                idempotencyKey: formData.idempotencyKey,
+            });
+
+            setSelectedFile(null);
+            setSubmittedBookingId(result.bookingId);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to submit your payment.");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    // ── Success screen ─────────────────────────────────────────────────────────
+    if (submittedBookingId) {
+        const clearSession = () => {
+            sessionStorage.removeItem("guestFormData");
+            sessionStorage.removeItem("guestFormGuests");
+            sessionStorage.removeItem("bookingContext");
+        };
+
+        return (
+            <div className="relative min-h-screen overflow-hidden bg-[#F9FAFB]">
+                <div className="pointer-events-none absolute -right-20 -top-28 h-80 w-80 rounded-full bg-[#74C00F]/15 blur-3xl" aria-hidden />
+                <div className="pointer-events-none absolute bottom-20 -left-24 h-64 w-64 rounded-full bg-emerald-300/20 blur-3xl" aria-hidden />
+
+                <main className="relative mx-auto max-w-lg px-4 pb-24 pt-12 md:pb-32 md:pt-16">
+                    <div className="text-center">
+                        <div className="mx-auto mb-8 flex h-28 w-28 items-center justify-center rounded-full bg-gradient-to-br from-[#74C00F] to-[#45A80A] shadow-xl shadow-[#74C00F]/30 ring-[10px] ring-white">
+                            <CheckCircle2 className="h-14 w-14 text-white" strokeWidth={2.25} />
+                        </div>
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#74C00F]">Reservation Received!</p>
+                        <h1 className="mb-4 text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">Payment submitted</h1>
+                        <p className="mx-auto mb-10 max-w-md text-base leading-relaxed text-gray-600">
+                            Your booking is reserved while we verify your payment. An operator will review your proof and confirm — usually within{" "}
+                            <span className="font-semibold text-gray-800">24 hours</span>. Check your email for updates.
+                        </p>
+
+                        <div className="rounded-2xl border border-gray-200 bg-white p-6 text-center shadow-sm">
+                            <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-gray-400">Booking reference</p>
+                            <p className="break-all font-mono text-lg font-bold text-gray-900">{submittedBookingId}</p>
+                            <button
+                                type="button"
+                                className="mt-4 text-sm font-semibold text-[#74C00F] hover:underline"
+                                onClick={() => void navigator.clipboard.writeText(submittedBookingId)}
+                            >
+                                Copy reference
+                            </button>
+                        </div>
+
+                        <div className="mt-6 rounded-2xl border border-emerald-100 bg-emerald-50/90 px-5 py-4 text-center text-sm leading-relaxed text-emerald-900">
+                            Please keep this booking ID handy. We&apos;ve also sent a confirmation email with your reservation details.
+                            {(operatorMeta.companyName || operatorMeta.phoneNumber) && (
+                                <div className="mt-3 border-t border-emerald-200/70 pt-3 text-emerald-950">
+                                    {operatorMeta.companyName && (
+                                        <p><span className="font-bold">Operator:</span> <span className="font-semibold">{operatorMeta.companyName}</span></p>
+                                    )}
+                                    {operatorMeta.phoneNumber && (
+                                        <p className="mt-1"><span className="font-bold">Contact:</span> <span className="font-semibold">{operatorMeta.phoneNumber}</span></p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        <Link
+                            href="/"
+                            onClick={clearSession}
+                            className="mt-10 inline-flex w-full items-center justify-center rounded-xl bg-[#74C00F] px-8 py-4 text-base font-bold text-white shadow-lg shadow-[#74C00F]/25 transition hover:bg-[#62a30d] md:w-auto md:min-w-[240px]"
+                        >
+                            Return to home
+                        </Link>
+                    </div>
+                </main>
+            </div>
+        );
+    }
+
+    if (loading) {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-[#F9FAFB] px-4">
+                <div className="flex flex-col items-center gap-4">
+                    <Loader2 className="h-10 w-10 animate-spin text-[#74C00F]" />
+                    <p className="text-sm font-medium text-gray-500">Loading your booking…</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!sessionData) {
+        return (
+            <div className="min-h-screen bg-[#F9FAFB] px-4 py-16 md:py-24">
+                <div className="mx-auto max-w-md rounded-3xl border border-gray-200 bg-white p-10 text-center shadow-sm">
+                    <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 text-gray-500">
+                        <AlertCircle className="h-8 w-8" />
+                    </div>
+                    <h1 className="text-2xl font-bold text-gray-900">No booking details found</h1>
+                    <p className="mt-3 text-gray-600 leading-relaxed">
+                        Start from guest information and continue to payment — your details are saved in this browser session.
+                    </p>
+                    <Link
+                        href="/activities"
+                        className="mt-8 inline-flex w-full items-center justify-center rounded-xl bg-[#74C00F] px-6 py-3.5 text-base font-bold text-white shadow-md shadow-[#74C00F]/20 transition hover:bg-[#62a30d]"
+                    >
+                        Back to Activities
+                    </Link>
+                </div>
+            </div>
+        );
+    }
+
+    const { context, formData } = sessionData;
+
+    return (
+        <div className="min-h-screen bg-[#F9FAFB] pb-20">
+            <main className="mx-auto max-w-6xl px-4 py-10 md:py-14">
+                <header className="mb-10 max-w-2xl">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.15em] text-[#74C00F]">Checkout</p>
+                    <h1 className="text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">Complete your payment</h1>
+                    <p className="mt-3 text-base text-gray-600">
+                        Follow the instructions below, then upload a screenshot so our team can verify your payment.
+                    </p>
+                </header>
+
+                <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-12">
+                    <div className="order-2 flex flex-col gap-8 lg:order-1 lg:col-span-7">
+                        <PaymentInstructions
+                            paymentMethod={context.paymentMethod}
+                            paymentImageUrl={operatorPayment.imageUrl}
+                            accountName={operatorPayment.accountName}
+                            accountNumber={operatorPayment.accountNumber}
+                            onPaymentMethodChange={handlePaymentMethodChange}
+                            totalAmount={pricingTotal}
+                        />
+
+                        <UploadPayment
+                            draft={{
+                                bookingDate: context.bookingDate,
+                                selectedActivityId: context.selectedActivityId,
+                                activityName: context.activityName,
+                                guestCount: context.guestCount,
+                                promoCode: context.promoCode,
+                            }}
+                            selectedFile={selectedFile}
+                            error={error}
+                            submitting={submitting}
+                            onFileChange={handleFileChange}
+                            onSubmitPayment={handleSubmitPayment}
+                        />
+                    </div>
+
+                    <div className="order-1 min-w-0 w-full lg:order-2 lg:col-span-5 lg:flex lg:justify-center lg:self-start lg:sticky lg:top-28 lg:z-10 lg:h-fit">
+                        <BookingSummary
+                            activityId={summary?.activityId}
+                            activityName={summary?.activityName}
+                            bookingDate={context.bookingDate}
+                            guestTotal={summary?.guestTotal}
+                            representativeName={formData.repName}
+                            representativeEmail={formData.repEmail}
+                            representativePhone={formData.repPhone}
+                            appliedPromo={context.promoCode}
+                            paymentMethod={context.paymentMethod}
+                        />
+                    </div>
+                </div>
+            </main>
+        </div>
+    );
+}
 
 export default function PaymentPage() {
-  const router = useRouter()
-  const { booking, generateBookingId, basePrice, subtotal, serviceCharge, total } = useBooking()
-  const [files, setFiles] = useState<File[]>([])
-  const [dragging, setDragging] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
-  const paymentMethod = booking.paymentMethod || 'GCash'
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    setDragging(false)
-    const dropped = Array.from(e.dataTransfer.files)
-    setFiles((f) => [...f, ...dropped])
-  }
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files) return
-    const selected = Array.from(e.target.files)
-    setFiles((f) => [...f, ...selected])
-  }
-
-  const handleConfirm = () => {
-    generateBookingId()
-    router.push('/booking/confirmation')
-  }
-
-  return (
-    <div className="min-h-screen flex flex-col bg-[#f0fdf4] pb-24">
-      <div className="max-w-7xl mx-auto w-full px-6 lg:px-8 py-8">
-        <nav className="text-sm text-gray-500 mb-6">
-          <Link href="/" className="hover:text-green-600">Home</Link>
-          <span className="mx-2">›</span>
-          <Link href="/locations" className="hover:text-green-600">Cebu Locations</Link>
-          <span className="mx-2">›</span>
-          <span className="text-gray-800 font-medium">Alegria</span>
-        </nav>
-
-        <div className="flex flex-col lg:flex-row gap-8 items-start">
-          <div className="flex-1 min-w-0 bg-white rounded-2xl shadow-sm p-6 lg:p-8">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Complete Your Payment</h1>
-            <p className="text-sm text-gray-500 mb-5">Upload your payment screenshot so the operator can manually verify it.</p>
-
-            <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-6 text-sm text-green-800">
-              Your booking will be created as reserved and your payment will be marked pending until an operator manually verifies it.
+    return (
+        <Suspense fallback={
+            <div className="flex min-h-screen items-center justify-center">
+                <Loader2 className="h-10 w-10 animate-spin text-[#74C00F]" />
             </div>
-
-            <div className="relative border border-gray-300 rounded-xl px-4 pt-5 pb-4 mb-8">
-              <span className="absolute -top-2.5 left-4 bg-white px-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
-                Payment Method
-              </span>
-              <div className="flex items-center justify-between">
-                <span className="text-base font-medium text-gray-900">{paymentMethod}</span>
-                <button className="text-sm text-gray-700 border border-gray-300 rounded-full px-4 py-1.5 hover:border-gray-400 transition-colors font-medium">
-                  Change
-                </button>
-              </div>
-            </div>
-
-            <div className="mb-8">
-              <h3 className="text-lg font-bold text-gray-900 mb-3">Payment Instruction</h3>
-              <ol className="space-y-1.5 text-sm text-gray-600 list-decimal list-inside">
-                <li>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed</li>
-                <li>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed</li>
-                <li>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed</li>
-                <li>Scan the QR code below</li>
-                <li>Upload a screenshot</li>
-              </ol>
-            </div>
-
-            <div className="mb-8">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Scan QR Code to pay</h3>
-              <div className="border border-gray-200 rounded-2xl p-5 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-2">
-                  <svg viewBox="0 0 48 48" className="w-10 h-10" fill="none">
-                    <circle cx="24" cy="24" r="24" fill="#007DFE"/>
-                    <text x="24" y="30" textAnchor="middle" fill="white" fontSize="20" fontWeight="bold" fontFamily="Arial">G</text>
-                  </svg>
-                  <span className="text-xl font-bold text-blue-600">GCash</span>
-                </div>
-                <div className="w-44 h-44 border border-gray-200 rounded-xl overflow-hidden bg-white flex items-center justify-center p-2">
-                  <QRCode
-                    value="https://gcash.com/pay/suroyCebu"
-                    size={160}
-                    bgColor="#ffffff"
-                    fgColor="#111111"
-                    level="M"
-                    style={{ width: '100%', height: '100%' }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="mb-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Upload Payment Screenshot</h3>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <div
-                  onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
-                  onDragLeave={() => setDragging(false)}
-                  onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`flex-1 border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors min-h-[140px] ${
-                    dragging ? 'border-green-400 bg-green-50' : 'border-green-400 hover:bg-green-50'
-                  }`}
-                >
-                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                  </svg>
-                  <button type="button" className="bg-green-500 text-white text-sm font-semibold px-5 py-1.5 rounded-full hover:bg-green-600 transition-colors">
-                    Browse
-                  </button>
-                  <p className="text-xs text-gray-400">Drop a file here</p>
-                  <input ref={fileInputRef} type="file" id="payment-screenshot" name="paymentScreenshot" aria-label="Upload payment screenshot" multiple accept="image/*" className="hidden" onChange={handleFileChange} />
-                </div>
-
-                <div className="flex-1 flex flex-col gap-2 min-h-[140px]">
-                  {files.length === 0 ? (
-                    <div className="flex-1 flex items-center justify-center border border-gray-100 rounded-xl bg-gray-50">
-                      <p className="text-xs text-gray-400">No files uploaded yet</p>
-                    </div>
-                  ) : (
-                    files.map((f, i) => (
-                      <div key={i} className="flex items-center justify-between border border-gray-200 rounded-xl px-4 py-3 bg-white">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center shrink-0">
-                            <svg className="w-4 h-4 text-teal-600" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
-                            </svg>
-                          </div>
-                          <span className="text-sm text-gray-700 truncate max-w-[140px]">{f.name}</span>
-                        </div>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setFiles((fl) => fl.filter((_, fi) => fi !== i)) }}
-                          className="w-7 h-7 bg-red-500 hover:bg-red-600 rounded-lg flex items-center justify-center shrink-0 transition-colors"
-                        >
-                          <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-              <p className="text-xs text-gray-400 mt-2">Image files only, maximum 5MB</p>
-            </div>
-          </div>
-
-          <div className="w-full lg:w-80 shrink-0">
-            <div className="bg-white rounded-2xl shadow-sm p-6 sticky top-24">
-              <h3 className="font-bold text-gray-900 text-center mb-5 text-base">Booking Summary</h3>
-              <div className="mb-4 pb-4 border-b border-gray-100">
-                <p className="text-xs text-gray-400 mb-1">Schedule</p>
-                <p className="text-sm font-semibold text-gray-900">January 6, 2026&nbsp;&nbsp;8:00 AM - 12:00 PM</p>
-              </div>
-              <div className="mb-4 pb-4 border-b border-gray-100">
-                <p className="text-xs text-gray-400 mb-1">Guests</p>
-                <p className="text-sm font-semibold text-gray-900">{booking.guestCount || 5} Guests</p>
-              </div>
-              <div className="mb-4 pb-4 border-b border-gray-100">
-                <p className="text-xs text-gray-400 mb-1">Promo Code</p>
-                <p className="text-sm font-semibold text-gray-900">{booking.promoCode || 'None'}</p>
-              </div>
-              <div className="mb-4 pb-4 border-b border-gray-100">
-                <p className="text-xs text-gray-400 mb-1">Payment Method</p>
-                <p className="text-sm font-semibold text-gray-900">{paymentMethod}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 mb-3">Price Details</p>
-                <div className="space-y-2.5">
-                  <div className="flex justify-between text-sm text-gray-600">
-                    <span>₱{basePrice.toLocaleString()} x {booking.guestCount || 5}</span>
-                    <span className="font-medium">₱ {subtotal.toLocaleString()}.00</span>
-                  </div>
-                  <div className="flex justify-between text-sm text-gray-600">
-                    <span>Service charge</span>
-                    <span className="font-medium">₱ {serviceCharge.toLocaleString()}.00</span>
-                  </div>
-                  <div className="flex justify-between text-sm text-gray-600">
-                    <span>Mata</span>
-                    <span className="font-medium">₱ 500.00</span>
-                  </div>
-                  <div className="flex justify-between text-sm text-gray-600">
-                    <span>LGU</span>
-                    <span className="font-medium">₱ 500.00</span>
-                  </div>
-                  <div className="flex justify-between text-sm font-bold text-gray-900 pt-3 border-t border-gray-200">
-                    <span>Total</span>
-                    <span className="text-base">₱{(total + 1000).toLocaleString()}.00</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 py-4 z-40">
-        <div className="max-w-4xl mx-auto px-10 flex items-center justify-between">
-          <button
-            onClick={() => router.push('/booking/guest-info')}
-            className="bg-gray-900 hover:bg-gray-800 text-white font-semibold px-8 py-3 rounded-full text-sm transition-colors"
-          >
-            Go Back
-          </button>
-          <button
-            onClick={handleConfirm}
-            className="bg-green-500 hover:bg-green-600 text-white font-semibold px-10 py-3 rounded-full text-sm transition-colors"
-          >
-            Confirm
-          </button>
-        </div>
-      </div>
-    </div>
-  )
+        }>
+            <PaymentPageContent />
+        </Suspense>
+    );
 }

@@ -26,6 +26,8 @@ function ActivitiesContent() {
   const searchParams = useSearchParams()
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
   const [searchLocation, setSearchLocation] = useState(() => searchParams.get('location') ?? '')
+  const [searchDate, setSearchDate] = useState(() => searchParams.get('date') ?? '')
+  const [searchTravelers, setSearchTravelers] = useState(() => searchParams.get('travelers') ?? '')
   const [visibleCount, setVisibleCount] = useState(8)
   const [activities, setActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
@@ -120,7 +122,7 @@ function ActivitiesContent() {
       <div className="relative z-10 -mt-8 px-4 sm:px-6 md:px-16 mb-4 hidden sm:block">
         <SearchBar
           className="max-w-4xl mx-auto"
-          onSearch={({ where }) => { setSearchLocation(where); setVisibleCount(8) }}
+          onSearch={({ where, when, travelers }) => { setSearchLocation(where); setSearchDate(when); setSearchTravelers(travelers); setVisibleCount(8) }}
         />
       </div>
 
@@ -132,8 +134,10 @@ function ActivitiesContent() {
           </DrawerHeader>
           <div className="px-4 pb-2">
             <SearchBar
-              onSearch={({ where }) => {
+              onSearch={({ where, when, travelers }) => {
                 setSearchLocation(where)
+                setSearchDate(when)
+                setSearchTravelers(travelers)
                 setVisibleCount(8)
                 setSearchDrawerOpen(false)
               }}
@@ -168,7 +172,7 @@ function ActivitiesContent() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5 mb-8">
             {visible.map((act) => (
-              <ActivityCard key={act.id} activity={act} />
+              <ActivityCard key={act.id} activity={act} date={searchDate} travelers={searchTravelers} />
             ))}
           </div>
         )}

@@ -1,15 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Footer from '@/app/components/Footer'
 import { BentoGallery, Lightbox } from '@/app/components/ui/BentoGallery'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/app/components/ui/drawer'
 import { doc, getDoc } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
 import { travelerReviews } from '@/app/data/mockData'
-import { useBooking } from '@/app/context/BookingContext'
 import Image from 'next/image'
 
 interface FirestoreActivity {
@@ -35,18 +34,21 @@ function StarRating({ rating }: { rating: number }) {
   )
 }
 
-export default function ActivityDetail() {
+function ActivityDetailInner() {
   const params = useParams()
   const activityId = params.activityId as string
   const router = useRouter()
-  const { updateBooking } = useBooking()
+  const searchParams = useSearchParams()
 
   const [activity, setActivity] = useState<FirestoreActivity | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null)
-  const [date, setDate] = useState('')
-  const [travelers, setTravelers] = useState(1)
+  const [date, setDate] = useState(() => searchParams.get('date') ?? '')
+  const [travelers, setTravelers] = useState(() => {
+    const t = searchParams.get('travelers')
+    return t ? Math.max(1, parseInt(t, 10)) : 1
+  })
   const [bookingDrawerOpen, setBookingDrawerOpen] = useState(false)
 
   useEffect(() => {
@@ -67,23 +69,13 @@ export default function ActivityDetail() {
 
   const handleBook = () => {
     if (!activity) return
-    updateBooking({
-      item: {
-        id: 0,
-        firestoreId: activity.id,
-        title: activity.activityName,
-        location: activity.activityLocation,
-        category: activity.activityTag,
-        rating: activity.activityRating,
-        reviewCount: 0,
-        price: activity.pricePerGuest,
-        image: activity.activityImages[0] ?? '',
-        municipalityId: activity.activityLocation,
-      },
+    const params = new URLSearchParams({
+      activityId: activity.id,
+      activityName: activity.activityName,
       date,
-      guestCount: travelers,
+      guests: travelers.toString(),
     })
-    router.push('/booking/guest-info')
+    router.push(`/booking/guest-info?${params.toString()}`)
   }
 
   if (loading) {
@@ -314,5 +306,13 @@ export default function ActivityDetail() {
         </DrawerContent>
       </Drawer>
     </div>
+  )
+}
+
+export default function ActivityDetail() {
+  return (
+    <Suspense>
+      <ActivityDetailInner />
+    </Suspense>
   )
 }
