@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { Users } from 'lucide-react';
+import type { FirestoreBooking } from '@/app/hooks/useOperatorBookings';
 
 // TODO: update calendar slots view
 
@@ -199,31 +200,33 @@ function SmallRing({
   );
 }
 
-// ---------- demo data ----------
-function makeDemoData(year: number, monthIndex: number) {
-  // just mock a few colored days similar to your image
-  const mk = (day: number, mUsed: number, mCap: number, aUsed: number, aCap: number, status: DayStatus): DayInfo => ({
-    dateKey: `${year}-${pad2(monthIndex + 1)}-${pad2(day)}`,
-    morning: { used: mUsed, capacity: mCap },
-    afternoon: { used: aUsed, capacity: aCap },
-    status,
-  });
-
-  return [
-    mk(6, 20, 30, 15, 40, 'orange'),
-    mk(7, 18, 30, 12, 40, 'orange'),
-    mk(11, 22, 30, 18, 40, 'orange'),
-    mk(12, 30, 30, 40, 40, 'red'),
-  ];
+// ---------- derive day info from real bookings ----------
+function buildDayInfo(bookings: FirestoreBooking[]): DayInfo[] {
+  const map = new Map<string, { am: number; pm: number }>();
+  for (const b of bookings) {
+    const d = b.tourDate?.toDate?.();
+    if (!d) continue;
+    const key = toKey(d);
+    const slot = map.get(key) ?? { am: 0, pm: 0 };
+    if (b.timeSlot === 'AM') slot.am += b.numberOfGuests;
+    else slot.pm += b.numberOfGuests;
+    map.set(key, slot);
+  }
+  return Array.from(map.entries()).map(([dateKey, { am, pm }]) => ({
+    dateKey,
+    morning: { used: am, capacity: 0 },
+    afternoon: { used: pm, capacity: 0 },
+    status: 'orange' as DayStatus,
+  }));
 }
 
-export default function CalendarAvailability() {
+export default function CalendarAvailability({ bookings = [] }: { bookings?: FirestoreBooking[] }) {
   const today = useMemo(() => new Date(), []);
 
   const [year, setYear] = useState(today.getFullYear());
   const [monthIndex, setMonthIndex] = useState(today.getMonth());
 
-  const demo = useMemo(() => makeDemoData(year, monthIndex), [year, monthIndex]);
+  const demo = useMemo(() => buildDayInfo(bookings), [bookings]);
   const byKey = useMemo(() => new Map(demo.map((x) => [x.dateKey, x])), [demo]);
 
   // default selected = 6th if exists, otherwise today
@@ -380,7 +383,9 @@ export default function CalendarAvailability() {
                       <div className="flex flex-col leading-tight">
                         <span className="text-[11px] font-bold text-gray-800">Morning</span>
                         <span className="text-[10px] text-gray-500">
-                          {selInfo.morning.used}/{selInfo.morning.capacity}
+                          {selInfo.morning.capacity > 0
+                            ? `${selInfo.morning.used}/${selInfo.morning.capacity}`
+                            : `${selInfo.morning.used} guests`}
                         </span>
                       </div>
                     </div>
@@ -389,7 +394,9 @@ export default function CalendarAvailability() {
                       <div className="flex flex-col leading-tight">
                         <span className="text-[11px] font-bold text-gray-800">Afternoon</span>
                         <span className="text-[10px] text-gray-500">
-                          {selInfo.afternoon.used}/{selInfo.afternoon.capacity}
+                          {selInfo.afternoon.capacity > 0
+                            ? `${selInfo.afternoon.used}/${selInfo.afternoon.capacity}`
+                            : `${selInfo.afternoon.used} guests`}
                         </span>
                       </div>
                     </div>

@@ -22,6 +22,8 @@ interface UploadPaymentProps {
         activityName?: string;
         guestCount: number;
         promoCode?: string;
+        sourceType?: "activity" | "tourPackage";
+        packageOperatorId?: string;
     };
     selectedFile: File | null;
     error: string | null;
@@ -68,6 +70,8 @@ export function UploadPayment({
             date: draft.bookingDate,
             guests: draft.guestCount.toString(),
             ...(draft.promoCode ? { promoCode: draft.promoCode } : {}),
+            ...(draft.sourceType ? { sourceType: draft.sourceType } : {}),
+            ...(draft.packageOperatorId ? { packageOperatorId: draft.packageOperatorId } : {}),
         },
     };
 

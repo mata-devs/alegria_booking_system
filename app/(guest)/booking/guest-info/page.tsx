@@ -65,13 +65,15 @@ function GuestBookingContent() {
 
     const selectedActivityId = searchParams.get("activityId") || "";
     const activityName = searchParams.get("activityName") || undefined;
-    const bookingDate = searchParams.get("date") || "";
+    const [bookingDate, setBookingDate] = useState(() => searchParams.get("date") || "");
     const rawGuests = searchParams.get("guests");
     const initialGuestCount = rawGuests ? parseInt(rawGuests, 10) : 1;
     const requestedGuestCount = normalizeGuestCount(initialGuestCount);
     const priceOverride = searchParams.get("price") ? Number(searchParams.get("price")) : undefined;
     const minGuests = searchParams.get("minGuests") ? Number(searchParams.get("minGuests")) : undefined;
     const maxGuests = searchParams.get("maxGuests") ? Number(searchParams.get("maxGuests")) : undefined;
+    const sourceType = (searchParams.get("sourceType") as "activity" | "tourPackage" | null) ?? "activity";
+    const packageOperatorId = searchParams.get("packageOperatorId") || undefined;
 
     const [isMounted, setIsMounted] = useState(false);
     const [summaryDrawerOpen, setSummaryDrawerOpen] = useState(false);
@@ -110,6 +112,14 @@ function GuestBookingContent() {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // Auto-lock operator for tour packages
+    useEffect(() => {
+        if (sourceType === "tourPackage" && packageOperatorId) {
+            setFormData((prev) => ({ ...prev, tourOperator: packageOperatorId }));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sourceType, packageOperatorId]);
 
     useEffect(() => {
         try { window.sessionStorage.setItem("guestFormGuests", JSON.stringify(guests)); } catch { /* ignore */ }
@@ -175,6 +185,7 @@ function GuestBookingContent() {
                 promoCode: appliedPromo || undefined,
                 tourOperatorUid: formData.tourOperator || undefined,
                 paymentMethod,
+                sourceType,
             }));
             router.push("/booking/payment");
         } catch {
@@ -184,11 +195,7 @@ function GuestBookingContent() {
     };
 
     const handleGoBack = () => {
-        if (selectedActivityId) {
-            router.push(`/activities/${selectedActivityId}`);
-        } else {
-            router.push("/activities");
-        }
+        router.back();
     };
 
     if (!isMounted) return null;
@@ -207,6 +214,9 @@ function GuestBookingContent() {
         priceOverride,
         minGuests,
         maxGuests,
+        packageOperatorId,
+        onDateChange: setBookingDate,
+        sourceType,
         onPromoApplied: (promo: { code: string; discount: number; operatorUid?: string }) => {
             setAppliedPromo(promo.code);
             if (promo.operatorUid) {
@@ -248,11 +258,13 @@ function GuestBookingContent() {
                             guestErrors={guestErrors}
                             submitted={submitted}
                         />
-                        <TourOperatorDropdown
-                            value={formData.tourOperator}
-                            onChange={(val) => setFormData((prev) => ({ ...prev, tourOperator: val }))}
-                            lockedByPromo={!!promoOperatorUid}
-                        />
+                        {sourceType !== "tourPackage" && (
+                            <TourOperatorDropdown
+                                value={formData.tourOperator}
+                                onChange={(val) => setFormData((prev) => ({ ...prev, tourOperator: val }))}
+                                lockedByPromo={!!promoOperatorUid}
+                            />
+                        )}
                     </div>
                 </div>
 

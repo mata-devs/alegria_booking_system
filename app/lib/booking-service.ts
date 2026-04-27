@@ -10,6 +10,7 @@ export interface BookingPayload {
     // timeSlot kept for backend compatibility — whole-day bookings use "AM" by default
     timeSlot: "AM" | "PM";
     activityId: string;
+    sourceType?: "activity" | "tourPackage";
     tourOperatorUid?: string;
     representative: {
         fullName: string;

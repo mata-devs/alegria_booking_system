@@ -5,11 +5,12 @@ import Image from 'next/image';
 import { X, Printer } from 'lucide-react';
 
 export type BookingStatus =
-    | 'Reserved'
-    | 'Paid'
-    | 'Processing'
-    | 'Cancelled'
-    | 'Completed';
+    | 'Pending'
+    | 'Confirmed'
+    | 'Complete'
+    | 'Cancelled';
+
+export type PaymentStatus = 'Pending' | 'Paid' | 'Expired';
 
 export type Guest = {
   name: string;
@@ -43,6 +44,7 @@ export type Booking = {
     option: string;
   };
   status: BookingStatus;
+  paymentStatus: PaymentStatus;
   uploads: UploadedFile[];
 };
 
@@ -54,12 +56,10 @@ function peso(n: number) {
   }).format(n);
 }
 
-const statusDot: Record<BookingStatus, string> = {
-  Reserved: 'bg-yellow-300',
+const paymentStatusDot: Record<PaymentStatus, string> = {
+  Pending: 'bg-yellow-300',
   Paid: 'bg-green-500',
-  Processing: 'bg-orange-500',
-  Completed: 'bg-green-500',
-  Cancelled: 'bg-orange-500',
+  Expired: 'bg-red-500',
 };
 
 function uid() {
@@ -70,29 +70,29 @@ function uid() {
 interface BookingDetailsCardProps {
   booking?: Booking;
   onClose?: () => void;
-  onStatusChange?: (bookingId: string, newStatus: BookingStatus) => void | Promise<void>;
+  onPaymentStatusChange?: (bookingId: string, newStatus: PaymentStatus) => void | Promise<void>;
 }
 
 export default function BookingDetailsCard({
                                              booking,
                                              onClose,
-                                             onStatusChange,
+                                             onPaymentStatusChange,
                                            }: BookingDetailsCardProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const printSheetRef = useRef<HTMLDivElement | null>(null);
 
   const [isDragOver, setIsDragOver] = useState(false);
   const [visibleUploads, setVisibleUploads] = useState<UploadedFile[]>([]);
-  const [status, setStatus] = useState<BookingStatus>('Reserved');
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('Pending');
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
-  const [pendingStatus, setPendingStatus] = useState<BookingStatus | null>(null);
+  const [pendingStatus, setPendingStatus] = useState<PaymentStatus | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
 
   useEffect(() => {
     if (!booking) return;
     setVisibleUploads(booking.uploads ?? []);
-    setStatus(booking.status);
-  }, [booking?.id, booking?.status]);
+    setPaymentStatus(booking.paymentStatus);
+  }, [booking?.id, booking?.paymentStatus]);
 
   const totals = useMemo(() => {
     if (!booking) return null;
@@ -442,27 +442,27 @@ export default function BookingDetailsCard({
               </div>
             </div>
 
-            {/* Status */}
+            {/* Payment Status */}
             <div className="mt-4 flex items-center justify-center">
               <div className="relative inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-1.5 text-sm text-gray-700">
-                <span className={`h-2 w-2 rounded-full ${statusDot[status]}`} />
+                <span className={`h-2 w-2 rounded-full ${paymentStatusDot[paymentStatus]}`} />
 
                 <select
-                    value={status}
+                    value={paymentStatus}
                     onChange={(e) => {
-                      const next = e.target.value as BookingStatus;
+                      const next = e.target.value as PaymentStatus;
                       if (next === 'Paid') {
                         setPendingStatus(next);
                       } else {
-                        setStatus(next);
-                        if (booking) onStatusChange?.(booking.id, next);
+                        setPaymentStatus(next);
+                        if (booking) onPaymentStatusChange?.(booking.id, next);
                       }
                     }}
                     className="appearance-none bg-transparent pr-6 font-medium outline-none cursor-pointer"
                 >
-                  <option value="Reserved">Reserved</option>
+                  <option value="Pending">Pending</option>
                   <option value="Paid">Paid</option>
-                  <option value="Processing">Processing</option>
+                  <option value="Expired">Expired</option>
                 </select>
 
                 <span className="pointer-events-none absolute right-3 text-neutral-400">▾</span>
@@ -656,8 +656,8 @@ export default function BookingDetailsCard({
                     if (!booking) return;
                     setIsConfirming(true);
                     try {
-                      await onStatusChange?.(booking.id, 'Paid');
-                      setStatus('Paid');
+                      await onPaymentStatusChange?.(booking.id, 'Paid');
+                      setPaymentStatus('Paid');
                       setPendingStatus(null);
                     } finally {
                       setIsConfirming(false);

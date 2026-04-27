@@ -22,6 +22,7 @@ interface BookingContext {
     promoCode?: string;
     tourOperatorUid?: string;
     paymentMethod: PaymentMethod;
+    sourceType?: "activity" | "tourPackage";
 }
 
 interface GuestFormData {
@@ -170,10 +171,14 @@ function PaymentPageContent() {
         let cancelled = false;
         (async () => {
             try {
-                const actSnap = await getDoc(doc(firestore, "activities", sessionData.context.selectedActivityId));
+                const isTourPackage = sessionData.context.sourceType === "tourPackage";
+                const collection_ = isTourPackage ? "tourPackages" : "activities";
+                const actSnap = await getDoc(doc(firestore, collection_, sessionData.context.selectedActivityId));
                 if (!actSnap.exists() || cancelled) return;
                 const activity = actSnap.data() as Record<string, unknown>;
-                const pricePerGuest = typeof activity.pricePerGuest === "number" ? activity.pricePerGuest : null;
+                const pricePerGuest = isTourPackage
+                    ? (typeof activity.pricePerPerson === "number" ? activity.pricePerPerson : null)
+                    : (typeof activity.pricePerGuest === "number" ? activity.pricePerGuest : null);
                 if (!pricePerGuest) { setPricingTotal(null); return; }
 
                 let discountPercent: number | null = null;
@@ -244,6 +249,7 @@ function PaymentPageContent() {
                 tourDate: context.bookingDate,
                 timeSlot: "AM", // whole-day booking — timeSlot retained for backend compatibility
                 activityId: context.selectedActivityId,
+                sourceType: context.sourceType,
                 tourOperatorUid: context.tourOperatorUid || formData.tourOperator || undefined,
                 representative: {
                     fullName: formData.repName.trim(),
@@ -402,6 +408,8 @@ function PaymentPageContent() {
                                 activityName: context.activityName,
                                 guestCount: context.guestCount,
                                 promoCode: context.promoCode,
+                                sourceType: context.sourceType,
+                                packageOperatorId: context.sourceType === "tourPackage" ? context.tourOperatorUid : undefined,
                             }}
                             selectedFile={selectedFile}
                             error={error}
@@ -422,6 +430,7 @@ function PaymentPageContent() {
                             representativePhone={formData.repPhone}
                             appliedPromo={context.promoCode}
                             paymentMethod={context.paymentMethod}
+                            sourceType={context.sourceType}
                         />
                     </div>
                 </div>

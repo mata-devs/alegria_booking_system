@@ -40,6 +40,9 @@ interface BookingSidebarProps {
     priceOverride?: number;
     minGuests?: number;
     maxGuests?: number;
+    packageOperatorId?: string;
+    onDateChange?: (date: string) => void;
+    sourceType?: "activity" | "tourPackage";
 }
 
 export function BookingSidebar({
@@ -58,6 +61,9 @@ export function BookingSidebar({
     priceOverride,
     minGuests,
     maxGuests,
+    packageOperatorId,
+    onDateChange,
+    sourceType = "activity",
 }: BookingSidebarProps) {
     const effectiveMin = Math.max(1, minGuests ?? 1);
     const effectiveMax = Math.min(maxGuests ?? MAX_GUESTS, MAX_GUESTS);
@@ -94,9 +100,12 @@ export function BookingSidebar({
         let cancelled = false;
         (async () => {
             try {
-                const snap = await getDoc(doc(firestore, "activities", selectedActivityId));
+                const isTourPackage = sourceType === "tourPackage";
+                const collectionName = isTourPackage ? "tourPackages" : "activities";
+                const priceField = isTourPackage ? "pricePerPerson" : "pricePerGuest";
+                const snap = await getDoc(doc(firestore, collectionName, selectedActivityId));
                 if (!cancelled && snap.exists()) {
-                    setPricePerGuest(snap.data().pricePerGuest ?? null);
+                    setPricePerGuest(snap.data()[priceField] ?? null);
                 }
             } catch {
                 // price stays null
@@ -105,7 +114,7 @@ export function BookingSidebar({
             }
         })();
         return () => { cancelled = true; };
-    }, [selectedActivityId, priceOverride]);
+    }, [selectedActivityId, priceOverride, sourceType]);
 
     const [internalGuestCount, setInternalGuestCount] = useState(effectiveMin);
     const [showDropdown, setShowDropdown] = useState(false);
@@ -185,6 +194,10 @@ export function BookingSidebar({
                 throw new Error("This promo code has expired.");
             }
             if (vd.operatorUid) {
+                // For tour packages: voucher's operatorUid must match the package's operator
+                if (packageOperatorId && vd.operatorUid !== packageOperatorId) {
+                    throw new Error("This promo code is not valid for this tour package.");
+                }
                 const opSnap = await getDoc(doc(firestore, "users", vd.operatorUid));
                 if (!opSnap.exists()) throw new Error("The associated operator for this voucher was not found.");
                 const opData = opSnap.data();
@@ -250,13 +263,20 @@ export function BookingSidebar({
 
                     <div className="space-y-5">
                         {/* Date pill */}
-                        <div className="border border-gray-200 rounded-2xl p-4 flex flex-col gap-1">
-                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Date</span>
-                            <span className="font-semibold text-black text-sm">
-                                {bookingDate
-                                    ? new Date(bookingDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-                                    : <span className="text-gray-300">—</span>}
-                            </span>
+                        <div className={`border rounded-2xl p-4 flex flex-col gap-1 ${!bookingDate ? 'border-red-300 bg-red-50' : 'border-gray-200'}`}>
+                            <span className={`text-[10px] font-bold uppercase tracking-wider ${!bookingDate ? 'text-red-400' : 'text-gray-400'}`}>Date</span>
+                            {bookingDate ? (
+                                <span className="font-semibold text-black text-sm">
+                                    {new Date(bookingDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                                </span>
+                            ) : (
+                                <input
+                                    type="date"
+                                    min={new Date().toISOString().split('T')[0]}
+                                    onChange={(e) => onDateChange?.(e.target.value)}
+                                    className="text-sm font-semibold text-black bg-transparent outline-none cursor-pointer"
+                                />
+                            )}
                         </div>
 
                         {/* Guests dropdown */}

@@ -52,6 +52,7 @@ interface OperatorPackage {
   packageDescription: string;
   pricePerPerson: number;
   minimumNumberOfPeople: number;
+  maximumNumberOfPeople: number;
   packageLocation: string;
   duration: string;
   inclusions: string[];
@@ -499,6 +500,7 @@ interface AddFormState {
   packageDescription: string;
   pricePerPerson: string;
   minimumNumberOfPeople: string;
+  maximumNumberOfPeople: string;
   packageLocation: string;
   duration: string;
   packageTag: ActivityTag | '';
@@ -512,6 +514,7 @@ const EMPTY_FORM: AddFormState = {
   packageDescription: '',
   pricePerPerson: '',
   minimumNumberOfPeople: '1',
+  maximumNumberOfPeople: '10',
   packageLocation: '',
   duration: '',
   packageTag: '',
@@ -520,7 +523,7 @@ const EMPTY_FORM: AddFormState = {
   packageItinerary: [],
 };
 
-type AddFormErrors = Partial<Record<keyof AddFormState | 'images' | 'minimumNumberOfPeople', string>>;
+type AddFormErrors = Partial<Record<keyof AddFormState | 'images' | 'minimumNumberOfPeople' | 'maximumNumberOfPeople', string>>;
 
 function AddPackageModal({ onClose, operatorId }: { onClose: () => void; operatorId: string }) {
   const [form, setForm] = useState<AddFormState>(EMPTY_FORM);
@@ -562,6 +565,8 @@ function AddPackageModal({ onClose, operatorId }: { onClose: () => void; operato
     if (!form.packageDescription.trim()) e.packageDescription = 'Required';
     if (!form.pricePerPerson || Number(form.pricePerPerson) <= 0) e.pricePerPerson = 'Enter a valid price';
     if (!form.minimumNumberOfPeople || Number(form.minimumNumberOfPeople) < 1) e.minimumNumberOfPeople = 'Minimum 1';
+    if (!form.maximumNumberOfPeople || Number(form.maximumNumberOfPeople) < 1) e.maximumNumberOfPeople = 'Minimum 1';
+    if (Number(form.maximumNumberOfPeople) < Number(form.minimumNumberOfPeople)) e.maximumNumberOfPeople = 'Must be ≥ minimum';
     if (!CEBU_MUNICIPALITIES.includes(form.packageLocation as typeof CEBU_MUNICIPALITIES[number]))
       e.packageLocation = 'Select a valid municipality';
     if (!form.duration.trim()) e.duration = 'Required';
@@ -590,6 +595,7 @@ function AddPackageModal({ onClose, operatorId }: { onClose: () => void; operato
         packageDescription: form.packageDescription.trim(),
         pricePerPerson: parseFloat(form.pricePerPerson),
         minimumNumberOfPeople: Number(form.minimumNumberOfPeople),
+        maximumNumberOfPeople: Number(form.maximumNumberOfPeople),
         packageLocation: form.packageLocation,
         duration: form.duration.trim(),
         packageTag: form.packageTag,
@@ -660,6 +666,14 @@ function AddPackageModal({ onClose, operatorId }: { onClose: () => void; operato
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
               placeholder="e.g. 4" />
             {errors.minimumNumberOfPeople && <p className="text-red-500 text-xs mt-1">{errors.minimumNumberOfPeople}</p>}
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1">Maximum Number of Guests</label>
+            <p className="text-xs text-gray-400 mb-1.5">Maximum guests allowed for this package booking.</p>
+            <input type="number" min="1" value={form.maximumNumberOfPeople} onChange={(e) => field('maximumNumberOfPeople', e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+              placeholder="e.g. 10" />
+            {errors.maximumNumberOfPeople && <p className="text-red-500 text-xs mt-1">{errors.maximumNumberOfPeople}</p>}
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">Package Location</label>
@@ -733,6 +747,7 @@ interface EditFormState {
   packageDescription: string;
   pricePerPerson: string;
   minimumNumberOfPeople: string;
+  maximumNumberOfPeople: string;
   packageLocation: string;
   duration: string;
   packageTag: ActivityTag | '';
@@ -742,7 +757,7 @@ interface EditFormState {
   packageItinerary: ItineraryStep[];
 }
 
-type EditFormErrors = Partial<Record<keyof EditFormState | 'images' | 'minimumNumberOfPeople', string>>;
+type EditFormErrors = Partial<Record<keyof EditFormState | 'images' | 'minimumNumberOfPeople' | 'maximumNumberOfPeople', string>>;
 
 function EditPackageModal({ pkg, onClose, onDelete, operatorId }: { pkg: OperatorPackage; onClose: () => void; onDelete: () => void; operatorId: string }) {
   const [form, setForm] = useState<EditFormState>({
@@ -750,6 +765,7 @@ function EditPackageModal({ pkg, onClose, onDelete, operatorId }: { pkg: Operato
     packageDescription: pkg.packageDescription,
     pricePerPerson: String(pkg.pricePerPerson),
     minimumNumberOfPeople: String(pkg.minimumNumberOfPeople ?? 1),
+    maximumNumberOfPeople: String(pkg.maximumNumberOfPeople ?? 10),
     packageLocation: pkg.packageLocation,
     duration: pkg.duration,
     packageTag: (ACTIVITY_TAGS as ReadonlyArray<string>).includes(pkg.packageTag) ? pkg.packageTag as ActivityTag : '',
@@ -800,6 +816,8 @@ function EditPackageModal({ pkg, onClose, onDelete, operatorId }: { pkg: Operato
     if (!form.packageDescription.trim()) e.packageDescription = 'Required';
     if (!form.pricePerPerson || Number(form.pricePerPerson) <= 0) e.pricePerPerson = 'Enter a valid price';
     if (!form.minimumNumberOfPeople || Number(form.minimumNumberOfPeople) < 1) e.minimumNumberOfPeople = 'Minimum 1';
+    if (!form.maximumNumberOfPeople || Number(form.maximumNumberOfPeople) < 1) e.maximumNumberOfPeople = 'Minimum 1';
+    if (Number(form.maximumNumberOfPeople) < Number(form.minimumNumberOfPeople)) e.maximumNumberOfPeople = 'Must be ≥ minimum';
     if (!CEBU_MUNICIPALITIES.includes(form.packageLocation as typeof CEBU_MUNICIPALITIES[number]))
       e.packageLocation = 'Select a valid municipality';
     if (!form.duration.trim()) e.duration = 'Required';
@@ -826,6 +844,7 @@ function EditPackageModal({ pkg, onClose, onDelete, operatorId }: { pkg: Operato
         packageDescription: form.packageDescription.trim(),
         pricePerPerson: parseFloat(form.pricePerPerson),
         minimumNumberOfPeople: Number(form.minimumNumberOfPeople),
+        maximumNumberOfPeople: Number(form.maximumNumberOfPeople),
         packageLocation: form.packageLocation,
         duration: form.duration.trim(),
         packageTag: form.packageTag,
@@ -907,6 +926,14 @@ function EditPackageModal({ pkg, onClose, onDelete, operatorId }: { pkg: Operato
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
               placeholder="e.g. 4" />
             {errors.minimumNumberOfPeople && <p className="text-red-500 text-xs mt-1">{errors.minimumNumberOfPeople}</p>}
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1">Maximum Number of Guests</label>
+            <p className="text-xs text-gray-400 mb-1.5">Maximum guests allowed for this package booking.</p>
+            <input type="number" min="1" value={form.maximumNumberOfPeople} onChange={(e) => field('maximumNumberOfPeople', e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+              placeholder="e.g. 10" />
+            {errors.maximumNumberOfPeople && <p className="text-red-500 text-xs mt-1">{errors.maximumNumberOfPeople}</p>}
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">Package Location</label>

@@ -3,20 +3,18 @@ import { Filter, Search, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-r
 import type { Booking } from '@/app/(operator)/operator/bookings/details';
 
 type BookingStatus =
-  | 'Reserved'
-  | 'Paid'
-  | 'Processing'
-  | 'Cancelled'
-  | 'Completed';
+  | 'Pending'
+  | 'Confirmed'
+  | 'Complete'
+  | 'Cancelled';
 
 const statusStyles: Record<
   BookingStatus,
   { dot: string; text: string }
 > = {
-  Reserved: { dot: 'bg-yellow-300', text: 'text-yellow-700' },
-  Paid: { dot: 'bg-green-500', text: 'text-green-700' },
-  Processing: { dot: 'bg-orange-500', text: 'text-orange-700' },
-  Completed: { dot: 'bg-green-500', text: 'text-green-700' },
+  Pending: { dot: 'bg-yellow-300', text: 'text-yellow-700' },
+  Confirmed: { dot: 'bg-green-500', text: 'text-green-700' },
+  Complete: { dot: 'bg-blue-500', text: 'text-blue-700' },
   Cancelled: { dot: 'bg-red-500', text: 'text-red-700' },
 };
 

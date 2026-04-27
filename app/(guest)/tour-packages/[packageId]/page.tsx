@@ -33,6 +33,7 @@ interface FirestorePackage {
   slug: string
   minimumNumberOfPeople: number
   maximumNumberOfPeople?: number
+  operatorId: string
 }
 
 function StarRating({ rating }: { rating: number }) {
@@ -128,7 +129,7 @@ function TourPackageDetailInner() {
   }
 
   const minGuests = Math.max(1, pkg?.minimumNumberOfPeople ?? 1)
-  const maxGuests = Math.min(pkg?.maximumNumberOfPeople ?? 10, 10)
+  const maxGuests = pkg?.maximumNumberOfPeople ? Math.max(pkg.maximumNumberOfPeople, minGuests) : 30
 
   const handleBook = () => {
     if (!pkg) return
@@ -140,6 +141,8 @@ function TourPackageDetailInner() {
       price: pkg.pricePerPerson.toString(),
       minGuests: minGuests.toString(),
       maxGuests: maxGuests.toString(),
+      sourceType: 'tourPackage',
+      packageOperatorId: pkg.operatorId ?? '',
     })
     router.push(`/booking/guest-info?${qs.toString()}`)
   }

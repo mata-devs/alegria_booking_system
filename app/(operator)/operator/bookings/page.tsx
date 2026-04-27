@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import BookingRequestsPanel from '@/app/(operator)/operator/bookings/list';
-import BookingDetailsCard, { type Booking, type BookingStatus } from '@/app/(operator)/operator/bookings/details';
+import BookingDetailsCard, { type Booking, type BookingStatus, type PaymentStatus } from '@/app/(operator)/operator/bookings/details';
 import CalendarAvailability from '@/app/(operator)/operator/bookings/calendar';
 import FilterModal, {
   createEmptyFilters,
@@ -27,11 +27,18 @@ function firestoreToBooking(doc: FirestoreBooking): Booking {
     : '—';
 
   const statusMap: Record<string, BookingStatus> = {
-    reserved: 'Reserved',
-    paid: 'Paid',
-    processing: 'Processing',
-    completed: 'Completed',
+    reserved: 'Pending',
+    pending: 'Pending',
+    paid: 'Confirmed',
+    confirmed: 'Confirmed',
+    completed: 'Complete',
     cancelled: 'Cancelled',
+  };
+
+  const paymentStatusMap: Record<string, PaymentStatus> = {
+    pending: 'Pending',
+    paid: 'Paid',
+    expired: 'Expired',
   };
 
   return {
@@ -57,7 +64,8 @@ function firestoreToBooking(doc: FirestoreBooking): Booking {
       serviceCharge: doc.serviceCharge,
       option: doc.paymentMethod,
     },
-    status: statusMap[doc.status] ?? 'Reserved',
+    status: statusMap[doc.status] ?? 'Pending',
+    paymentStatus: paymentStatusMap[doc.paymentStatus] ?? 'Pending',
     uploads: doc.receiptUrl ? [{ id: 'receipt', name: 'Payment Receipt', url: doc.receiptUrl }] : [],
   };
 }
@@ -86,7 +94,7 @@ export default function Page() {
   const [searchBy, setSearchBy] = useState<'Representative' | 'Booking ID'>('Representative');
   const [query, setQuery] = useState('');
 
-  const handleStatusChange = async (bookingId: string, newStatus: BookingStatus) => {
+  const handlePaymentStatusChange = async (bookingId: string, newStatus: PaymentStatus) => {
     if (newStatus === 'Paid') {
       try {
         await confirmBookingPayment(bookingId);
@@ -177,14 +185,14 @@ export default function Page() {
         <BookingDetailsCard
           booking={selectedBooking}
           onClose={selectedBooking ? () => setSelectedId(undefined) : undefined}
-          onStatusChange={handleStatusChange}
+          onPaymentStatusChange={handlePaymentStatusChange}
         />
-        <CalendarAvailability />
+        <CalendarAvailability bookings={firestoreBookings} />
       </div>
 
       {/* Calendar on mobile (always visible) */}
       <div className="lg:hidden">
-        <CalendarAvailability />
+        <CalendarAvailability bookings={firestoreBookings} />
       </div>
 
       {/* Mobile slide-in details panel */}

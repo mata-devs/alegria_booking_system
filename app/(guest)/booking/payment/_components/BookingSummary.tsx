@@ -22,6 +22,7 @@ interface BookingSummaryProps {
     representativeEmail?: string;
     representativePhone?: string;
     appliedPromo?: string;
+    sourceType?: "activity" | "tourPackage";
 }
 
 export function BookingSummary({
@@ -34,6 +35,7 @@ export function BookingSummary({
     representativeEmail,
     representativePhone,
     appliedPromo,
+    sourceType = "activity",
 }: BookingSummaryProps) {
     const [pricePerGuest, setPricePerGuest] = useState<number | null>(null);
     const [discountPercent, setDiscountPercent] = useState<number | null>(null);
@@ -43,16 +45,19 @@ export function BookingSummary({
         let cancelled = false;
         (async () => {
             try {
-                const snap = await getDoc(doc(firestore, "activities", activityId));
+                const isTourPackage = sourceType === "tourPackage";
+                const collectionName = isTourPackage ? "tourPackages" : "activities";
+                const priceField = isTourPackage ? "pricePerPerson" : "pricePerGuest";
+                const snap = await getDoc(doc(firestore, collectionName, activityId));
                 if (!snap.exists() || cancelled) return;
                 const data = snap.data() as Record<string, unknown>;
-                if (!cancelled) setPricePerGuest(typeof data.pricePerGuest === "number" ? data.pricePerGuest : null);
+                if (!cancelled) setPricePerGuest(typeof data[priceField] === "number" ? data[priceField] as number : null);
             } catch {
                 if (!cancelled) setPricePerGuest(null);
             }
         })();
         return () => { cancelled = true; };
-    }, [activityId]);
+    }, [activityId, sourceType]);
 
     useEffect(() => {
         if (!appliedPromo) { setDiscountPercent(null); return; }

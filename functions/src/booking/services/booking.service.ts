@@ -38,6 +38,7 @@ export interface CreateBookingInput {
   tourDate: string;
   timeSlot: TimeSlot;
   activityId: string;
+  sourceType?: "activity" | "tourPackage";
   representative: Representative;
   guests: Guest[];
   tourOperatorUid?: string;
@@ -78,6 +79,12 @@ async function getActivity(activityId: string) {
   return { id: snap.id, ...snap.data() };
 }
 
+async function getTourPackage(packageId: string) {
+  const snap = await db.collection("tourPackages").doc(packageId).get();
+  if (!snap.exists) return null;
+  return { id: snap.id, ...snap.data() };
+}
+
 async function ensureTimeSlot(
   tx: FirebaseFirestore.Transaction,
   args: { activityId: string; tourDate: string; timeSlot: TimeSlot; maxSlots: number }
@@ -110,7 +117,7 @@ async function ensureTimeSlot(
   return { ref, data: snap.data() ?? { slotsAvailable: 0 } };
 }
 
-async function validatePromoCode(code: string): Promise<VoucherValidation> {
+async function validatePromoCode(code: string, requiredOperatorUid?: string): Promise<VoucherValidation> {
   const voucherSnap = await db.collection("voucherCodes").where("code", "==", code).limit(1).get();
   if (voucherSnap.empty) return null;
 
@@ -131,6 +138,14 @@ async function validatePromoCode(code: string): Promise<VoucherValidation> {
     voucher.numberOfUsersUsed >= voucher.numberOfUsersAllowed
   ) {
     return null;
+  }
+
+  // For tour packages: only accept if voucher is global (no operatorUid) or matches the package operator
+  if (requiredOperatorUid !== undefined) {
+    const voucherOperatorUid = typeof voucher.operatorUid === "string" && voucher.operatorUid ? voucher.operatorUid : null;
+    if (voucherOperatorUid && voucherOperatorUid !== requiredOperatorUid) {
+      return null;
+    }
   }
 
   return {
@@ -341,32 +356,65 @@ export async function createBooking(data: CreateBookingInput) {
     throw new Error(`Booking must be within ${BOOKING_ADVANCE_DAYS} days in advance`);
   }
 
-  const activity = (await getActivity(data.activityId)) as
-    | (Record<string, unknown> & { maxSlots?: number; pricePerGuest?: number; status?: string; activityName?: string })
-    | null;
-  if (!activity) throw new Error("Activity not found");
-  if (activity.status !== "active") throw new Error("Activity is not active");
+  const isTourPackage = data.sourceType === "tourPackage";
+
+  let pricePerGuest: number;
+  let packageOperatorId: string | undefined;
+  let sourceDisplayName: string | undefined;
+  let maxSlotsForSource: number;
+
+  if (isTourPackage) {
+    const tourPkg = (await getTourPackage(data.activityId)) as
+      | (Record<string, unknown> & { pricePerPerson?: number; operatorId?: string; status?: string; packageName?: string; maximumNumberOfPeople?: number })
+      | null;
+    if (!tourPkg) throw new Error("Tour package not found");
+    if (tourPkg.status !== "active") throw new Error("Tour package is not active");
+    pricePerGuest = Number(tourPkg.pricePerPerson) || 0;
+    packageOperatorId = typeof tourPkg.operatorId === "string" ? tourPkg.operatorId : undefined;
+    sourceDisplayName = typeof tourPkg.packageName === "string" ? tourPkg.packageName : undefined;
+    maxSlotsForSource = Number(tourPkg.maximumNumberOfPeople) || MAX_PERSONS_PER_SLOT;
+  } else {
+    const activity = (await getActivity(data.activityId)) as
+      | (Record<string, unknown> & { maxSlots?: number; pricePerGuest?: number; status?: string; activityName?: string })
+      | null;
+    if (!activity) throw new Error("Activity not found");
+    if (activity.status !== "active") throw new Error("Activity is not active");
+    pricePerGuest = Number(activity.pricePerGuest) || 0;
+    sourceDisplayName = typeof activity.activityName === "string" ? activity.activityName : undefined;
+    maxSlotsForSource = Number(activity.maxSlots) || MAX_PERSONS_PER_SLOT;
+  }
 
   const numberOfGuests = data.guests.length + 1;
   if (numberOfGuests > MAX_PERSONS_PER_SLOT) {
     throw new Error(`Maximum ${MAX_PERSONS_PER_SLOT} persons per slot`);
   }
 
-  const promoData = data.promoCode ? await validatePromoCode(data.promoCode) : null;
+  const promoData = data.promoCode
+    ? await validatePromoCode(data.promoCode, isTourPackage ? packageOperatorId : undefined)
+    : null;
   if (data.promoCode && !promoData) {
     throw new Error("Invalid or expired promo code");
   }
 
-  const pricing = calculatePricing(numberOfGuests, Number(activity.pricePerGuest) || 0, promoData?.discount ?? 0);
+  const pricing = calculatePricing(numberOfGuests, pricePerGuest, promoData?.discount ?? 0);
 
-  const selectedOperatorUid = data.tourOperatorUid?.trim() || undefined;
-  const preferredOperatorUid = promoData?.operatorUid || selectedOperatorUid;
-  const assignmentType = promoData?.operatorUid
-    ? "voucher"
-    : selectedOperatorUid
-      ? "manual-selection"
-      : "auto book-balancing";
-  const operatorUid = await assignOperatorByLoadBalancing(tourDateTs, preferredOperatorUid);
+  let operatorUid: string;
+  let assignmentType: string;
+
+  if (isTourPackage) {
+    if (!packageOperatorId) throw new Error("Tour package has no assigned operator");
+    operatorUid = packageOperatorId;
+    assignmentType = promoData?.operatorUid ? "voucher" : "package-selection";
+  } else {
+    const selectedOperatorUid = data.tourOperatorUid?.trim() || undefined;
+    const preferredOperatorUid = promoData?.operatorUid || selectedOperatorUid;
+    assignmentType = promoData?.operatorUid
+      ? "voucher"
+      : selectedOperatorUid
+        ? "manual-selection"
+        : "auto book-balancing";
+    operatorUid = await assignOperatorByLoadBalancing(tourDateTs, preferredOperatorUid);
+  }
 
   if (data.idempotencyKey) {
     const existing = await db
@@ -381,7 +429,7 @@ export async function createBooking(data: CreateBookingInput) {
         status: booking.status,
         operatorUid: booking.operatorUid,
         paymentExpiresAt: booking.paymentExpiresAt ?? null,
-        activityName: (activity.activityName as string | undefined) ?? data.activityId,
+        activityName: sourceDisplayName ?? data.activityId,
         numberOfGuests: booking.numberOfGuests ?? data.guests.length + 1,
         pricing,
       };
@@ -389,7 +437,7 @@ export async function createBooking(data: CreateBookingInput) {
   }
 
   const timeSlotId = buildTimeSlotId(data.activityId, normalizedDate, data.timeSlot);
-  const maxSlots = Number(activity.maxSlots) || MAX_PERSONS_PER_SLOT;
+  const maxSlots = maxSlotsForSource;
 
   const paymentRef = db.collection("payments").doc();
   const paymentDocId = paymentRef.id;
@@ -475,7 +523,7 @@ export async function createBooking(data: CreateBookingInput) {
         status: "reserved",
         operatorUid,
         paymentExpiresAt: paymentExpiresAtTs,
-        activityName: (activity.activityName as string | undefined) ?? data.activityId,
+        activityName: sourceDisplayName ?? data.activityId,
         numberOfGuests,
         pricing,
       };
