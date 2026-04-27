@@ -145,6 +145,7 @@ export default function Auth() {
   function getPasswordResetActionCodeSettings(): ActionCodeSettings {
     return {
       url: `${window.location.origin}/reset-password`,
+      handleCodeInApp: true,
     };
   }
 

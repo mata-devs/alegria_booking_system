@@ -109,8 +109,6 @@ export const approveOperatorSignup = onCall(
       reviewedAt: FieldValue.serverTimestamp(),
     });
 
-    const resetLink = await auth.generatePasswordResetLink(reqData.email);
-    logger.info(`Password reset link for ${reqData.email}: ${resetLink}`);
     logger.info(`Operator ${operatorUid} (${reqData.email}) approved by ${request.auth.uid}`);
 
     return {

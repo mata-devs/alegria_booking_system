@@ -20,9 +20,7 @@ import {
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { firebaseDb, firebaseStorage } from '@/app/lib/firebase';
 import { useAuth } from '@/app/context/AuthContext';
-
-const ACTIVITY_TAGS = ['Diving', 'Culture', 'Canyoneering', 'Beach', 'Museum', 'History'] as const;
-type ActivityTag = (typeof ACTIVITY_TAGS)[number];
+import { ACTIVITY_TAGS, type ActivityTag, type StoredActivityTag } from '@/app/lib/activity-tags';
 type ActivityStatus = 'active' | 'disabled';
 
 const CEBU_MUNICIPALITIES = [
@@ -48,7 +46,7 @@ interface OperatorActivity {
   activityDetails: string;
   pricePerGuest: number;
   activityLocation: string;
-  activityTag: ActivityTag;
+  activityTag: StoredActivityTag;
   activityRating: number;
   activityImages: string[];
   operatorId: string;
@@ -158,6 +156,56 @@ function MunicipalityCombobox({ value, onChange, error }: { value: string; onCha
             <li key={m} onMouseDown={(e) => { e.preventDefault(); select(m); }}
               className={`px-3 py-2 text-sm cursor-pointer hover:bg-green-50 hover:text-green-700 ${m === value ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-700'}`}>
               {m}
+            </li>
+          ))}
+        </ul>
+      )}
+      {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+    </div>
+  );
+}
+
+// ── Tag Combobox ────────────────────────────────────────────────
+
+function TagCombobox({ value, onChange, error }: { value: string; onChange: (v: string) => void; error?: string }) {
+  const [search, setSearch] = useState(value);
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { setSearch(value); }, [value]);
+
+  const suggestions = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return ACTIVITY_TAGS.filter((t) => t.toLowerCase().includes(q));
+  }, [search]);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const select = (t: string) => { onChange(t); setSearch(t); setOpen(false); };
+
+  return (
+    <div ref={containerRef} className="relative">
+      <input
+        type="text"
+        value={search}
+        onChange={(e) => { setSearch(e.target.value); onChange(''); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+        placeholder="Search tag…"
+        autoComplete="off"
+      />
+      {open && suggestions.length > 0 && (
+        <ul className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-y-auto max-h-[200px]">
+          {suggestions.map((t) => (
+            <li key={t} onMouseDown={(e) => { e.preventDefault(); select(t); }}
+              className={`px-3 py-2 text-sm cursor-pointer hover:bg-green-50 hover:text-green-700 ${t === value ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-700'}`}>
+              {t}
             </li>
           ))}
         </ul>
@@ -290,7 +338,7 @@ function EditActivityModal({ activity, onClose, operatorId }: { activity: Operat
     activityDetails: activity.activityDetails,
     pricePerGuest: String(activity.pricePerGuest),
     activityLocation: activity.activityLocation,
-    activityTag: activity.activityTag,
+    activityTag: (ACTIVITY_TAGS as ReadonlyArray<string>).includes(activity.activityTag) ? activity.activityTag as ActivityTag : '',
     status: activity.status,
   });
   // Existing images (URLs) + new files
@@ -437,12 +485,7 @@ function EditActivityModal({ activity, onClose, operatorId }: { activity: Operat
 
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">Activity Tag</label>
-            <select value={form.activityTag} onChange={(e) => field('activityTag', e.target.value as ActivityTag)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 bg-white">
-              <option value="">Select a category</option>
-              {ACTIVITY_TAGS.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
-            </select>
-            {errors.activityTag && <p className="text-red-500 text-xs mt-1">{errors.activityTag}</p>}
+            <TagCombobox value={form.activityTag} onChange={(v) => field('activityTag', v as ActivityTag)} error={errors.activityTag} />
           </div>
 
           {/* Images — existing + new */}
@@ -620,12 +663,7 @@ function AddActivityModal({ onClose, operatorId }: { onClose: () => void; operat
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">Activity Tag</label>
-            <select value={form.activityTag} onChange={(e) => field('activityTag', e.target.value as ActivityTag)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 bg-white">
-              <option value="">Select a category</option>
-              {ACTIVITY_TAGS.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
-            </select>
-            {errors.activityTag && <p className="text-red-500 text-xs mt-1">{errors.activityTag}</p>}
+            <TagCombobox value={form.activityTag} onChange={(v) => field('activityTag', v as ActivityTag)} error={errors.activityTag} />
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">
@@ -975,7 +1013,7 @@ export default function OperatorActivitiesPage() {
             <div className="text-sm text-gray-400 py-16 text-center">No activities match your filters.</div>
           )
         ) : viewMode === 'card' ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
+          <div className="grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(160px,280px))]">
             {filtered.map((act) => (
               <OperatorActivityCard key={act.id} activity={act} onViewDetails={setDetailActivity} onDelete={handleDelete} />
             ))}

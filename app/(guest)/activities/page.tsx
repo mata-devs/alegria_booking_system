@@ -10,9 +10,8 @@ import TourPackageCard from '@/app/components/TourPackageCard'
 import { tourPackages } from '@/app/data/mockData'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
+import { ACTIVITY_TAGS } from '@/app/lib/activity-tags'
 import type { Activity } from '@/app/types'
-
-const ACTIVITY_TAGS = ['Diving', 'Culture', 'Canyoneering', 'Beach', 'Museum', 'History'] as const
 
 export default function ActivitiesPage() {
   const [activeFilter, setActiveFilter] = useState<string | null>(null)

@@ -7,8 +7,7 @@ import Footer from '@/app/components/Footer'
 import PackageCard from '@/app/components/ui/PackageCard'
 import { collection, query, where, onSnapshot } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
-
-const ACTIVITY_TAGS = ['Diving', 'Culture', 'Canyoneering', 'Beach', 'Museum', 'History'] as const;
+import { ACTIVITY_TAGS } from '@/app/lib/activity-tags'
 
 interface FirestorePackage {
   id: string

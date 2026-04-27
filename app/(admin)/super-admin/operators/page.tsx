@@ -7,7 +7,7 @@ import { httpsCallable } from 'firebase/functions';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { ref, getDownloadURL } from 'firebase/storage';
 import Image from 'next/image';
-import { Filter, Search, ChevronDown, FileImage, Copy, RefreshCw, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Filter, Search, ChevronDown, FileImage, Copy, RefreshCw, ChevronLeft, ChevronRight, X, Send, CheckCircle2, AlertCircle } from 'lucide-react';
 import type { OperatorProfile, OperatorSignUpRequest, SignUpRequestStatus } from '@/app/lib/types';
 
 type Tab = 'operators' | 'signup-requests';
@@ -64,6 +64,9 @@ export default function OperatorsManagementPage() {
   const [tokenLoading, setTokenLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [sendLinkEmail, setSendLinkEmail] = useState('');
+  const [sendLinkStatus, setSendLinkStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [sendLinkError, setSendLinkError] = useState<string | null>(null);
 
   async function fetchOperators() {
     try {
@@ -173,6 +176,23 @@ export default function OperatorsManagementPage() {
     }
   }
 
+  async function handleSendLink() {
+    if (!signupToken || !sendLinkEmail.trim()) return;
+    setSendLinkStatus('sending');
+    setSendLinkError(null);
+    try {
+      const send = httpsCallable(firebaseFunctions, 'sendSignupLinkEmail');
+      await send({ recipientEmail: sendLinkEmail.trim(), signupUrl: getSignupUrl(signupToken) });
+      setSendLinkStatus('sent');
+      setSendLinkEmail('');
+      setTimeout(() => setSendLinkStatus('idle'), 4000);
+    } catch (error) {
+      console.error('Failed to send link:', error);
+      setSendLinkError('Failed to send. Check SMTP configuration.');
+      setSendLinkStatus('error');
+    }
+  }
+
   useEffect(() => {
     const q = query(
       collection(firebaseDb, 'operator_signup_requests'),
@@ -242,7 +262,10 @@ export default function OperatorsManagementPage() {
       if (newStatus === 'approved') {
         const approve = httpsCallable<{ requestId: string }, { email: string }>(firebaseFunctions, 'approveOperatorSignup');
         const result = await approve({ requestId });
-        await sendPasswordResetEmail(firebaseAuth, result.data.email);
+        await sendPasswordResetEmail(firebaseAuth, result.data.email, {
+          url: `${window.location.origin}/reset-password`,
+          handleCodeInApp: true,
+        });
       } else {
         const decline = httpsCallable(firebaseFunctions, 'declineOperatorSignup');
         await decline({ requestId });
@@ -603,22 +626,83 @@ export default function OperatorsManagementPage() {
             </div>
 
             {/* Application Link panel */}
-            <div className="rounded-lg border border-gray-200 bg-white p-5">
+            <div className="rounded-lg border border-gray-200 bg-white p-5 space-y-4">
               <h3 className="text-center text-sm font-bold text-gray-900">Application link</h3>
-              <div className="mt-3 flex items-center gap-2">
+
+              {/* Link display + copy */}
+              <div className="flex items-center gap-2">
                 <div className="flex-1 truncate rounded-full border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-500">
                   {tokenLoading ? 'Loading…' : signupToken ? getSignupUrl(signupToken) : 'No link generated yet'}
                 </div>
-                <button onClick={copyLink} disabled={!signupToken || tokenLoading} className="inline-flex items-center gap-1.5 rounded-lg bg-[#4A8B8C] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3d7374] transition-colors disabled:opacity-50">
+                <button
+                  onClick={copyLink}
+                  disabled={!signupToken || tokenLoading}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#4A8B8C] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3d7374] transition-colors disabled:opacity-50"
+                >
                   <Copy size={14} />
                   {copied ? 'Copied!' : 'Copy'}
                 </button>
               </div>
-              <button onClick={generateNewToken} disabled={generating} className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-[#558B2F] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#4a7a28] transition-colors disabled:opacity-50">
-                <RefreshCw size={12} className={generating ? 'animate-spin' : ''} />
-                {generating ? 'Generating…' : 'Generate new link'}
-              </button>
-              <p className="mt-1.5 text-xs text-gray-400">Generating new link makes the current link unusable.</p>
+
+              {/* Generate */}
+              <div>
+                <button
+                  onClick={generateNewToken}
+                  disabled={generating}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[#558B2F] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#4a7a28] transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw size={12} className={generating ? 'animate-spin' : ''} />
+                  {generating ? 'Generating…' : 'Generate new link'}
+                </button>
+                <p className="mt-1 text-xs text-gray-400">Generating new link makes the current link unusable.</p>
+              </div>
+
+              {/* Divider */}
+              <div className="border-t border-gray-100" />
+
+              {/* Send via email */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-gray-700">Send link via email</p>
+                {!signupToken && !tokenLoading && (
+                  <p className="text-xs text-amber-600">Generate a link first before sending.</p>
+                )}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="email"
+                    placeholder="recipient@example.com"
+                    value={sendLinkEmail}
+                    onChange={(e) => {
+                      setSendLinkEmail(e.target.value);
+                      setSendLinkStatus('idle');
+                      setSendLinkError(null);
+                    }}
+                    disabled={sendLinkStatus === 'sending'}
+                    className="flex-1 min-w-0 rounded-full border border-gray-300 bg-gray-50 px-4 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:border-[#558B2F] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#558B2F] disabled:opacity-50"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSendLink}
+                    disabled={!signupToken || !sendLinkEmail.trim() || sendLinkStatus === 'sending'}
+                    className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-[#558B2F] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#4a7a28] transition-colors disabled:opacity-50"
+                  >
+                    <Send size={12} />
+                    {sendLinkStatus === 'sending' ? 'Sending…' : 'Send'}
+                  </button>
+                </div>
+
+                {sendLinkStatus === 'sent' && (
+                  <p className="flex items-center gap-1.5 text-xs text-green-600">
+                    <CheckCircle2 size={13} />
+                    Link sent successfully.
+                  </p>
+                )}
+                {sendLinkStatus === 'error' && sendLinkError && (
+                  <p className="flex items-center gap-1.5 text-xs text-red-500">
+                    <AlertCircle size={13} />
+                    {sendLinkError}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 

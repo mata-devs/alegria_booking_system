@@ -20,9 +20,7 @@ import {
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { firebaseDb, firebaseStorage } from '@/app/lib/firebase';
 import { useAuth } from '@/app/context/AuthContext';
-
-const ACTIVITY_TAGS = ['Diving', 'Culture', 'Canyoneering', 'Beach', 'Museum', 'History'] as const;
-type ActivityTag = (typeof ACTIVITY_TAGS)[number];
+import { ACTIVITY_TAGS, type ActivityTag, type StoredActivityTag } from '@/app/lib/activity-tags';
 type PackageStatus = 'active' | 'disabled';
 
 const CEBU_MUNICIPALITIES = [
@@ -59,7 +57,7 @@ interface OperatorPackage {
   exclusions: string[];
   packageItinerary: ItineraryStep[];
   packageImages: string[];
-  packageTag: ActivityTag;
+  packageTag: StoredActivityTag;
   packageRating: number;
   status: PackageStatus;
   operatorId: string;
@@ -172,6 +170,56 @@ function MunicipalityCombobox({ value, onChange, error }: { value: string; onCha
             <li key={m} onMouseDown={(e) => { e.preventDefault(); select(m); }}
               className={`px-3 py-2 text-sm cursor-pointer hover:bg-green-50 hover:text-green-700 ${m === value ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-700'}`}>
               {m}
+            </li>
+          ))}
+        </ul>
+      )}
+      {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+    </div>
+  );
+}
+
+// ── Tag Combobox ────────────────────────────────────────────────
+
+function TagCombobox({ value, onChange, error }: { value: string; onChange: (v: string) => void; error?: string }) {
+  const [search, setSearch] = useState(value);
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { setSearch(value); }, [value]);
+
+  const suggestions = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return ACTIVITY_TAGS.filter((t) => t.toLowerCase().includes(q));
+  }, [search]);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const select = (t: string) => { onChange(t); setSearch(t); setOpen(false); };
+
+  return (
+    <div ref={containerRef} className="relative">
+      <input
+        type="text"
+        value={search}
+        onChange={(e) => { setSearch(e.target.value); onChange(''); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+        placeholder="Search tag…"
+        autoComplete="off"
+      />
+      {open && suggestions.length > 0 && (
+        <ul className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-y-auto max-h-[200px]">
+          {suggestions.map((t) => (
+            <li key={t} onMouseDown={(e) => { e.preventDefault(); select(t); }}
+              className={`px-3 py-2 text-sm cursor-pointer hover:bg-green-50 hover:text-green-700 ${t === value ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-700'}`}>
+              {t}
             </li>
           ))}
         </ul>
@@ -605,12 +653,7 @@ function AddPackageModal({ onClose, operatorId }: { onClose: () => void; operato
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">Package Tag</label>
-            <select value={form.packageTag} onChange={(e) => field('packageTag', e.target.value as ActivityTag)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 bg-white">
-              <option value="">Select a category</option>
-              {ACTIVITY_TAGS.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
-            </select>
-            {errors.packageTag && <p className="text-red-500 text-xs mt-1">{errors.packageTag}</p>}
+            <TagCombobox value={form.packageTag} onChange={(v) => field('packageTag', v as ActivityTag)} error={errors.packageTag} />
           </div>
 
           <div>
@@ -693,7 +736,7 @@ function EditPackageModal({ pkg, onClose, onDelete, operatorId }: { pkg: Operato
     pricePerPerson: String(pkg.pricePerPerson),
     packageLocation: pkg.packageLocation,
     duration: pkg.duration,
-    packageTag: pkg.packageTag,
+    packageTag: (ACTIVITY_TAGS as ReadonlyArray<string>).includes(pkg.packageTag) ? pkg.packageTag as ActivityTag : '',
     status: pkg.status,
     inclusions: pkg.inclusions,
     exclusions: pkg.exclusions,
@@ -845,12 +888,7 @@ function EditPackageModal({ pkg, onClose, onDelete, operatorId }: { pkg: Operato
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">Package Tag</label>
-            <select value={form.packageTag} onChange={(e) => field('packageTag', e.target.value as ActivityTag)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 bg-white">
-              <option value="">Select a category</option>
-              {ACTIVITY_TAGS.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
-            </select>
-            {errors.packageTag && <p className="text-red-500 text-xs mt-1">{errors.packageTag}</p>}
+            <TagCombobox value={form.packageTag} onChange={(v) => field('packageTag', v as ActivityTag)} error={errors.packageTag} />
           </div>
 
           <div>

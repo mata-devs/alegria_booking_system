@@ -71,6 +71,7 @@ tsconfig.tsbuildinfo
 playwright-report
 CLAUDE.original.md
 tests/e2e/
+functions/.secret.local
 
 
 
