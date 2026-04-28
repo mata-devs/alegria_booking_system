@@ -26,7 +26,7 @@ export default function Navbar() {
     <nav className="bg-white shadow-sm sticky top-0 z-50">
       <div className="w-full px-6 sm:px-10 lg:px-16 flex items-center justify-between h-20">
         <Link href="/" className="flex items-center" onClick={handleNavClick}>
-          <span className="text-green-500 text-2xl" style={{ fontFamily: "'Potta One', cursive" }}>SuroyCebu</span>
+          <span className="text-green-500 text-2xl" style={{ fontFamily: "'Potta One', cursive" }}>Visit Cebu</span>
         </Link>
 
         <div className="hidden md:flex items-center gap-10">

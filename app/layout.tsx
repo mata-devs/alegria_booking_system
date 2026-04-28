@@ -11,7 +11,7 @@ const poppins = Poppins({
 })
 
 export const metadata: Metadata = {
-  title: 'SuroyCebu',
+  title: 'Visit Cebu',
   description: 'Your Gateway to Tropical Adventure in Cebu, Philippines',
 }
 

@@ -66,7 +66,7 @@ export async function create(req: Request, res: Response) {
                 <h3 style="margin:0 0 10px;font-size:14px;text-transform:uppercase;color:#558B2F;letter-spacing:.05em">Booking Details</h3>
                 <table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:14px">
                   <tr>
-                    <td style="padding:6px 0;color:#6b7280;width:42%">Activity</td>
+                    <td style="padding:6px 0;color:#6b7280;width:42%">${payload.sourceType === "tourPackage" ? "Tour Package" : "Activity"}</td>
                     <td style="padding:6px 0;font-weight:600">${activityName}</td>
                   </tr>
                   <tr style="border-top:1px solid #f3f4f6">

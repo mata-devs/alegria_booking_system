@@ -66,7 +66,7 @@ const botReplies: { keywords: string[]; reply: string }[] = [
 function getBotReply(input: string): string {
   const lower = input.toLowerCase()
   const match = botReplies.find(({ keywords }) => keywords.some((kw) => lower.includes(kw)))
-  return match?.reply ?? "Great question! Contact us at hello@suroyCebu.com or call +63 912 345 6789 for specific inquiries. 😊"
+  return match?.reply ?? "Great question! Contact us at hello@visitcebu.com or call +63 912 345 6789 for specific inquiries. 😊"
 }
 
 function TourPackageDetailInner() {
@@ -89,7 +89,7 @@ function TourPackageDetailInner() {
   const [chatOpen, setChatOpen] = useState(false)
   const [chatInput, setChatInput] = useState('')
   const [messages, setMessages] = useState<{ from: 'user' | 'bot'; text: string }[]>([
-    { from: 'bot', text: "Hi! I'm your SuroyCebu assistant 🌿 Ask me anything about this tour package — pricing, what's included, how to book, and more!" }
+    { from: 'bot', text: "Hi! I'm your Visit Cebu assistant 🌿 Ask me anything about this tour package — pricing, what's included, how to book, and more!" }
   ])
   const chatEndRef = useRef<HTMLDivElement>(null)
   const chipsRef = useRef<HTMLDivElement>(null)
@@ -476,7 +476,7 @@ function TourPackageDetailInner() {
                 </svg>
               </div>
               <div className="flex-1">
-                <p className="text-white font-semibold text-sm">SuroyCebu Assistant</p>
+                <p className="text-white font-semibold text-sm">Visit Cebu Assistant</p>
                 <div className="flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-green-300 animate-pulse" />
                   <p className="text-white/70 text-xs">Online</p>

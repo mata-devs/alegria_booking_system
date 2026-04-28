@@ -5,7 +5,7 @@ export default function Footer() {
     <footer className="bg-[#0d3320] text-white pt-14 pb-8">
       <div className="w-full px-10 lg:px-20 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-16">
         <div>
-          <h3 className="text-xl font-bold text-white mb-3">SuroyCebu</h3>
+          <h3 className="text-xl font-bold text-white mb-3">Visit Cebu</h3>
           <p className="text-sm text-green-200/70 leading-relaxed mb-5">
             Showcasing the natural wonders of Cebu through sustainable and curated travel experiences.
           </p>
@@ -66,7 +66,7 @@ export default function Footer() {
       </div>
 
       <div className="w-full px-10 lg:px-20 mt-10 pt-6 border-t border-green-900 text-center text-xs text-green-200/50">
-        © {new Date().getFullYear()} SuroyCebu. All rights reserved.
+        © {new Date().getFullYear()} Visit Cebu. All rights reserved.
       </div>
     </footer>
   )

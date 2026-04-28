@@ -1334,7 +1334,7 @@ export default function OperatorTourPackagesPage() {
             <div className="text-sm text-gray-400 py-16 text-center">No packages match your filters.</div>
           )
         ) : viewMode === 'card' ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
+          <div className="grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(160px,280px))]">
             {filtered.map((pkg) => (
               <OperatorPackageCard key={pkg.id} pkg={pkg} onViewDetails={setDetailPackage} />
             ))}

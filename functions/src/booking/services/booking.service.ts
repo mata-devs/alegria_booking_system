@@ -474,6 +474,8 @@ export async function createBooking(data: CreateBookingInput) {
           guests: data.guests,
           specialRequests: data.specialRequests ?? "",
           activityId: data.activityId,
+          activityName: sourceDisplayName ?? data.activityId,
+          sourceType: data.sourceType ?? "activity",
           timeSlotId,
           timeSlot: data.timeSlot,
           tourDate: tourDateTs,
@@ -681,9 +683,18 @@ export async function confirmPayment(bookingId: string) {
             <!-- Booking Details -->
             <h3 style="margin:0 0 10px;font-size:13px;text-transform:uppercase;color:#558B2F;letter-spacing:.05em">Booking Details</h3>
             <table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:14px">
+              ${booking.activityName ? `
               <tr>
+                <td style="padding:6px 0;color:#6b7280;width:42%">${booking.sourceType === "tourPackage" ? "Tour Package" : "Activity"}</td>
+                <td style="padding:6px 0;font-weight:600">${booking.activityName}</td>
+              </tr>` : ""}
+              <tr style="${booking.activityName ? "border-top:1px solid #f3f4f6" : ""}">
                 <td style="padding:6px 0;color:#6b7280;width:42%">Tour Date</td>
                 <td style="padding:6px 0;font-weight:600">${tourDateFormatted}</td>
+              </tr>
+              <tr style="border-top:1px solid #f3f4f6">
+                <td style="padding:6px 0;color:#6b7280">Guests</td>
+                <td style="padding:6px 0">${booking.numberOfGuests ?? "—"}</td>
               </tr>
               <tr style="border-top:1px solid #f3f4f6">
                 <td style="padding:6px 0;color:#6b7280">Payment Method</td>
@@ -709,7 +720,7 @@ export async function confirmPayment(bookingId: string) {
             ${Array.isArray(booking.guests) && booking.guests.length > 0 ? `
             <h3 style="margin:0 0 10px;font-size:13px;text-transform:uppercase;color:#558B2F;letter-spacing:.05em">Additional Guests (${booking.guests.length})</h3>
             <table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:14px">
-              ${(booking.guests as any[]).map((g: any, i: number) => `
+              ${(booking.guests as { fullName: string; age: number; gender: string; nationality: string }[]).map((g, i: number) => `
               <tr style="${i > 0 ? "border-top:1px solid #f3f4f6" : ""}">
                 <td style="padding:5px 0;color:#6b7280;width:42%">Guest ${i + 1}</td>
                 <td style="padding:5px 0">${g.fullName} · ${g.age} yrs · ${g.gender} · ${g.nationality}</td>
