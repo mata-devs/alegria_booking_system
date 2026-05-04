@@ -49,7 +49,7 @@ firebase-export-*/
 emulator-seed/
 
 # AI / Agent tooling
-CLAUDE.md
+CLAUDE.local.md
 AGENTS.md
 GEMINI.md
 .junie/
@@ -72,6 +72,8 @@ playwright-report
 CLAUDE.original.md
 tests/e2e/
 functions/.env
+graphify-out
+tests
 
 
 

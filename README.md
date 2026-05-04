@@ -93,7 +93,9 @@ app/
 │   ├── layout.tsx                       # Guest layout (Navbar + Footer)
 │   ├── page.tsx                         # Landing page (hero slideshow, carousels)
 │   ├── activities/
-│   │   └── page.tsx                     # Filterable activity grid
+│   │   ├── page.tsx                     # Filterable activity grid
+│   │   └── [activityId]/
+│   │       └── page.tsx                 # Activity detail page
 │   ├── locations/
 │   │   ├── page.tsx                     # Location grid with search
 │   │   └── [municipalityId]/
@@ -104,9 +106,20 @@ app/
 │   │       └── page.tsx                 # Package detail, itinerary, guides, chatbot
 │   └── booking/
 │       ├── guest-info/
-│       │   └── page.tsx                 # Guest info form + payment method select
+│       │   ├── page.tsx                 # Guest info form + payment method select
+│       │   └── _components/
+│       │       ├── BookingSidebar.tsx   # Sticky package/price summary sidebar
+│       │       ├── CountryDropdown.tsx  # Country + phone-prefix picker
+│       │       ├── FormActions.tsx      # Bottom Go Back / Next nav
+│       │       ├── GuestsList.tsx       # Per-guest fields list
+│       │       ├── RepresentativeForm.tsx # Lead-guest form
+│       │       └── TourOperatorDropdown.tsx # Operator selector
 │       ├── payment/
-│       │   └── page.tsx                 # GCash QR code, instructions, file upload
+│       │   ├── page.tsx                 # GCash QR code, instructions, file upload
+│       │   └── _components/
+│       │       ├── BookingSummary.tsx   # Price + booking recap
+│       │       ├── PaymentInstructions.tsx # GCash step-by-step
+│       │       └── UploadPayment.tsx    # Drag & drop receipt uploader
 │       └── confirmation/
 │           └── page.tsx                 # Reservation received screen with booking ID
 │
@@ -118,7 +131,7 @@ app/
 │       │   ├── page.tsx
 │       │   ├── calendar.tsx             # Week-view calendar component
 │       │   ├── list.tsx                 # Booking request list
-│       │   ├── details.tsx             # Booking detail modal
+│       │   ├── details.tsx              # Booking detail modal
 │       │   └── modalfilter.tsx
 │       ├── history/                     # Past booking history with filters
 │       │   ├── page.tsx
@@ -126,16 +139,21 @@ app/
 │       │   ├── details.tsx
 │       │   └── modalfilter.tsx
 │       ├── analytics/                   # Revenue, booking, and promo charts
-│       │   ├── page.tsx
+│       │   ├── page.tsx                 # Dashboard shell with KPI cards inline
+│       │   ├── loading.tsx              # Skeleton loader
 │       │   ├── filter.tsx
 │       │   ├── linechart.tsx            # Bookings trend (dynamic Y-axis)
 │       │   ├── barchart.tsx             # Age distribution
 │       │   ├── barcharty.tsx            # Affiliated entities horizontal bar
 │       │   ├── piechart.tsx             # Tourist nationalities
 │       │   ├── piechart2.tsx            # Promo code usage
-│       │   ├── payment.tsx              # Payment methods
-│       │   ├── total.tsx                # Total bookings KPI card
-│       │   └── revenue.tsx              # Gross / net revenue KPI card
+│       │   └── payment.tsx              # Payment methods
+│       ├── activities/
+│       │   └── page.tsx                 # Operator-managed activities CRUD
+│       ├── tour-packages/
+│       │   └── page.tsx                 # Operator-managed tour packages CRUD
+│       ├── voucher-codes/
+│       │   └── page.tsx                 # Operator promo / voucher codes
 │       ├── settings/                    # Operator profile settings
 │       │   └── page.tsx
 │       └── _components/
@@ -176,6 +194,17 @@ app/
 ├── login/
 │   └── page.tsx                         # Unified login page (guest / operator / admin)
 │
+├── operator-signup/
+│   └── page.tsx                         # Operator signup form (token-validated invite)
+│
+├── reset-password/
+│   ├── page.tsx                         # Password reset entry
+│   └── ResetPasswordClient.tsx          # Client-side reset flow
+│
+├── api/
+│   └── payment-image/
+│       └── route.ts                     # Proxy + allow-list for Firebase Storage receipt images
+│
 ├── components/
 │   ├── Navbar.tsx                       # Logo + nav links (guest layout)
 │   ├── Footer.tsx                       # Dark green footer
@@ -188,10 +217,16 @@ app/
 │   │   ├── LoginPanel.tsx               # Email/password login panel
 │   │   └── ResetPasswordPanel.tsx       # Password reset panel
 │   ├── ui/
-│   │   └── Skeleton.tsx                 # Reusable skeleton loader component
+│   │   ├── Skeleton.tsx                 # Reusable skeleton loader component
+│   │   ├── BentoGallery.tsx             # Bento-grid image gallery
+│   │   ├── PackageCard.tsx              # Reusable tour package card
+│   │   ├── ToggleSwitch.tsx             # Toggle switch primitive
+│   │   └── drawer.tsx                   # Slide-out drawer primitive
+│   ├── auth/
+│   │   └── types.ts                     # Auth panel shared types
 │   ├── (operator)/
 │   │   ├── OperatorSidebar.tsx          # Operator nav sidebar
-│   │   └── RoleGuard.tsx               # Role-based route protection
+│   │   └── RoleGuard.tsx                # Role-based route protection
 │   └── (admin)/
 │       └── SuperAdminSidebar.tsx        # Super-admin nav sidebar
 │
@@ -200,13 +235,16 @@ app/
 │   └── BookingContext.tsx               # Booking flow state (BookingProvider + useBooking)
 │
 ├── hooks/
-│   └── useOperatorBookings.ts           # Firestore booking stream for operators
+│   ├── useOperatorBookings.ts           # Firestore booking stream for operators
+│   └── useSessionStorage.ts             # Type-safe sessionStorage hook
 │
 ├── lib/
 │   ├── firebase.ts                      # Firebase client SDK init + exports
 │   ├── types.ts                         # UserRole, UserStatus, UserProfile types
 │   ├── schema.ts                        # Firestore schema constants
 │   ├── analytics-service.ts             # Analytics data fetch + sample dashboard
+│   ├── booking-service.ts               # Client-side booking helpers (payment status, operator info)
+│   ├── activity-tags.ts                 # Activity tag taxonomy
 │   └── utils.ts                         # cn() utility (clsx + tailwind-merge)
 │
 └── data/
@@ -216,11 +254,13 @@ functions/src/
 ├── index.ts                             # Entry point — re-exports all Cloud Functions
 ├── shared/
 │   ├── firebase.ts                      # Admin SDK init (guarded), db/auth/bucket exports
-│   └── helpers.ts                       # assertSuperAdmin, generateOperatorId, copyFile, extractPathFromUrl
+│   ├── helpers.ts                       # assertSuperAdmin, generateOperatorId, copyFile, extractPathFromUrl
+│   └── mailer.ts                        # Nodemailer transporter + from-address resolver
 ├── operator/
 │   ├── syncAuthStatus.ts                # Firestore trigger — sync operator auth disabled flag
 │   ├── approveSignup.ts                 # onCall — approve operator signup, create Auth user
-│   └── declineSignup.ts                 # onCall — decline operator signup
+│   ├── declineSignup.ts                 # onCall — decline operator signup
+│   └── sendSignupLink.ts                # onCall — email a tokenised signup link
 └── booking/
     ├── api.http.ts                      # onRequest wrapper (asia-southeast1)
     ├── app.ts                           # Express app — CORS, App Check middleware
@@ -241,6 +281,7 @@ functions/src/
 | `/locations` | LocationsPage | Browse and search all Cebu locations |
 | `/locations/[municipalityId]` | MunicipalityView | Activities for a specific location |
 | `/activities` | ActivitiesPage | All activities with filter chips |
+| `/activities/[activityId]` | ActivityDetail | Single-activity detail page |
 | `/tour-packages` | TourPackagesPage | All tour packages with filter chips |
 | `/tour-packages/[packageId]` | TourPackageDetail | Package detail, itinerary, guides, chatbot |
 | `/booking/guest-info` | GuestInfoForm | Guest details + payment method selection |
@@ -255,6 +296,9 @@ functions/src/
 | `/operator/bookings` | Live booking management (week-view calendar + request list) |
 | `/operator/history` | Past booking history with search and filters |
 | `/operator/analytics` | Revenue, booking trend, age, nationality, promo, payment charts |
+| `/operator/activities` | Operator-managed activities CRUD |
+| `/operator/tour-packages` | Operator-managed tour packages CRUD |
+| `/operator/voucher-codes` | Operator promo / voucher code management |
 | `/operator/settings` | Operator profile |
 
 ### Super-Admin
@@ -273,6 +317,14 @@ functions/src/
 | Route | Description |
 |-------|-------------|
 | `/login` | Unified login (routes to operator or admin portal by role) |
+| `/operator-signup` | Token-validated operator signup form |
+| `/reset-password` | Password reset flow |
+
+### API Routes
+
+| Route | Description |
+|-------|-------------|
+| `/api/payment-image` | Allow-listed proxy for Firebase Storage receipt images |
 
 ---
 
