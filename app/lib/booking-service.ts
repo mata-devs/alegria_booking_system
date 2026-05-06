@@ -1,3 +1,5 @@
+import { firebaseAuth } from "@/app/lib/firebase";
+
 const API_URL =
     process.env.NEXT_PUBLIC_FUNCTIONS_BASE_URL ||
     "http://localhost:5001/alegria-booking-system/asia-southeast1/api";
@@ -53,4 +55,22 @@ export const createBooking = async (payload: BookingPayload) => {
     const data = await res.json();
     if (!res.ok) throw new Error(data?.error || "Failed to create booking");
     return data as { bookingId: string };
+};
+
+export const checkInBooking = async (bookingId: string, token: string) => {
+    const user = firebaseAuth.currentUser;
+    if (!user) throw new Error("Authentication required.");
+    const idToken = await user.getIdToken();
+
+    const res = await fetch(`${API_URL}/operator/bookings/${bookingId}/check-in`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ token }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.error || "Failed to check in booking");
+    return data as { bookingId: string; status: string; tourStartedAt: number };
 };

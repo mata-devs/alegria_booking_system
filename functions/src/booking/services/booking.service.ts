@@ -14,6 +14,7 @@ const PAYMENT_HOLD_MINUTES = 24 * 60; // 24 hours for operator review
 const BOOKING_ID_LENGTH = 6;
 const BOOKING_ID_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 const BOOKING_ID_MAX_ATTEMPTS = 5;
+const TOKEN_HEX_BYTES = 12; // 24-char hex token
 
 export type TimeSlot = "AM" | "PM";
 export type PaymentMethod = "Gcash / Maya" | "BDO" | "BPI";
@@ -306,6 +307,10 @@ function generateBookingCode(length = BOOKING_ID_LENGTH): string {
   return code;
 }
 
+function generateHexToken(bytes = TOKEN_HEX_BYTES): string {
+  return Buffer.from(Array.from({ length: bytes }, () => Math.floor(Math.random() * 256))).toString("hex");
+}
+
 function isAlreadyExistsError(error: unknown): boolean {
   const err = error as { code?: number | string; message?: string };
   return (
@@ -441,6 +446,8 @@ export async function createBooking(data: CreateBookingInput) {
 
   const paymentRef = db.collection("payments").doc();
   const paymentDocId = paymentRef.id;
+  const checkInToken = generateHexToken();
+  const reviewToken = generateHexToken();
 
   const nowMs = Date.now();
   const paymentExpiresAtTs = Timestamp.fromMillis(
@@ -488,6 +495,12 @@ export async function createBooking(data: CreateBookingInput) {
           idempotencyKey: data.idempotencyKey ?? null,
           ...pricing,
           receiptUrl: receiptUpload.receiptUrl,
+          checkInToken,
+          reviewToken,
+          reviewSentAt: null,
+          reviewSubmittedAt: null,
+          tourStartedAt: null,
+          durationMinutes: null,
           paymentStatus: "pending",
           paymentExpiresAt: paymentExpiresAtTs,
           paymentId: paymentDocId,
@@ -655,7 +668,11 @@ export async function confirmPayment(bookingId: string) {
     const fmt = (n: number) =>
       `₱${Number(n).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-    const qrBuffer = await QRCode.toBuffer(bookingId, { width: 220, margin: 2 });
+    const qrPayload = JSON.stringify({
+      bookingId,
+      token: booking.checkInToken ?? null,
+    });
+    const qrBuffer = await QRCode.toBuffer(qrPayload, { width: 220, margin: 2 });
 
     await createTransporter().sendMail({
       from: getFromAddress(),
