@@ -7,6 +7,7 @@ import { X, Printer } from 'lucide-react';
 export type BookingStatus =
     | 'Pending'
     | 'Confirmed'
+    | 'In Progress'
     | 'Complete'
     | 'Cancelled';
 
@@ -46,6 +47,7 @@ export type Booking = {
   status: BookingStatus;
   paymentStatus: PaymentStatus;
   uploads: UploadedFile[];
+  checkInToken?: string;
 };
 
 function peso(n: number) {
@@ -71,12 +73,14 @@ interface BookingDetailsCardProps {
   booking?: Booking;
   onClose?: () => void;
   onPaymentStatusChange?: (bookingId: string, newStatus: PaymentStatus) => void | Promise<void>;
+  onMarkTourStarted?: (bookingId: string, token: string) => void | Promise<void>;
 }
 
 export default function BookingDetailsCard({
                                              booking,
                                              onClose,
                                              onPaymentStatusChange,
+                                             onMarkTourStarted,
                                            }: BookingDetailsCardProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const printSheetRef = useRef<HTMLDivElement | null>(null);
@@ -87,6 +91,7 @@ export default function BookingDetailsCard({
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<PaymentStatus | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
+  const [isStartingTour, setIsStartingTour] = useState(false);
 
   useEffect(() => {
     if (!booking) return;
@@ -468,6 +473,27 @@ export default function BookingDetailsCard({
                 <span className="pointer-events-none absolute right-3 text-neutral-400">▾</span>
               </div>
             </div>
+
+            {booking.status === 'Confirmed' && booking.checkInToken && (
+              <div className="mt-3 flex justify-center">
+                <button
+                  type="button"
+                  disabled={isStartingTour}
+                  onClick={async () => {
+                    if (!booking.checkInToken) return;
+                    setIsStartingTour(true);
+                    try {
+                      await onMarkTourStarted?.(booking.id, booking.checkInToken);
+                    } finally {
+                      setIsStartingTour(false);
+                    }
+                  }}
+                  className="rounded-lg bg-[#558B2F] px-4 py-2 text-xs font-semibold text-white hover:bg-[#4a7a28] disabled:opacity-60"
+                >
+                  {isStartingTour ? 'Starting tour...' : 'Mark Tour Started'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

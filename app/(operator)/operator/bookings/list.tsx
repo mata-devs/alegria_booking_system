@@ -5,6 +5,7 @@ import type { Booking } from '@/app/(operator)/operator/bookings/details';
 type BookingStatus =
   | 'Pending'
   | 'Confirmed'
+  | 'In Progress'
   | 'Complete'
   | 'Cancelled';
 
@@ -14,6 +15,7 @@ const statusStyles: Record<
 > = {
   Pending: { dot: 'bg-yellow-300', text: 'text-yellow-700' },
   Confirmed: { dot: 'bg-green-500', text: 'text-green-700' },
+  'In Progress': { dot: 'bg-orange-500', text: 'text-orange-700' },
   Complete: { dot: 'bg-blue-500', text: 'text-blue-700' },
   Cancelled: { dot: 'bg-red-500', text: 'text-red-700' },
 };
@@ -38,6 +40,7 @@ export default function BookingRequestsPanel({
   query,
   setQuery,
   onOpenFilters,
+  title = 'Booking Requests',
 }: {
   bookings: Booking[];
   onSelect?: (id: string) => void;
@@ -47,6 +50,7 @@ export default function BookingRequestsPanel({
   query: string;
   setQuery: (v: string) => void;
   onOpenFilters?: () => void;
+  title?: string;
 }) {
   const newBookings24h = 12;
   const totalRequests = 30;
@@ -71,7 +75,7 @@ export default function BookingRequestsPanel({
       <div className="rounded-lg border border-gray-200 bg-white p-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Booking Requests</h2>
+            <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
             <p className="text-xs text-gray-500">
               {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </p>

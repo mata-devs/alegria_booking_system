@@ -14,6 +14,7 @@ import {
   Package,
   Zap,
   Ticket,
+  QrCode,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -39,6 +40,7 @@ const NAV_ITEMS = [
   { label: 'Analytics', href: '/operator/analytics', icon: BarChart3 },
   { label: 'Tour\nPackages', href: '/operator/tour-packages', icon: Package },
   { label: 'Activities', href: '/operator/activities', icon: Zap },
+  { label: 'QR\nScanner', href: '/operator/bookings/scanner', icon: QrCode },
   { label: 'Voucher\nCodes', href: '/operator/voucher-codes', icon: Ticket },
 ];
 

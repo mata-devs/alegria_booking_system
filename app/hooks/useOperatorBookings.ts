@@ -43,6 +43,10 @@ export interface FirestoreBooking {
   paymentId: string;
   paymentExpiresAt: Timestamp;
   receiptUrl: string;
+  checkInToken?: string;
+  reviewToken?: string;
+  tourStartedAt?: Timestamp | null;
+  durationMinutes?: number | null;
   promoCode: string | null;
   pricePerGuest: number;
   baseAmount: number;

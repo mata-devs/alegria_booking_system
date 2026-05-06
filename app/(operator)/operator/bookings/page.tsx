@@ -2,73 +2,20 @@
 
 import React, { useMemo, useState } from 'react';
 import BookingRequestsPanel from '@/app/(operator)/operator/bookings/list';
-import BookingDetailsCard, { type Booking, type BookingStatus, type PaymentStatus } from '@/app/(operator)/operator/bookings/details';
+import BookingDetailsCard, {
+  type Booking,
+  type PaymentStatus,
+} from '@/app/(operator)/operator/bookings/details';
 import CalendarAvailability from '@/app/(operator)/operator/bookings/calendar';
 import FilterModal, {
   createEmptyFilters,
   type BookingFilters,
   type Status,
-} from '@/app/(operator)/operator/bookings/modalfilter';import { useOperatorBookings, type FirestoreBooking } from '@/app/hooks/useOperatorBookings';
+} from '@/app/(operator)/operator/bookings/modalfilter';
+import { useOperatorBookings } from '@/app/hooks/useOperatorBookings';
 import { useAuth } from '@/app/context/AuthContext';
-import { confirmBookingPayment } from '@/app/lib/booking-service';
-
-/* ── Map Firestore document → UI Booking type ─────────────── */
-
-function firestoreToBooking(doc: FirestoreBooking): Booking {
-  const tourDate = doc.tourDate?.toDate?.();
-  const createdAt = doc.createdAt?.toDate?.();
-
-  const scheduleLabel = tourDate
-    ? `${tourDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}  ${doc.timeSlot === 'AM' ? '8 AM' : '1 PM'}`
-    : '—';
-
-  const requestDate = createdAt
-    ? createdAt.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' })
-    : '—';
-
-  const statusMap: Record<string, BookingStatus> = {
-    reserved: 'Pending',
-    pending: 'Pending',
-    paid: 'Confirmed',
-    confirmed: 'Confirmed',
-    completed: 'Complete',
-    cancelled: 'Cancelled',
-  };
-
-  const paymentStatusMap: Record<string, PaymentStatus> = {
-    pending: 'Pending',
-    paid: 'Paid',
-    expired: 'Expired',
-  };
-
-  return {
-    id: doc.bookingId,
-    bookingIdLabel: doc.bookingId,
-    scheduleLabel,
-    requestDate,
-    representative: {
-      name: doc.representative.fullName,
-      age: doc.representative.age,
-      gender: doc.representative.gender,
-      email: doc.representative.email,
-      mobile: doc.representative.phoneNumber,
-    },
-    otherGuests: doc.guests.map((g) => ({
-      name: g.fullName,
-      age: g.age,
-      gender: g.gender,
-    })),
-    payment: {
-      pricePerPerson: doc.pricePerGuest,
-      qty: doc.numberOfGuests,
-      serviceCharge: doc.serviceCharge,
-      option: doc.paymentMethod,
-    },
-    status: statusMap[doc.status] ?? 'Pending',
-    paymentStatus: paymentStatusMap[doc.paymentStatus] ?? 'Pending',
-    uploads: doc.receiptUrl ? [{ id: 'receipt', name: 'Payment Receipt', url: doc.receiptUrl }] : [],
-  };
-}
+import { checkInBooking, confirmBookingPayment } from '@/app/lib/booking-service';
+import { firestoreToBooking } from '@/app/lib/firestoreToBooking';
 
 export default function Page() {
   const { authState } = useAuth();
@@ -101,6 +48,14 @@ export default function Page() {
       } catch (err) {
         console.error('Failed to confirm booking payment:', err);
       }
+    }
+  };
+
+  const handleMarkTourStarted = async (bookingId: string, token: string) => {
+    try {
+      await checkInBooking(bookingId, token);
+    } catch (err) {
+      console.error('Failed to mark booking in progress:', err);
     }
   };
 
@@ -186,6 +141,7 @@ export default function Page() {
           booking={selectedBooking}
           onClose={selectedBooking ? () => setSelectedId(undefined) : undefined}
           onPaymentStatusChange={handlePaymentStatusChange}
+          onMarkTourStarted={handleMarkTourStarted}
         />
         <CalendarAvailability bookings={firestoreBookings} />
       </div>
@@ -206,6 +162,7 @@ export default function Page() {
             <BookingDetailsCard
               booking={selectedBooking}
               onClose={() => setSelectedId(undefined)}
+              onMarkTourStarted={handleMarkTourStarted}
             />
           </div>
         </div>
