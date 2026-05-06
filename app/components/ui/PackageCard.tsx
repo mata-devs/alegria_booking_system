@@ -2,7 +2,50 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
+import { Layers, Sparkle, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
+
+/** Guest hint: single-spot vs bundled itinerary (icon + tooltip top-right). */
+export type PackageCardKind = 'activity' | 'tourPackage'
+
+const CARD_KIND_COPY: Record<
+  PackageCardKind,
+  { label: string; Icon: LucideIcon; tip: string }
+> = {
+  activity: {
+    label: 'Activity',
+    Icon: Sparkle,
+    tip: 'Unique experience booking',
+  },
+  tourPackage: {
+    label: 'Tour package',
+    Icon: Layers,
+    tip: 'Curated Multi-Destination Itineraries',
+  },
+}
+
+function CardKindHint({ kind }: { kind: PackageCardKind }) {
+  const { label, Icon, tip } = CARD_KIND_COPY[kind]
+  return (
+    <span className="group/kind relative z-20 inline-flex">
+      <button
+        type="button"
+        className="inline-flex h-8 w-8 cursor-default items-center justify-center rounded-full bg-black/45 text-white shadow-sm ring-1 ring-white/30 backdrop-blur-sm transition-colors hover:bg-black/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+        title={tip}
+        aria-label={`${label}: ${tip}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Icon className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
+      </button>
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute right-0 top-full z-30 mt-1.5 hidden w-[13.5rem] rounded-lg bg-gray-950 px-2.5 py-2 text-left text-[11px] font-normal leading-snug text-white opacity-0 shadow-lg ring-1 ring-white/10 transition-opacity duration-150 sm:block sm:group-hover/kind:opacity-100 sm:group-focus-within/kind:opacity-100"
+      >
+        {tip}
+      </span>
+    </span>
+  )
+}
 
 const STAR_PATH = "M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
 
@@ -53,6 +96,8 @@ export interface PackageCardProps {
   href?: string
   onClick?: () => void
   topRightAction?: ReactNode
+  /** Shows type hint icon (guest listings). */
+  cardKind?: PackageCardKind
   wide?: boolean
   className?: string
 }
@@ -75,6 +120,7 @@ export default function PackageCard({
   href,
   onClick,
   topRightAction,
+  cardKind,
   wide = false,
   className = '',
 }: PackageCardProps) {
@@ -87,7 +133,7 @@ export default function PackageCard({
       // Height: aspect-[3/4]  — change ratio (e.g. aspect-[4/5], aspect-square) to resize height
       // Wide variant (homepage horizontal cards): h-52 — change to resize that variant
       // ───────────────────────────────────────────────────────────────────────
-      className={`relative rounded-2xl overflow-hidden group ${wide ? 'h-52' : 'sm:max-w-[280px] aspect-[3/4]'} ${isInteractive ? 'cursor-pointer' : ''} ${className}`}
+      className={`relative rounded-2xl overflow-hidden group ${wide ? 'h-52' : 'w-full min-w-0 aspect-[3/4]'} ${isInteractive ? 'cursor-pointer' : ''} ${className}`}
       onClick={onClick}
     >
       <Image
@@ -113,9 +159,12 @@ export default function PackageCard({
         </div>
       )}
 
-      {/* Top-right action slot */}
-      {topRightAction && (
-        <div className="absolute top-3 right-3">{topRightAction}</div>
+      {/* Top-right: type hint + optional custom action */}
+      {(cardKind || topRightAction) && (
+        <div className="absolute top-3 right-3 z-20 flex flex-col items-end gap-1.5">
+          {cardKind ? <CardKindHint kind={cardKind} /> : null}
+          {topRightAction}
+        </div>
       )}
 
       {/* Bottom content — p-3 on mobile, p-5 on sm+ */}
@@ -204,7 +253,7 @@ export default function PackageCard({
 
   if (href) {
     return (
-      <Link href={href} className="block">
+      <Link href={href} className="block w-full min-w-0">
         {card}
       </Link>
     )

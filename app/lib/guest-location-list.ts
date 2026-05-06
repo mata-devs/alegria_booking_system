@@ -1,0 +1,49 @@
+import type { DocumentData, QuerySnapshot } from 'firebase/firestore'
+import type { Location } from '@/app/types'
+
+export function municipalitySlug(name: string): string {
+  return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+}
+
+export function countByActivityLocation(snap: QuerySnapshot<DocumentData>): Map<string, number> {
+  const m = new Map<string, number>()
+  for (const d of snap.docs) {
+    const loc = (d.data().activityLocation as string)?.trim()
+    if (!loc) continue
+    m.set(loc, (m.get(loc) ?? 0) + 1)
+  }
+  return m
+}
+
+export function countByPackageLocation(snap: QuerySnapshot<DocumentData>): Map<string, number> {
+  const m = new Map<string, number>()
+  for (const d of snap.docs) {
+    const loc = (d.data().packageLocation as string)?.trim()
+    if (!loc) continue
+    m.set(loc, (m.get(loc) ?? 0) + 1)
+  }
+  return m
+}
+
+/** Municipalities with ≥1 active activity and/or ≥1 active tour package (guest-facing). */
+export function mergeGuestLocations(
+  activityByMuni: Map<string, number>,
+  packageByMuni: Map<string, number>,
+): Location[] {
+  const names = new Set([...activityByMuni.keys(), ...packageByMuni.keys()])
+  const next: Location[] = []
+  for (const name of names) {
+    const ac = activityByMuni.get(name) ?? 0
+    const pc = packageByMuni.get(name) ?? 0
+    if (ac < 1 && pc < 1) continue
+    next.push({
+      id: municipalitySlug(name),
+      name,
+      activityCount: ac,
+      packageCount: pc,
+      image: `https://picsum.photos/seed/${encodeURIComponent(name)}/400/300`,
+    })
+  }
+  next.sort((a, b) => a.name.localeCompare(b.name))
+  return next
+}

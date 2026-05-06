@@ -32,6 +32,7 @@ export default function ActivityCard({ activity, date, travelers }: Props) {
       tag={activity.category}
       location={activity.location}
       rating={activity.rating}
+      cardKind="activity"
       onClick={handleClick}
     />
   )

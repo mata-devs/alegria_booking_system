@@ -10,6 +10,7 @@ import PackageCard from '@/app/components/ui/PackageCard'
 import { useSearchParams } from 'next/navigation'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
+import { CategoryFilterCollapsible } from '@/app/components/CategoryFilterCollapsible'
 import { ACTIVITY_TAGS } from '@/app/lib/activity-tags'
 import type { Activity } from '@/app/types'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/app/components/ui/drawer'
@@ -32,6 +33,7 @@ function ActivitiesContent() {
   const [activities, setActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
   const [searchDrawerOpen, setSearchDrawerOpen] = useState(false)
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false)
   const [popularPackages, setPopularPackages] = useState<{
     id: string; packageName: string; packageDescription: string;
     pricePerPerson: number; packageLocation: string; duration: string;
@@ -147,10 +149,26 @@ function ActivitiesContent() {
       </Drawer>
 
       <div className="max-w-7xl mx-auto w-full px-6 lg:px-8 py-4">
-        <div className="flex items-center gap-2 flex-wrap">
+        <CategoryFilterCollapsible
+          expanded={filterPanelOpen}
+          onToggle={() => setFilterPanelOpen((o) => !o)}
+          activeSummary={activeFilter}
+        >
+          <button
+            type="button"
+            onClick={() => setActiveFilter(null)}
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors border ${
+              activeFilter === null
+                ? 'bg-green-500 text-white border-green-500'
+                : 'border-gray-300 text-gray-600 hover:border-green-400 hover:text-green-600'
+            }`}
+          >
+            All
+          </button>
           {ACTIVITY_TAGS.map((cat) => (
             <button
               key={cat}
+              type="button"
               onClick={() => setActiveFilter(activeFilter === cat ? null : cat)}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                 activeFilter === cat
@@ -161,7 +179,7 @@ function ActivitiesContent() {
               {cat}
             </button>
           ))}
-        </div>
+        </CategoryFilterCollapsible>
       </div>
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 lg:px-8 pb-16">
@@ -170,7 +188,7 @@ function ActivitiesContent() {
         ) : filtered.length === 0 ? (
           <div className="py-16 text-center text-sm text-gray-400">No activities available.</div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-5 mb-8 items-stretch">
             {visible.map((act) => (
               <ActivityCard key={act.id} activity={act} date={searchDate} travelers={searchTravelers} />
             ))}
@@ -213,6 +231,7 @@ function ActivitiesContent() {
                 tag={pkg.packageTag}
                 duration={pkg.duration}
                 rating={pkg.packageRating}
+                cardKind="tourPackage"
                 href={`/tour-packages/${pkg.slug}`}
                 wide
               />

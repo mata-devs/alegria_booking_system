@@ -2,6 +2,8 @@ export interface Location {
   id: string
   name: string
   activityCount: number
+  /** Present when list built from Firestore (guest locations grid). */
+  packageCount?: number
   image: string
 }
 

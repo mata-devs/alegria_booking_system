@@ -1,12 +1,20 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
+import { collection, getDocs, query, where as firestoreWhere } from 'firebase/firestore'
 import Footer from '@/app/components/Footer'
-import { locations, travelerReviews } from '@/app/data/mockData'
-import type { TravelerReview } from '@/app/types'
+import { LocationOfferCounts } from '@/app/components/LocationOfferCounts'
+import { firebaseDb } from '@/app/lib/firebase'
+import {
+  countByActivityLocation,
+  countByPackageLocation,
+  mergeGuestLocations,
+} from '@/app/lib/guest-location-list'
+import { travelerReviews } from '@/app/data/mockData'
+import type { Location, TravelerReview } from '@/app/types'
 
 const INITIAL_COUNT = 10
 
@@ -42,7 +50,29 @@ function ReviewCard({ review }: { review: TravelerReview }) {
 export default function LocationsPage() {
   const [search, setSearch] = useState('')
   const [visibleCount, setVisibleCount] = useState(INITIAL_COUNT)
+  const [locations, setLocations] = useState<Location[]>([])
+  const [listLoading, setListLoading] = useState(true)
   const router = useRouter()
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const [actSnap, pkgSnap] = await Promise.all([
+          getDocs(query(collection(firebaseDb, 'activities'), firestoreWhere('status', '==', 'active'))),
+          getDocs(query(collection(firebaseDb, 'tourPackages'), firestoreWhere('status', '==', 'active'))),
+        ])
+        const activityByMuni = countByActivityLocation(actSnap)
+        const packageByMuni = countByPackageLocation(pkgSnap)
+        setLocations(mergeGuestLocations(activityByMuni, packageByMuni))
+      } catch (e) {
+        console.error('Failed to load locations list:', e)
+        setLocations([])
+      } finally {
+        setListLoading(false)
+      }
+    }
+    load()
+  }, [])
 
   const filtered = locations.filter((l) =>
     l.name.toLowerCase().includes(search.toLowerCase())
@@ -98,20 +128,32 @@ export default function LocationsPage() {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5 mb-8">
-          {visible.map((loc) => (
-            <div
-              key={loc.id}
-              className="relative rounded-2xl overflow-hidden cursor-pointer group h-48"
-              onClick={() => router.push(`/locations/${loc.id}`)}
-            >
-              <Image src={loc.image} alt={loc.name} fill className="object-cover group-hover:scale-105 transition-transform duration-300" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-              <div className="absolute bottom-0 left-0 right-0 p-3">
-                <h3 className="text-white font-bold text-sm">{loc.name}</h3>
-                <p className="text-white/80 text-xs">{loc.activityCount} Activities</p>
-              </div>
+          {listLoading ? (
+            <div className="col-span-full h-48 flex items-center justify-center text-sm text-gray-500">Loading locations…</div>
+          ) : visible.length === 0 ? (
+            <div className="col-span-full h-48 flex items-center justify-center text-sm text-gray-500 text-center px-4">
+              No locations yet. Add at least one active activity or tour package in a municipality.
             </div>
-          ))}
+          ) : (
+            visible.map((loc) => (
+              <div
+                key={loc.id}
+                className="relative rounded-2xl overflow-hidden cursor-pointer group h-48"
+                onClick={() => router.push(`/locations/${loc.id}`)}
+              >
+                <Image src={loc.image} alt={loc.name} fill className="object-cover group-hover:scale-105 transition-transform duration-300" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                <div className="absolute bottom-0 left-0 right-0 p-3">
+                  <h3 className="text-white font-bold text-sm">{loc.name}</h3>
+                  <LocationOfferCounts
+                    activityCount={loc.activityCount}
+                    packageCount={loc.packageCount}
+                    className="mt-0.5"
+                  />
+                </div>
+              </div>
+            ))
+          )}
         </div>
 
         <div className="flex items-center justify-center gap-3 mb-16">

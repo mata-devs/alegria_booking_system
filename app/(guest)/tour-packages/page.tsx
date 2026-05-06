@@ -8,6 +8,7 @@ import SearchBar from '@/app/components/SearchBar'
 import PackageCard from '@/app/components/ui/PackageCard'
 import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
+import { CategoryFilterCollapsible } from '@/app/components/CategoryFilterCollapsible'
 import { ACTIVITY_TAGS } from '@/app/lib/activity-tags'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/app/components/ui/drawer'
 
@@ -37,6 +38,7 @@ export default function TourPackagesPage() {
   const [searchDate, setSearchDate] = useState('')
   const [searchTravelers, setSearchTravelers] = useState('')
   const [searchDrawerOpen, setSearchDrawerOpen] = useState(false)
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false)
   const [popularActivities, setPopularActivities] = useState<{
     id: string; activityName: string; activityTag: string;
     activityLocation: string; activityRating: number;
@@ -134,10 +136,15 @@ export default function TourPackagesPage() {
       </Drawer>
 
       <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-4">
-        <div className="flex items-center gap-2 flex-wrap">
+        <CategoryFilterCollapsible
+          expanded={filterPanelOpen}
+          onToggle={() => setFilterPanelOpen((o) => !o)}
+          activeSummary={activeFilter}
+        >
           <button
+            type="button"
             onClick={() => setActiveFilter(null)}
-            className={`flex items-center gap-1.5 border px-5 py-2 rounded-full text-sm font-medium transition-colors ${
+            className={`border px-5 py-2 rounded-full text-sm font-medium transition-colors ${
               activeFilter === null ? 'bg-green-500 text-white border-green-500' : 'border-gray-300 text-gray-600 hover:bg-gray-50'
             }`}
           >
@@ -146,8 +153,9 @@ export default function TourPackagesPage() {
           {ACTIVITY_TAGS.map((cat) => (
             <button
               key={cat}
+              type="button"
               onClick={() => setActiveFilter(activeFilter === cat ? null : cat)}
-              className={`px-6 py-2 rounded-full text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                 activeFilter === cat
                   ? 'bg-green-500 text-white border border-green-500'
                   : 'border border-gray-300 text-gray-600 hover:border-green-400 hover:text-green-600'
@@ -156,7 +164,7 @@ export default function TourPackagesPage() {
               {cat}
             </button>
           ))}
-        </div>
+        </CategoryFilterCollapsible>
       </div>
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pb-16">
@@ -167,7 +175,7 @@ export default function TourPackagesPage() {
             {packages.length === 0 ? 'No tour packages available yet.' : 'No packages match your search.'}
           </div>
         ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-5 mb-8 items-stretch">
             {visible.map((pkg) => (
               <PackageCard
                 key={pkg.id}
@@ -179,6 +187,7 @@ export default function TourPackagesPage() {
                 duration={pkg.duration}
                 rating={pkg.packageRating}
                 minGuests={pkg.minimumNumberOfPeople ?? 1}
+                cardKind="tourPackage"
                 href={`/tour-packages/${pkg.slug}${searchDate || searchTravelers ? `?date=${searchDate}&travelers=${searchTravelers}` : ''}`}
               />
             ))}
@@ -236,6 +245,7 @@ export default function TourPackagesPage() {
                     tag={act.activityTag}
                     rating={act.activityRating}
                     location={act.activityLocation}
+                    cardKind="activity"
                   />
                 </div>
               ))}

@@ -12,6 +12,11 @@ import PackageCard from '@/app/components/ui/PackageCard'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/app/components/ui/drawer'
 import { collection, query, where as firestoreWhere, getDocs } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
+import {
+  countByActivityLocation,
+  countByPackageLocation,
+  mergeGuestLocations,
+} from '@/app/lib/guest-location-list'
 import type { Location, Activity } from '@/app/types'
 
 interface FSPackage {
@@ -121,6 +126,7 @@ export default function LandingPage() {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [searchDrawerOpen, setSearchDrawerOpen] = useState(false)
   const [locations, setLocations] = useState<Location[]>([])
+  const [locationsReady, setLocationsReady] = useState(false)
   const [activities, setActivities] = useState<Activity[]>([])
   const [packages, setPackages] = useState<FSPackage[]>([])
 
@@ -158,24 +164,17 @@ export default function LandingPage() {
         })
         setActivities(mappedActivities.slice(0, 8))
 
-        const locationMap: Record<string, number> = {}
-        actSnap.docs.forEach((d) => {
-          const loc = d.data().activityLocation as string
-          if (loc) locationMap[loc] = (locationMap[loc] ?? 0) + 1
-        })
-        const derivedLocations: Location[] = Object.entries(locationMap).map(([name, count]) => ({
-          id: name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
-          name,
-          activityCount: count,
-          image: `https://picsum.photos/seed/${encodeURIComponent(name)}/400/300`,
-        }))
-        setLocations(derivedLocations)
+        const activityByMuni = countByActivityLocation(actSnap)
+        const packageByMuni = countByPackageLocation(pkgSnap)
+        setLocations(mergeGuestLocations(activityByMuni, packageByMuni))
 
         setPackages(
           pkgSnap.docs.slice(0, 2).map((d) => ({ id: d.id, ...d.data() } as FSPackage))
         )
       } catch (err) {
         console.error('Failed to fetch home data:', err)
+      } finally {
+        setLocationsReady(true)
       }
     }
     fetchAll()
@@ -257,14 +256,18 @@ export default function LandingPage() {
       <main className="flex-1">
         <section className="max-w-7xl mx-auto px-6 lg:px-8 py-8 sm:py-12">
           <SectionHeader title="Locations" linkTo="/locations" />
-          {locations.length > 0 ? (
+          {!locationsReady ? (
+            <div className="h-72 flex items-center justify-center text-sm text-gray-400">Loading locations…</div>
+          ) : locations.length > 0 ? (
             <CarouselSection scrollRef={locationsRef} visibleCount={5}>
               {locations.map((loc) => (
                 <LocationCard key={loc.id} location={loc} />
               ))}
             </CarouselSection>
           ) : (
-            <div className="h-72 flex items-center justify-center text-sm text-gray-400">Loading locations…</div>
+            <div className="h-72 flex items-center justify-center text-sm text-gray-500 text-center px-4">
+              No locations to show yet. Add at least one active activity or tour package in a municipality.
+            </div>
           )}
         </section>
 
@@ -296,6 +299,7 @@ export default function LandingPage() {
                   tag={pkg.packageTag}
                   duration={pkg.duration}
                   rating={pkg.packageRating}
+                  cardKind="tourPackage"
                   href={`/tour-packages/${pkg.slug}`}
                   wide
                 />

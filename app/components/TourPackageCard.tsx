@@ -27,6 +27,7 @@ export default function TourPackageCard({ pkg, wide = false }: Props) {
       price={pkg.price}
       pricePrefix="Starting from"
       duration={pkg.duration}
+      cardKind="tourPackage"
       onClick={handleClick}
       ctaLabel="Book now"
       onCta={handleClick}

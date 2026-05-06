@@ -2,6 +2,7 @@
 
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
+import { LocationOfferCounts } from '@/app/components/LocationOfferCounts'
 import type { Location } from '../types'
 
 interface Props {
@@ -25,7 +26,11 @@ export default function LocationCard({ location }: Props) {
       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
       <div className="absolute bottom-0 left-0 right-0 p-4">
         <h3 className="text-white font-bold text-sm">{location.name}</h3>
-        <p className="text-white/80 text-xs">{location.activityCount} Activities</p>
+        <LocationOfferCounts
+          activityCount={location.activityCount}
+          packageCount={location.packageCount}
+          className="mt-0.5"
+        />
       </div>
     </div>
   )
