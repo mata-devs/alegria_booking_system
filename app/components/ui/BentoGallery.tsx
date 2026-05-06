@@ -88,7 +88,7 @@ export function BentoGallery({ images, alt, onImageClick }: {
     <>
       {/* Desktop: bento grid */}
       <div
-        className="hidden sm:grid gap-1.5 rounded-2xl overflow-hidden"
+        className="hidden sm:grid gap-2 p-2 rounded-2xl bg-white/35 backdrop-blur-sm"
         style={{
           gridTemplateAreas: cfg.areas,
           gridTemplateColumns: cfg.cols,
@@ -102,7 +102,7 @@ export function BentoGallery({ images, alt, onImageClick }: {
             <button
               key={i}
               style={{ gridArea: letters[i] }}
-              className="relative overflow-hidden group focus:outline-none"
+              className="relative overflow-hidden rounded-xl group focus:outline-none"
               onClick={() => onImageClick(i)}
             >
               <Image
