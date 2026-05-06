@@ -145,6 +145,7 @@ export default function LandingPage() {
           const data = d.data()
           return {
             id: idx,
+            firestoreId: d.id,
             category: data.activityTag ?? '',
             title: data.activityName ?? '',
             location: data.activityLocation ?? '',

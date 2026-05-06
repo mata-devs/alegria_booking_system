@@ -1,4 +1,4 @@
-# SuroyCebu
+# VisitCebu
 
 A Cebu tourism booking platform for guests, tour operators, and super-admins. Guests browse locations, activities, and tour packages, then book and pay online. Operators manage bookings and analytics. Super-admins oversee operators, revenue, and vouchers.
 
@@ -46,7 +46,7 @@ npm install
 npm run dev
 ```
 
-App runs at `http://localhost:3000`.
+App runs at `http://localhost:3000` and is accessible on the local network (bound to `0.0.0.0`). Use `http://<your-local-ip>:3000` to open from a phone or other device on the same network.
 
 ### Backend (Cloud Functions)
 
@@ -74,10 +74,66 @@ NEXT_PUBLIC_FIREBASE_APP_ID=
 ### Other Scripts
 
 ```bash
-npm run build     # Production build
-npm run start     # Start production server
-npm run lint      # Run ESLint
+npm run build           # Production build
+npm run start           # Start production server
+npm run lint            # Run ESLint
+npm run test:e2e        # Run Playwright E2E tests (headless)
+npm run test:e2e:ui     # Run Playwright E2E tests (interactive UI)
+npm run scan            # Trivy: scan deps + secrets + misconfigs
+npm run scan:vuln       # Trivy: scan dependencies only
+npm run scan:secrets    # Trivy: scan for hardcoded secrets
 ```
+
+---
+
+## E2E Testing
+
+Playwright is used for end-to-end tests. Tests live in `tests/e2e/`.
+
+```bash
+npm run test:e2e        # headless
+npm run test:e2e:ui     # interactive UI mode
+```
+
+### Test suites
+
+| File | Description |
+|------|-------------|
+| `bookingActivities.spec.ts` | Activity booking flow (guest info → payment → confirmation) |
+| `booking-tour-package.spec.ts` | Tour package booking: guest constraints, form validation, full happy path |
+
+### Happy path tests (Firestore writes)
+
+The full happy path tests are skipped by default. Set these in `.env` to enable:
+
+```env
+ENABLE_BOOKING_TESTS=true
+TEST_PACKAGE_ID=<firestore-package-id>
+TEST_PACKAGE_NAME=<package-name>
+TEST_PACKAGE_OPERATOR_ID=<operator-uid>
+TEST_PACKAGE_MIN_GUESTS=2
+TEST_PACKAGE_MAX_GUESTS=10
+```
+
+---
+
+## Security Scanning
+
+[Trivy](https://trivy.dev) scans the codebase locally for vulnerabilities, secrets, and misconfigurations. Install via Scoop on Windows:
+
+```powershell
+scoop install trivy
+```
+
+Then run:
+
+```bash
+npm run scan            # full scan (deps + secrets + misconfigs)
+npm run scan:vuln       # CVEs in node_modules only
+npm run scan:secrets    # hardcoded API keys / tokens
+```
+
+Run `npm run scan:secrets` before committing — the project contains Firebase credentials in `.env`.
 
 ---
 
@@ -264,7 +320,7 @@ functions/src/
 └── booking/
     ├── api.http.ts                      # onRequest wrapper (asia-southeast1)
     ├── app.ts                           # Express app — CORS, App Check middleware
-    ├── routes/bookings.routes.ts        # POST /bookings
+    ├── routes/bookings.routes.ts        # POST /bookings, POST /bookings/:bookingId/confirm
     ├── controllers/booking.controller.ts
     └── services/booking.service.ts      # Full booking creation logic (idempotency, slots, promos)
 ```
@@ -366,16 +422,32 @@ Landing → Locations → Municipality View → Tour Package Detail
 | `AuthProvider` | `app/context/AuthContext.tsx` | Firebase auth state, user role, profile |
 | `BookingProvider` | `app/context/BookingContext.tsx` | Booking flow state across guest pages |
 
-Both providers are mounted in `app/layout.tsx`.
+`BookingProvider` is mounted in `app/layout.tsx`. `AuthProvider` is mounted in the operator (`app/(operator)/operator/layout.tsx`) and admin (`app/(admin)/super-admin/layout.tsx`) sub-layouts only.
 
 ---
 
 ## Brand & Design
 
-- **App name:** SuroyCebu
+- **App name:** Visit Cebu
 - **Logo font:** Potta One (Google Fonts)
 - **Body font:** Inter (Google Fonts)
 - **Primary color:** Green (`#4ade80`)
 - **Background:** Light greenish-white (`#f0fdf4`)
 - **Footer / dark sections:** Dark green (`#0d3320`)
 - **Currency:** Philippine Peso (₱)
+
+---
+
+## Architecture Notes
+
+Key abstractions identified from codebase graph analysis:
+
+| Symbol | Edges | Role |
+|--------|-------|------|
+| `useAuth()` | 15 | Cross-cutting auth hook — consumed by guest, operator, and admin layers |
+| `createBooking()` | 14 | Central booking creation — called from operator portal and booking API |
+| `getAnalyticsDashboard()` | 9 | Single analytics data source — both operator and super-admin dashboards depend on it |
+| `assertSuperAdmin()` | 5 | Cloud Function auth guard — all admin-only functions call this |
+| `uploadReceiptImage()` | 5 | Payment receipt storage — called from both guest upload and operator confirmation flows |
+
+`useAuth()` is the highest-betweenness node in the graph — it bridges App Shell, Analytics, Operator Bookings, and Tour Package CRUD communities. Changes to `AuthContext.tsx` have the widest blast radius.

@@ -3,12 +3,15 @@
   "private": true,
   "version": "0.0.0",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbopack -H 0.0.0.0",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "scan": "trivy fs --scanners vuln,secret,misconfig .",
+    "scan:vuln": "trivy fs --scanners vuln .",
+    "scan:secrets": "trivy fs --scanners secret ."
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",
