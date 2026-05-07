@@ -2,7 +2,7 @@
 
 import React from 'react';
 
-export type Status = 'Pending' | 'Confirmed' | 'In Progress' | 'Complete' | 'Cancelled';
+export type Status = 'Pending' | 'Confirmed' | 'In Progress' | 'Completed' | 'Cancelled';
 
 export type BookingFilters = {
   status: Set<Status>;
@@ -68,7 +68,7 @@ export default function FilterModal({
         <div className="mt-3">
           <p className="text-sm font-semibold text-gray-900">Status</p>
 
-          {(['Pending', 'Confirmed', 'In Progress', 'Complete', 'Cancelled'] as Status[]).map((s) => (
+          {(['Pending', 'Confirmed', 'In Progress', 'Completed', 'Cancelled'] as Status[]).map((s) => (
             <label key={s} className="mt-1.5 flex items-center gap-2 text-sm text-gray-700">
               <input
                 type="checkbox"

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import BookingRequestsPanel from '@/app/(operator)/operator/bookings/list';
 import BookingDetailsCard, {
   type Booking,
@@ -18,6 +19,21 @@ import { checkInBooking, confirmBookingPayment } from '@/app/lib/booking-service
 import { firestoreToBooking } from '@/app/lib/firestoreToBooking';
 
 export default function Page() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center h-[calc(100vh-3rem)]">
+          <div className="text-sm text-gray-500">Loading bookings…</div>
+        </div>
+      }
+    >
+      <BookingsPageInner />
+    </Suspense>
+  );
+}
+
+function BookingsPageInner() {
+  const searchParams = useSearchParams();
   const { authState } = useAuth();
   const operatorUid = authState.status === 'authenticated' ? authState.user.uid : undefined;
   const { bookings: firestoreBookings, loading, error } = useOperatorBookings(operatorUid);
@@ -37,6 +53,13 @@ export default function Page() {
 
   const bookings = useMemo(() => Object.values(bookingsById), [bookingsById]);
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    const raw = searchParams.get('selectedId')?.trim();
+    if (raw && bookingsById[raw]) {
+      setSelectedId(raw);
+    }
+  }, [searchParams, bookingsById]);
   const selectedBooking = selectedId ? bookingsById[selectedId] : undefined;
   const [searchBy, setSearchBy] = useState<'Representative' | 'Booking ID'>('Representative');
   const [query, setQuery] = useState('');

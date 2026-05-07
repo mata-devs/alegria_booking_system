@@ -9,8 +9,6 @@ export type BookingGender = "Male" | "Female" | "Prefer not to say";
 
 export interface BookingPayload {
     tourDate: string;
-    // timeSlot kept for backend compatibility — whole-day bookings use "AM" by default
-    timeSlot: "AM" | "PM";
     activityId: string;
     sourceType?: "activity" | "tourPackage";
     tourOperatorUid?: string;

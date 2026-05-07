@@ -1,6 +1,13 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  useReactTable,
+  getCoreRowModel,
+  flexRender,
+  type ColumnDef,
+  type RowData,
+} from '@tanstack/react-table';
 import {
   Search,
   SlidersHorizontal,
@@ -9,142 +16,110 @@ import {
   AlertCircle,
   CheckCircle2,
   Flag,
+  Loader2,
 } from 'lucide-react';
+import {
+  collection,
+  query,
+  orderBy,
+  onSnapshot,
+  updateDoc,
+  doc,
+  serverTimestamp,
+  type Timestamp,
+} from 'firebase/firestore';
+import { firebaseDb } from '@/app/lib/firebase';
+import { useAuth } from '@/app/context/AuthContext';
 
-type ReviewStatus = 'Draft' | 'Published' | 'Flagged';
+declare module '@tanstack/react-table' {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface ColumnMeta<TData extends RowData, TValue> {
+    tdClassName?: string;
+    thClassName?: string;
+  }
+}
+
+type ReviewStatus = 'Pending' | 'Published' | 'Flagged';
+
+interface FirestoreReview {
+  id: string;
+  bookingId: string;
+  operatorUid: string;
+  sourceType: 'activity' | 'tourPackage';
+  activityId: string | null;
+  tourPackageId: string | null;
+  location: string;
+  reviewerName: string;
+  reviewerCountry: string;
+  displayConsent: boolean;
+  rating: 1 | 2 | 3 | 4 | 5;
+  text: string;
+  status: 'pending' | 'approved' | 'flagged';
+  moderatedAt: Timestamp | null;
+  moderatedByUid: string | null;
+  createdAt: Timestamp;
+}
 
 interface Review {
   id: string;
-  reviewer: string;
-  email: string;
-  address: string;
-  nationality: string;
-  nationalityFlag: string;
-  dateSubmitted: string;
+  bookingId: string;
+  operatorUid: string;
+  sourceType: 'activity' | 'tourPackage';
+  itemId: string;
+  location: string;
+  reviewerName: string;
+  reviewerCountry: string;
   rating: number;
   status: ReviewStatus;
   text: string;
-  tour: string;
+  dateSubmitted: string;
 }
 
-const MOCK_REVIEWS: Review[] = [
-  {
-    id: 'rvw1100011',
-    reviewer: 'John Carlo Reyes',
-    email: 'juand@email.com',
-    address: 'Cebu City, Philippines',
-    nationality: 'Filipino',
-    nationalityFlag: '🇵🇭',
-    dateSubmitted: 'February 11, 2026',
-    rating: 4,
-    status: 'Draft',
-    tour: 'Kawasan Canyoneering',
-    text: 'An absolute must-try experience! Everything was handled professionally—from transportation to safety equipment. The canyon itself was beautiful, with crystal-clear water and impressive waterfalls. I was nervous about the higher jumps at first, but the guides were patient and supportive, which really helped boost my confidence. By the end of the tour, I felt accomplished and proud for stepping out of my comfort zone. Truly one of the best adventures I\'ve had.',
-  },
-  {
-    id: 'rvw1100012',
-    reviewer: 'Maria Angelica Cruz',
-    email: 'maria.cruz@email.com',
-    address: 'Manila, Philippines',
-    nationality: 'Filipino',
-    nationalityFlag: '🇵🇭',
-    dateSubmitted: 'February 3, 2026',
-    rating: 3,
-    status: 'Draft',
-    tour: 'Oslob Whale Shark Watching',
-    text: 'The tour was okay. Staff were friendly but the waiting time was longer than expected. Water activity itself was great though.',
-  },
-  {
-    id: 'rvw1100013',
-    reviewer: 'Mark Anthony Santos',
-    email: 'msantos@email.com',
-    address: 'Davao City, Philippines',
-    nationality: 'Filipino',
-    nationalityFlag: '🇵🇭',
-    dateSubmitted: 'January 22, 2026',
-    rating: 2,
-    status: 'Draft',
-    tour: 'Bohol Countryside Tour',
-    text: 'Expected more from the itinerary. Some stops felt rushed and the van was cramped. Guide tried his best though.',
-  },
-  {
-    id: 'rvw1100014',
-    reviewer: 'Angela Mae Villanueva',
-    email: 'amae@email.com',
-    address: 'Iloilo, Philippines',
-    nationality: 'Filipino',
-    nationalityFlag: '🇵🇭',
-    dateSubmitted: 'January 14, 2026',
-    rating: 1,
-    status: 'Published',
-    tour: 'Palawan Island Hopping',
-    text: 'Disappointed. Boat was late, lunch was subpar, and one of the advertised islands was skipped without explanation.',
-  },
-  {
-    id: 'rvw1100015',
-    reviewer: 'Joshua Daniel Garcia',
-    email: 'jdgarcia@email.com',
-    address: 'Baguio, Philippines',
-    nationality: 'Filipino',
-    nationalityFlag: '🇵🇭',
-    dateSubmitted: 'January 5, 2026',
-    rating: 3,
-    status: 'Published',
-    tour: 'Mt. Pulag Trek',
-    text: 'Decent trek. Sunrise view was worth the climb. Logistics could use some polishing.',
-  },
-  {
-    id: 'rvw1100016',
-    reviewer: 'Camille Anne Mendoza',
-    email: 'cam.mendoza@email.com',
-    address: 'Tagaytay, Philippines',
-    nationality: 'Filipino',
-    nationalityFlag: '🇵🇭',
-    dateSubmitted: 'February 19, 2026',
-    rating: 2,
-    status: 'Published',
-    tour: 'Taal Volcano Tour',
-    text: 'View was nice but the horseback ride felt unsafe. Needs better animal welfare standards.',
-  },
-  {
-    id: 'rvw1100017',
-    reviewer: 'Christian Paul Navarro',
-    email: 'cpnavarro@email.com',
-    address: 'Cagayan de Oro, Philippines',
-    nationality: 'Filipino',
-    nationalityFlag: '🇵🇭',
-    dateSubmitted: 'February 27, 2026',
-    rating: 5,
-    status: 'Draft',
-    tour: 'CDO White Water Rafting',
-    text: 'Best adrenaline rush of my life. Guides were top-notch. Would book again in a heartbeat.',
-  },
-  {
-    id: 'rvw1100018',
-    reviewer: 'Bea Nicole Ramos',
-    email: 'bnramos@email.com',
-    address: 'Siargao, Philippines',
-    nationality: 'Filipino',
-    nationalityFlag: '🇵🇭',
-    dateSubmitted: 'January 22, 2026',
-    rating: 4,
-    status: 'Published',
-    tour: 'Siargao Surf Lessons',
-    text: 'Great instructors, good waves for beginners. Got up on the board by day two!',
-  },
-];
+function toUiStatus(s: string): ReviewStatus {
+  if (s === 'approved') return 'Published';
+  if (s === 'flagged') return 'Flagged';
+  return 'Pending';
+}
 
-type SearchField = 'Reviewer' | 'Review ID' | 'Tour';
+function toFirestoreStatus(s: ReviewStatus): 'pending' | 'approved' | 'flagged' {
+  if (s === 'Published') return 'approved';
+  if (s === 'Flagged') return 'flagged';
+  return 'pending';
+}
+
+function mapFirestoreReview(d: FirestoreReview): Review {
+  return {
+    id: d.id,
+    bookingId: d.bookingId,
+    operatorUid: d.operatorUid,
+    sourceType: d.sourceType,
+    itemId: d.activityId ?? d.tourPackageId ?? '',
+    location: d.location,
+    reviewerName: d.reviewerName,
+    reviewerCountry: d.reviewerCountry,
+    rating: d.rating,
+    status: toUiStatus(d.status),
+    text: d.text,
+    dateSubmitted: d.createdAt?.toDate?.()?.toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    }) ?? '—',
+  };
+}
+
+type SearchField = 'Reviewer' | 'Review ID' | 'Location';
 type StatusFilter = 'All' | ReviewStatus;
+type ItemTypeFilter = 'All' | 'activity' | 'tourPackage';
 
 const STATUS_STYLES: Record<ReviewStatus, string> = {
-  Draft: 'text-amber-600',
+  Pending: 'text-amber-600',
   Published: 'text-[#558B2F]',
   Flagged: 'text-red-600',
 };
 
 const STATUS_BADGE: Record<ReviewStatus, string> = {
-  Draft: 'bg-amber-50 text-amber-700 border-amber-200',
+  Pending: 'bg-amber-50 text-amber-700 border-amber-200',
   Published: 'bg-[#E8F5E9] text-[#558B2F] border-[#C5E1A5]',
   Flagged: 'bg-red-50 text-red-700 border-red-200',
 };
@@ -163,66 +138,116 @@ function StarRow({ rating, size = 'h-5 w-5' }: { rating: number; size?: string }
 }
 
 export default function ReviewsPage() {
-  const [selectedId, setSelectedId] = useState<string>(MOCK_REVIEWS[0].id);
+  const { authState } = useAuth();
+  const moderatorUid = authState.status === 'authenticated' ? authState.user.uid : null;
+
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [searchField, setSearchField] = useState<SearchField>('Reviewer');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('All');
-  const [ratingFilter, setRatingFilter] = useState<number | 0>(0);
+  const [itemTypeFilter, setItemTypeFilter] = useState<ItemTypeFilter>('All');
+  const [ratingFilter, setRatingFilter] = useState<number>(0);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [reviews, setReviews] = useState<Review[]>(MOCK_REVIEWS);
+
+  useEffect(() => {
+    const q = query(collection(firebaseDb, 'reviews'), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snap) => {
+      const mapped = snap.docs.map((d) => mapFirestoreReview({ id: d.id, ...d.data() } as FirestoreReview));
+      setReviews(mapped);
+      setLoading(false);
+    }, (err) => {
+      console.error('reviews onSnapshot:', err);
+      setLoading(false);
+    });
+    return unsub;
+  }, []);
 
   const filtered = useMemo(() => {
     return reviews.filter((r) => {
       if (statusFilter !== 'All' && r.status !== statusFilter) return false;
       if (ratingFilter !== 0 && r.rating !== ratingFilter) return false;
+      if (itemTypeFilter !== 'All' && r.sourceType !== itemTypeFilter) return false;
       if (!searchTerm.trim()) return true;
       const t = searchTerm.toLowerCase();
-      if (searchField === 'Reviewer') return r.reviewer.toLowerCase().includes(t);
+      if (searchField === 'Reviewer') return r.reviewerName.toLowerCase().includes(t);
       if (searchField === 'Review ID') return r.id.toLowerCase().includes(t);
-      return r.tour.toLowerCase().includes(t);
+      return r.location.toLowerCase().includes(t);
     });
-  }, [reviews, statusFilter, ratingFilter, searchField, searchTerm]);
+  }, [reviews, statusFilter, ratingFilter, itemTypeFilter, searchField, searchTerm]);
 
-  const selected = reviews.find((r) => r.id === selectedId) ?? filtered[0] ?? reviews[0];
+  const selected = filtered.find((r) => r.id === selectedId) ?? filtered[0] ?? null;
 
-  const updateStatus = (id: string, status: ReviewStatus) => {
-    setReviews((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+  const reviewColumns = useMemo<ColumnDef<Review>[]>(() => [
+    {
+      accessorKey: 'id',
+      header: 'Review ID',
+      meta: { thClassName: 'px-6 py-3', tdClassName: 'px-6 py-3 font-medium text-gray-700' },
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          {row.original.id}
+          {row.original.status === 'Pending' && (
+            <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#7BCA0D] text-white text-[10px] font-bold" title="Needs review">!</span>
+          )}
+        </div>
+      ),
+    },
+    { accessorKey: 'reviewerName', header: 'Reviewer', meta: { tdClassName: 'px-4 py-3 text-gray-700' } },
+    { accessorKey: 'dateSubmitted', header: 'Date submitted', meta: { tdClassName: 'px-4 py-3 text-gray-600' } },
+    { accessorKey: 'rating', header: 'Rating', meta: { tdClassName: 'px-4 py-3 text-gray-700' } },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      meta: { tdClassName: 'px-4 py-3' },
+      cell: ({ getValue }) => {
+        const s = getValue() as ReviewStatus;
+        return <span className={`font-semibold ${STATUS_STYLES[s]}`}>{s}</span>;
+      },
+    },
+  ], []);
+
+  const reviewTable = useReactTable({
+    data: filtered,
+    columns: reviewColumns,
+    getCoreRowModel: getCoreRowModel(),
+  });
+
+  const updateStatus = async (id: string, status: ReviewStatus) => {
+    await updateDoc(doc(firebaseDb, 'reviews', id), {
+      status: toFirestoreStatus(status),
+      moderatedAt: serverTimestamp(),
+      moderatedByUid: moderatorUid,
+    });
   };
 
-  const counts = useMemo(() => {
-    return {
-      total: reviews.length,
-      draft: reviews.filter((r) => r.status === 'Draft').length,
-      published: reviews.filter((r) => r.status === 'Published').length,
-      flagged: reviews.filter((r) => r.status === 'Flagged').length,
-    };
-  }, [reviews]);
+  const counts = useMemo(() => ({
+    total: reviews.length,
+    pending: reviews.filter((r) => r.status === 'Pending').length,
+    published: reviews.filter((r) => r.status === 'Published').length,
+    flagged: reviews.filter((r) => r.status === 'Flagged').length,
+  }), [reviews]);
 
   return (
     <div className="flex flex-col gap-4 h-full">
-      {/* Header strip */}
       <div>
         <h1 className="text-2xl font-bold text-gray-800">Review Moderation</h1>
         <p className="text-sm text-gray-500">Approve, flag, or publish guest reviews.</p>
       </div>
 
-      {/* Metric cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <MetricCard label="Total" value={counts.total} tint="bg-gray-100 text-gray-700" />
-        <MetricCard label="Draft" value={counts.draft} tint="bg-amber-50 text-amber-700" icon={<AlertCircle className="h-4 w-4" />} />
+        <MetricCard label="Pending" value={counts.pending} tint="bg-amber-50 text-amber-700" icon={<AlertCircle className="h-4 w-4" />} />
         <MetricCard label="Published" value={counts.published} tint="bg-[#E8F5E9] text-[#558B2F]" icon={<CheckCircle2 className="h-4 w-4" />} />
         <MetricCard label="Flagged" value={counts.flagged} tint="bg-red-50 text-red-700" icon={<Flag className="h-4 w-4" />} />
       </div>
 
-      {/* Main split */}
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-4 flex-1 min-h-0">
-        {/* List panel */}
         <div className="xl:col-span-3 rounded-xl bg-white shadow-sm border border-gray-100 flex flex-col min-h-0">
           <div className="px-6 py-4 border-b border-gray-100">
             <h2 className="text-center text-base font-bold text-gray-800">Reviews</h2>
           </div>
 
-          {/* Toolbar */}
           <div className="px-6 py-3 flex flex-wrap items-center gap-3 border-b border-gray-100">
             <button
               onClick={() => setFiltersOpen((v) => !v)}
@@ -242,7 +267,7 @@ export default function ReviewsPage() {
                 >
                   <option>Reviewer</option>
                   <option>Review ID</option>
-                  <option>Tour</option>
+                  <option>Location</option>
                 </select>
                 <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-[#558B2F]" />
               </div>
@@ -259,12 +284,11 @@ export default function ReviewsPage() {
             </div>
           </div>
 
-          {/* Filter drawer */}
           {filtersOpen && (
             <div className="px-6 py-3 bg-gray-50 border-b border-gray-100 flex flex-wrap gap-4">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Status:</span>
-                {(['All', 'Draft', 'Published', 'Flagged'] as StatusFilter[]).map((s) => (
+                {(['All', 'Pending', 'Published', 'Flagged'] as StatusFilter[]).map((s) => (
                   <button
                     key={s}
                     onClick={() => setStatusFilter(s)}
@@ -275,6 +299,22 @@ export default function ReviewsPage() {
                     }`}
                   >
                     {s}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Type:</span>
+                {(['All', 'activity', 'tourPackage'] as ItemTypeFilter[]).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setItemTypeFilter(t)}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                      itemTypeFilter === t
+                        ? 'bg-[#558B2F] text-white'
+                        : 'bg-white border border-gray-200 text-gray-600 hover:border-[#7BCA0D]'
+                    }`}
+                  >
+                    {t === 'All' ? 'All' : t === 'activity' ? 'Activity' : 'Tour Package'}
                   </button>
                 ))}
               </div>
@@ -297,62 +337,55 @@ export default function ReviewsPage() {
             </div>
           )}
 
-          {/* Table */}
           <div className="flex-1 overflow-auto">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-white z-10">
-                <tr className="text-left text-xs font-bold text-gray-700 border-b border-gray-200">
-                  <th className="px-6 py-3">Review ID</th>
-                  <th className="px-4 py-3">Reviewer</th>
-                  <th className="px-4 py-3">Date submitted</th>
-                  <th className="px-4 py-3">Rating</th>
-                  <th className="px-4 py-3">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((r) => {
-                  const active = r.id === selectedId;
-                  const isDraft = r.status === 'Draft';
-                  return (
-                    <tr
-                      key={r.id}
-                      onClick={() => setSelectedId(r.id)}
-                      className={`cursor-pointer border-b border-gray-100 transition-colors ${
-                        active ? 'bg-[#F1F8E9]' : 'hover:bg-gray-50'
-                      }`}
-                    >
-                      <td className="px-6 py-3 font-medium text-gray-700">
-                        <div className="flex items-center gap-2">
-                          {r.id}
-                          {isDraft && (
-                            <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#7BCA0D] text-white text-[10px] font-bold" title="Needs review">
-                              !
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-gray-700">{r.reviewer}</td>
-                      <td className="px-4 py-3 text-gray-600">{r.dateSubmitted}</td>
-                      <td className="px-4 py-3 text-gray-700">{r.rating}</td>
-                      <td className={`px-4 py-3 font-semibold ${STATUS_STYLES[r.status]}`}>{r.status}</td>
+            {loading ? (
+              <div className="flex items-center justify-center py-16 text-gray-400">
+                <Loader2 className="mr-2 animate-spin" size={18} /> Loading…
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-white z-10">
+                  {reviewTable.getHeaderGroups().map(headerGroup => (
+                    <tr key={headerGroup.id} className="text-left text-xs font-bold text-gray-700 border-b border-gray-200">
+                      {headerGroup.headers.map(header => (
+                        <th key={header.id} className={header.column.columnDef.meta?.thClassName ?? 'px-4 py-3'}>
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                        </th>
+                      ))}
                     </tr>
-                  );
-                })}
-                {filtered.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-10 text-center text-sm text-gray-400">
-                      No reviews match your filters.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  ))}
+                </thead>
+                <tbody>
+                  {reviewTable.getRowModel().rows.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-10 text-center text-sm text-gray-400">
+                        No reviews match your filters.
+                      </td>
+                    </tr>
+                  ) : reviewTable.getRowModel().rows.map(row => {
+                    const isActive = row.original.id === selected?.id;
+                    return (
+                      <tr
+                        key={row.id}
+                        onClick={() => setSelectedId(row.original.id)}
+                        className={`cursor-pointer border-b border-gray-100 transition-colors ${isActive ? 'bg-[#F1F8E9]' : 'hover:bg-gray-50'}`}
+                      >
+                        {row.getVisibleCells().map(cell => (
+                          <td key={cell.id} className={cell.column.columnDef.meta?.tdClassName ?? 'px-4 py-3'}>
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
 
-        {/* Detail panel */}
         <div className="xl:col-span-2 rounded-xl bg-white shadow-sm border border-gray-100 flex flex-col min-h-0">
-          {selected && (
+          {selected ? (
             <>
               <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-3">
                 <span className="text-sm text-gray-500">
@@ -364,7 +397,7 @@ export default function ReviewsPage() {
                     onChange={(e) => updateStatus(selected.id, e.target.value as ReviewStatus)}
                     className={`appearance-none rounded-md border pl-3 pr-8 py-1.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#7BCA0D] ${STATUS_BADGE[selected.status]}`}
                   >
-                    <option value="Draft">Draft</option>
+                    <option value="Pending">Pending</option>
                     <option value="Published">Published</option>
                     <option value="Flagged">Flagged</option>
                   </select>
@@ -376,24 +409,16 @@ export default function ReviewsPage() {
                 <section>
                   <h3 className="text-lg font-bold text-gray-800 mb-3">Reviewer</h3>
                   <div className="grid grid-cols-2 gap-4 text-sm">
-                    <InfoField label="Name" value={selected.reviewer} />
-                    <InfoField label="Address" value={selected.address} />
-                    <InfoField label="Email" value={selected.email} />
-                    <InfoField
-                      label="Nationality"
-                      value={
-                        <span className="inline-flex items-center gap-2">
-                          <span>{selected.nationalityFlag}</span>
-                          {selected.nationality}
-                        </span>
-                      }
-                    />
+                    <InfoField label="Name" value={selected.reviewerName} />
+                    <InfoField label="Nationality" value={selected.reviewerCountry} />
+                    <InfoField label="Booking ID" value={selected.bookingId} />
+                    <InfoField label="Type" value={selected.sourceType === 'activity' ? 'Activity' : 'Tour Package'} />
                   </div>
                 </section>
 
                 <section>
-                  <h3 className="text-lg font-bold text-gray-800 mb-1">Tour</h3>
-                  <p className="text-sm text-gray-600">{selected.tour}</p>
+                  <h3 className="text-lg font-bold text-gray-800 mb-1">Location</h3>
+                  <p className="text-sm text-gray-600">{selected.location || selected.itemId}</p>
                 </section>
 
                 <section>
@@ -418,10 +443,10 @@ export default function ReviewsPage() {
                   Flag
                 </button>
                 <button
-                  onClick={() => updateStatus(selected.id, 'Draft')}
+                  onClick={() => updateStatus(selected.id, 'Pending')}
                   className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
                 >
-                  Return to Draft
+                  Return to Pending
                 </button>
                 <button
                   onClick={() => updateStatus(selected.id, 'Published')}
@@ -432,6 +457,10 @@ export default function ReviewsPage() {
                 </button>
               </div>
             </>
+          ) : (
+            <div className="flex flex-1 items-center justify-center text-gray-400 text-sm">
+              Select a review to moderate
+            </div>
           )}
         </div>
       </div>

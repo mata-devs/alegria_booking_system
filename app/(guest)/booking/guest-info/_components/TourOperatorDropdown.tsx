@@ -43,21 +43,18 @@ export const TourOperatorDropdown = ({ value, onChange, lockedByPromo = false }:
                 if (cancelled) return;
 
                 const base = snap.docs
-                    .map((d) => {
+                    .flatMap((d) => {
                         const data = d.data() as {
                             companyName?: string;
-                            name?: string;
-                            firstName?: string;
-                            lastName?: string;
                             profileImage?: string;
                         };
-                        const fullName = [data.firstName, data.lastName].filter(Boolean).join(" ").trim();
-                        const label = fullName || data.name?.trim() || data.companyName?.trim() || "Unnamed operator";
+                        const label = data.companyName?.trim();
+                        if (!label) return [];
                         const words = label.split(/\s+/).filter(Boolean);
                         const initials = words.length >= 2
                             ? (words[0][0] + words[words.length - 1][0]).toUpperCase()
                             : label.slice(0, 2).toUpperCase();
-                        return { uid: d.id, label, initials, imageUrl: data.profileImage ?? null };
+                        return [{ uid: d.id, label, initials, imageUrl: data.profileImage ?? null }];
                     })
                     .sort((a, b) => a.label.localeCompare(b.label));
 

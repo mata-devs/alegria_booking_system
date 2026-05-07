@@ -84,6 +84,7 @@ export default function OperatorsManagementPage() {
           role: data.role,
           firstName: data.firstName ?? '',
           lastName: data.lastName ?? '',
+          companyName: data.companyName ?? '',
           status: data.status ?? 'active',
           createdAt: data.createdAt?.toDate?.() ?? null,
           phoneNumber: data.phoneNumber ?? '',
@@ -217,6 +218,7 @@ export default function OperatorsManagementPage() {
           id: d.id,
           applicantId: data.applicantId ?? d.id.slice(0, 6).toUpperCase(),
           name: data.name ?? '',
+          companyName: data.companyName ?? '',
           email: data.email ?? '',
           phoneNumber: data.phoneNumber ?? '',
           mobileNumber: data.mobileNumber ?? '',
@@ -493,6 +495,9 @@ export default function OperatorsManagementPage() {
                 </div>
                 <div className="min-w-0 space-y-1.5">
                   <div><p className="text-[11px] text-gray-400">Name</p><p className="text-sm font-bold text-gray-900 truncate">{selectedOperator.firstName} {selectedOperator.lastName}</p></div>
+                  {selectedOperator.companyName && (
+                    <div><p className="text-[11px] text-gray-400">Company / Agency</p><p className="text-sm font-bold text-gray-900 truncate">{selectedOperator.companyName}</p></div>
+                  )}
                   <div><p className="text-[11px] text-gray-400">Email</p><p className="text-sm font-bold text-gray-900 truncate">{selectedOperator.email ?? '—'}</p></div>
                   <div><p className="text-[11px] text-gray-400">Phone number</p><p className="text-sm font-bold text-gray-900">{selectedOperator.phoneNumber || '—'}</p></div>
                 </div>
@@ -728,6 +733,7 @@ export default function OperatorsManagementPage() {
                 </div>
               </div>
               <div className="mt-3 space-y-3">
+                <div><label className="text-xs font-semibold text-gray-700">Company / Agency Name</label><div className="mt-0.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900">{selectedRequest.companyName || '—'}</div></div>
                 <div><label className="text-xs font-semibold text-gray-700">Mobile number</label><div className="mt-0.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900">{selectedRequest.mobileNumber || '—'}</div></div>
                 <div><label className="text-xs font-semibold text-gray-700">Email address</label><div className="mt-0.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 truncate">{selectedRequest.email || '—'}</div></div>
                 <div><label className="text-xs font-semibold text-gray-700">Address</label><div className="mt-0.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900">{selectedRequest.address || '—'}</div></div>

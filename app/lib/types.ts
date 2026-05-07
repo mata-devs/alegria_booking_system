@@ -14,6 +14,7 @@ export interface UserProfile {
 
 export interface OperatorProfile extends UserProfile {
     operatorId: string;
+    companyName: string;
     phoneNumber: string;
     mobileNumber: string;
     profileImage: string | null;
@@ -32,6 +33,7 @@ export interface OperatorSignUpRequest {
     id: string;
     applicantId: string;
     name: string;
+    companyName: string;
     email: string;
     phoneNumber: string;
     mobileNumber: string;

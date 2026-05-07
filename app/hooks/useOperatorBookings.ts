@@ -32,8 +32,8 @@ export interface FirestoreBooking {
   numberOfGuests: number;
   specialRequests: string;
   activityId: string;
-  timeSlotId: string;
-  timeSlot: 'AM' | 'PM';
+  activityName?: string;
+  sourceType?: string;
   tourDate: Timestamp;
   operatorUid: string;
   assignmentType: string;

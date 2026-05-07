@@ -10,6 +10,7 @@ import { useSearchParams } from 'next/navigation';
 
 interface FormData {
   name: string;
+  companyName: string;
   phoneNumber: string;
   mobileNumber: string;
   email: string;
@@ -42,6 +43,7 @@ function OperatorSignUpContent() {
 
   const [form, setForm] = useState<FormData>({
     name: '',
+    companyName: '',
     phoneNumber: '',
     mobileNumber: '',
     email: '',
@@ -180,8 +182,8 @@ function OperatorSignUpContent() {
     e.preventDefault();
     setError(null);
 
-    if (!form.name.trim() || !form.email.trim()) {
-      setError('Name and email are required.');
+    if (!form.name.trim() || !form.companyName.trim() || !form.email.trim()) {
+      setError('Name, company name, and email are required.');
       return;
     }
 
@@ -227,6 +229,7 @@ function OperatorSignUpContent() {
       await addDoc(collection(firebaseDb, 'operator_signup_requests'), {
         applicantId: `I${tempId.replace(/-/g, '').slice(0, 5).toUpperCase()}`,
         name: form.name,
+        companyName: form.companyName,
         email: form.email,
         phoneNumber: form.phoneNumber,
         mobileNumber: form.mobileNumber,
@@ -355,6 +358,15 @@ function OperatorSignUpContent() {
               <input
                 name="name"
                 value={form.name}
+                onChange={handleInput}
+                className="mt-0.5 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-[#558B2F] focus:outline-none focus:ring-1 focus:ring-[#558B2F]"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-700">Company / Agency Name</label>
+              <input
+                name="companyName"
+                value={form.companyName}
                 onChange={handleInput}
                 className="mt-0.5 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-[#558B2F] focus:outline-none focus:ring-1 focus:ring-[#558B2F]"
               />

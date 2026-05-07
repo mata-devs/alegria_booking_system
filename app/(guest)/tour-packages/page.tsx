@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import Footer from '@/app/components/Footer'
 import SearchBar from '@/app/components/SearchBar'
 import PackageCard from '@/app/components/ui/PackageCard'
@@ -10,6 +11,7 @@ import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestor
 import { firebaseDb } from '@/app/lib/firebase'
 import { CategoryFilterCollapsible } from '@/app/components/CategoryFilterCollapsible'
 import { ACTIVITY_TAGS } from '@/app/lib/activity-tags'
+import { parseGuestListingSearchParams } from '@/app/lib/searchSchema'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/app/components/ui/drawer'
 
 interface FirestorePackage {
@@ -28,15 +30,25 @@ interface FirestorePackage {
 
 const INITIAL_COUNT = 9
 
-
 export default function TourPackagesPage() {
+  return (
+    <Suspense>
+      <TourPackagesContent />
+    </Suspense>
+  )
+}
+
+function TourPackagesContent() {
+  const searchParams = useSearchParams()
+  const queryKey = searchParams.toString()
+  const initialSearch = parseGuestListingSearchParams(searchParams)
   const [packages, setPackages] = useState<FirestorePackage[]>([])
   const [loading, setLoading] = useState(true)
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
   const [visibleCount, setVisibleCount] = useState(INITIAL_COUNT)
-  const [searchWhere, setSearchWhere] = useState('')
-  const [searchDate, setSearchDate] = useState('')
-  const [searchTravelers, setSearchTravelers] = useState('')
+  const [searchWhere, setSearchWhere] = useState(initialSearch.location)
+  const [searchDate, setSearchDate] = useState(initialSearch.date)
+  const [searchTravelers, setSearchTravelers] = useState(initialSearch.travelers)
   const [searchDrawerOpen, setSearchDrawerOpen] = useState(false)
   const [filterPanelOpen, setFilterPanelOpen] = useState(false)
   const [popularActivities, setPopularActivities] = useState<{
@@ -45,6 +57,14 @@ export default function TourPackagesPage() {
     pricePerGuest: number; activityImages: string[];
   }[]>([])
   const carouselRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const p = parseGuestListingSearchParams(new URLSearchParams(queryKey))
+    setSearchWhere(p.location)
+    setSearchDate(p.date)
+    setSearchTravelers(p.travelers)
+    setVisibleCount(INITIAL_COUNT)
+  }, [queryKey])
 
   useEffect(() => {
     const q = query(
@@ -111,6 +131,9 @@ export default function TourPackagesPage() {
       <div className="relative z-10 -mt-8 px-4 sm:px-6 md:px-16 mb-4 hidden sm:block">
         <SearchBar
           className="max-w-4xl mx-auto"
+          defaultWhere={searchWhere}
+          defaultWhen={searchDate}
+          defaultTravelers={searchTravelers}
           onSearch={({ where, when, travelers }) => { setSearchWhere(where); setSearchDate(when); setSearchTravelers(travelers); setVisibleCount(INITIAL_COUNT) }}
         />
       </div>
@@ -123,6 +146,9 @@ export default function TourPackagesPage() {
           </DrawerHeader>
           <div className="px-4 pb-2">
             <SearchBar
+              defaultWhere={searchWhere}
+              defaultWhen={searchDate}
+              defaultTravelers={searchTravelers}
               onSearch={({ where, when, travelers }) => {
                 setSearchWhere(where)
                 setSearchDate(when)
@@ -188,7 +214,13 @@ export default function TourPackagesPage() {
                 rating={pkg.packageRating}
                 minGuests={pkg.minimumNumberOfPeople ?? 1}
                 cardKind="tourPackage"
-                href={`/tour-packages/${pkg.slug}${searchDate || searchTravelers ? `?date=${searchDate}&travelers=${searchTravelers}` : ''}`}
+                href={(() => {
+                  const params = new URLSearchParams()
+                  if (searchDate) params.set('date', searchDate)
+                  if (searchTravelers) params.set('travelers', searchTravelers)
+                  const q = params.toString()
+                  return `/tour-packages/${pkg.slug}${q ? `?${q}` : ''}`
+                })()}
               />
             ))}
           </div>

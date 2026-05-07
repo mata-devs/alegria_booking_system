@@ -67,6 +67,22 @@ service cloud.firestore {
       allow get, list: if resource.data.role == "operator"
         && resource.data.status == "active";
 
+      // ── ADDED 2026-05-07 ───────────────────────────────────────────
+      // In-app notifications (TASK-64/65): server creates; user reads + marks read
+      match /notifications/{notifId} {
+        allow read, update: if request.auth != null && request.auth.uid == userId;
+        allow create, delete: if false;
+      }
+
+    }
+
+    // ── ADDED 2026-05-07 ───────────────────────────────────────────
+    // Reviews: public read when status is approved (guest catalog + reviews-service).
+    // Super admins read/update/delete all (moderation UI). Client create disabled until TASK-69.
+    match /reviews/{reviewId} {
+      allow read: if resource.data.status == 'approved' || isSuperAdmin();
+      allow create: if false;
+      allow update, delete: if isSuperAdmin();
     }
 
     // Operator signup requests

@@ -32,6 +32,7 @@ interface OperatorOption {
     uid: string;
     firstName: string;
     lastName: string;
+    companyName: string;
     operatorId: string;
     email: string;
 }
@@ -508,6 +509,7 @@ function CreateCodeModal({ isOpen, onClose, onSaved }: CreateCodeModalProps) {
                         uid: d.id,
                         firstName: data.firstName ?? '',
                         lastName: data.lastName ?? '',
+                        companyName: data.companyName ?? '',
                         operatorId: data.operatorId ?? d.id,
                         email: data.email ?? '',
                     };
@@ -669,9 +671,9 @@ function OperatorSearchSelect({
         );
     }, [operators, term]);
 
-    const label = selected
-        ? `${selected.firstName} ${selected.lastName} (${selected.operatorId})`
-        : '';
+    const displayName = (op: OperatorOption) =>
+        op.companyName || `${op.firstName} ${op.lastName}`.trim() || op.operatorId;
+    const label = selected ? `${displayName(selected)} (${selected.operatorId})` : '';
 
     return (
         <div ref={containerRef} className="relative">
@@ -715,7 +717,7 @@ function OperatorSearchSelect({
                             onClick={() => { onChange(op.uid); setOpen(false); setTerm(''); }}
                             className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-b border-gray-50 last:border-b-0"
                         >
-                            <div className="font-medium text-gray-800">{op.firstName} {op.lastName}</div>
+                            <div className="font-medium text-gray-800">{displayName(op)}</div>
                             <div className="text-xs text-gray-500">{op.operatorId}{op.email ? ` • ${op.email}` : ''}</div>
                         </button>
                     ))}

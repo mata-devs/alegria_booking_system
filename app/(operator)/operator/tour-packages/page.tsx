@@ -1,6 +1,13 @@
 'use client';
 
 import { useState, useRef, useEffect, useMemo } from 'react';
+import {
+  useReactTable,
+  getCoreRowModel,
+  flexRender,
+  type ColumnDef,
+  type RowData,
+} from '@tanstack/react-table';
 import Image from 'next/image';
 import { Plus, Search, SlidersHorizontal, X, Upload, ChevronLeft, ChevronRight, Pencil, Trash2, LayoutGrid, Table as TableIcon } from 'lucide-react';
 import ToggleSwitch from '@/app/components/ui/ToggleSwitch';
@@ -21,6 +28,15 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { firebaseDb, firebaseStorage } from '@/app/lib/firebase';
 import { useAuth } from '@/app/context/AuthContext';
 import { ACTIVITY_TAGS, type ActivityTag, type StoredActivityTag } from '@/app/lib/activity-tags';
+
+declare module '@tanstack/react-table' {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface ColumnMeta<TData extends RowData, TValue> {
+    tdClassName?: string;
+    thClassName?: string;
+  }
+}
+
 type PackageStatus = 'active' | 'disabled';
 
 const CEBU_MUNICIPALITIES = [
@@ -1258,6 +1274,59 @@ export default function OperatorTourPackagesPage() {
     return true;
   }), [packages, search, filters, pendingDeleteId]);
 
+  const packageColumns = useMemo<ColumnDef<OperatorPackage>[]>(() => [
+    {
+      accessorKey: 'packageName',
+      header: 'Package',
+      meta: { tdClassName: 'px-4 py-3 font-medium text-gray-900' },
+      cell: ({ row }) => (
+        <button onClick={() => setDetailPackage(row.original)} className="text-left hover:text-green-600">
+          {row.original.packageName}
+        </button>
+      ),
+    },
+    { accessorKey: 'packageTag', header: 'Tag', meta: { tdClassName: 'px-4 py-3 text-gray-600' } },
+    { accessorKey: 'packageLocation', header: 'Location', meta: { tdClassName: 'px-4 py-3 text-gray-600' } },
+    {
+      accessorKey: 'pricePerPerson',
+      header: 'Price',
+      meta: { thClassName: 'text-right px-4 py-3 font-semibold', tdClassName: 'px-4 py-3 text-right text-gray-900' },
+      cell: ({ getValue }) => <>&#8369;{(getValue() as number).toLocaleString()}</>,
+    },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      meta: { tdClassName: 'px-4 py-3 w-28' },
+      cell: ({ getValue }) => <StatusBadge status={getValue() as PackageStatus} />,
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      meta: { thClassName: 'text-right px-4 py-3 font-semibold w-40', tdClassName: 'px-4 py-3 w-40 whitespace-nowrap' },
+      cell: ({ row }) => (
+        <div className="flex items-center justify-end gap-3">
+          <button onClick={() => setEditPackage(row.original)} title="Edit" aria-label="Edit package" className="p-1.5 rounded hover:bg-gray-100 text-gray-600 hover:text-green-600">
+            <Pencil className="w-4 h-4" />
+          </button>
+          <ToggleSwitch
+            checked={row.original.status === 'active'}
+            onChange={() => handleToggleStatus(row.original)}
+            ariaLabel={row.original.status === 'active' ? 'Disable package' : 'Enable package'}
+          />
+          <button onClick={() => handleDelete(row.original)} title="Delete" aria-label="Delete package" className="p-1.5 rounded hover:bg-red-50 text-gray-600 hover:text-red-600">
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      ),
+    },
+  ], [setDetailPackage, setEditPackage, handleToggleStatus, handleDelete]);
+
+  const packageTable = useReactTable({
+    data: filtered,
+    columns: packageColumns,
+    getCoreRowModel: getCoreRowModel(),
+  });
+
   return (
     <>
       <div className="space-y-5">
@@ -1343,55 +1412,24 @@ export default function OperatorTourPackagesPage() {
           <div className="overflow-x-auto border border-gray-200 rounded-lg bg-white">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-gray-600 text-xs uppercase tracking-wide">
-                <tr>
-                  <th className="text-left px-4 py-3 font-semibold">Package</th>
-                  <th className="text-left px-4 py-3 font-semibold">Tag</th>
-                  <th className="text-left px-4 py-3 font-semibold">Location</th>
-                  <th className="text-right px-4 py-3 font-semibold">Price</th>
-                  <th className="text-left px-4 py-3 font-semibold w-28">Status</th>
-                  <th className="text-right px-4 py-3 font-semibold w-40">Actions</th>
-                </tr>
+                {packageTable.getHeaderGroups().map(headerGroup => (
+                  <tr key={headerGroup.id}>
+                    {headerGroup.headers.map(header => (
+                      <th key={header.id} className={header.column.columnDef.meta?.thClassName ?? 'text-left px-4 py-3 font-semibold'}>
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                      </th>
+                    ))}
+                  </tr>
+                ))}
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filtered.map((pkg) => (
-                  <tr key={pkg.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-900">
-                      <button
-                        onClick={() => setDetailPackage(pkg)}
-                        className="text-left hover:text-green-600"
-                      >
-                        {pkg.packageName}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{pkg.packageTag}</td>
-                    <td className="px-4 py-3 text-gray-600">{pkg.packageLocation}</td>
-                    <td className="px-4 py-3 text-right text-gray-900">₱{pkg.pricePerPerson.toLocaleString()}</td>
-                    <td className="px-4 py-3 w-28"><StatusBadge status={pkg.status} /></td>
-                    <td className="px-4 py-3 w-40 whitespace-nowrap">
-                      <div className="flex items-center justify-end gap-3">
-                        <button
-                          onClick={() => setEditPackage(pkg)}
-                          title="Edit"
-                          aria-label="Edit package"
-                          className="p-1.5 rounded hover:bg-gray-100 text-gray-600 hover:text-green-600"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <ToggleSwitch
-                          checked={pkg.status === 'active'}
-                          onChange={() => handleToggleStatus(pkg)}
-                          ariaLabel={pkg.status === 'active' ? 'Disable package' : 'Enable package'}
-                        />
-                        <button
-                          onClick={() => handleDelete(pkg)}
-                          title="Delete"
-                          aria-label="Delete package"
-                          className="p-1.5 rounded hover:bg-red-50 text-gray-600 hover:text-red-600"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
+                {packageTable.getRowModel().rows.map(row => (
+                  <tr key={row.id} className="hover:bg-gray-50">
+                    {row.getVisibleCells().map(cell => (
+                      <td key={cell.id} className={cell.column.columnDef.meta?.tdClassName ?? 'px-4 py-3'}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
                   </tr>
                 ))}
               </tbody>

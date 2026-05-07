@@ -5,9 +5,8 @@ import { collection, doc, getDoc, getDocs, query, where } from "firebase/firesto
 import { firestore } from "@/app/lib/firebase";
 import type { PaymentMethod } from "@/app/lib/booking-service";
 
-// ─── Pricing constants ─────────────────────────────────────────────────────────
-// TODO: Move to a global config or fetch from Firestore `activities` collection
-const SERVICE_CHARGE = 500;
+import { SERVICE_CHARGE } from '@/app/lib/serviceCharge';
+import { ItemDetailModal } from '@/app/(guest)/booking/_components/ItemDetailModal';
 
 const peso = (n: number) =>
     `₱ ${n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -37,6 +36,7 @@ export function BookingSummary({
     appliedPromo,
     sourceType = "activity",
 }: BookingSummaryProps) {
+    const [showItemModal, setShowItemModal] = useState(false);
     const [pricePerGuest, setPricePerGuest] = useState<number | null>(null);
     const [discountPercent, setDiscountPercent] = useState<number | null>(null);
 
@@ -94,10 +94,17 @@ export function BookingSummary({
             <h2 className="text-center text-lg font-extrabold text-gray-900">Booking Summary</h2>
 
             {activityName && (
-                <div className="mt-4 rounded-2xl bg-[#f0fce0] border border-[#74C00F]/20 px-4 py-3">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Activity</p>
-                    <p className="text-sm font-bold text-[#74C00F] truncate">{activityName}</p>
-                </div>
+                <button
+                    type="button"
+                    onClick={() => setShowItemModal(true)}
+                    className="mt-4 w-full rounded-2xl bg-[#f0fce0] border border-[#74C00F]/20 px-4 py-3 text-left transition hover:bg-[#e6fad0] hover:border-[#74C00F]/40 group"
+                >
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">
+                        {sourceType === 'tourPackage' ? 'Tour Package' : 'Activity'}
+                    </p>
+                    <p className="text-sm font-bold text-[#74C00F] truncate group-hover:underline">{activityName}</p>
+                    <p className="text-[10px] text-[#74C00F]/60 mt-0.5">Tap to view details</p>
+                </button>
             )}
 
             <div className="mt-6 space-y-5 text-sm text-gray-700">
@@ -172,6 +179,14 @@ export function BookingSummary({
                     <span className="font-semibold">pending</span> until an operator verifies your screenshot.
                 </div>
             </div>
+
+            {showItemModal && activityId && (
+                <ItemDetailModal
+                    itemId={activityId}
+                    sourceType={sourceType}
+                    onClose={() => setShowItemModal(false)}
+                />
+            )}
         </aside>
     );
 }

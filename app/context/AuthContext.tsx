@@ -23,7 +23,7 @@ interface AuthContextValue {
   signOutUser: () => Promise<void>;
 }
 
-const PROFILE_CACHE_KEY = 'sc_auth_v1';
+const PROFILE_CACHE_KEY = 'vc_auth_v1';
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 

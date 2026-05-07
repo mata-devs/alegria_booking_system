@@ -114,6 +114,14 @@ export default function OperatorSettingsPage() {
   const onPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!['image/jpeg', 'image/png'].includes(file.type)) {
+      setProfileStatus({ type: 'error', msg: 'Only JPEG and PNG images are allowed.' });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setProfileStatus({ type: 'error', msg: 'Photo must be under 5 MB.' });
+      return;
+    }
     setPhotoFile(file);
     setPhotoPreview(URL.createObjectURL(file));
   };
@@ -141,7 +149,7 @@ export default function OperatorSettingsPage() {
         lastName: profile.lastName,
       });
 
-      try { sessionStorage.removeItem('sc_auth_v1'); } catch {}
+      try { sessionStorage.removeItem('vc_auth_v1'); } catch {}
       setPhotoFile(null);
       setProfileStatus({ type: 'success', msg: 'Profile updated.' });
     } catch (err) {

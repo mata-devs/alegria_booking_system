@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, type ReactNode } from 'react'
 import type { BookingState, BookingContextValue, Representative, Guest } from '../types'
+import { SERVICE_CHARGE } from '../lib/serviceCharge'
 
 const defaultRepresentative: Representative = {
   name: '', age: '', email: '', gender: '', phone: '', nationality: '',
@@ -40,7 +41,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
 
   const basePrice = booking.item?.price ?? 2500
   const subtotal = basePrice * booking.guestCount
-  const serviceCharge = 500
+  const serviceCharge = SERVICE_CHARGE
   const total = subtotal + serviceCharge - booking.promoDiscount
 
   return (

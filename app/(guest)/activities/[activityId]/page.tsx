@@ -8,14 +8,16 @@ import { BentoGallery, Lightbox } from '@/app/components/ui/BentoGallery'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/app/components/ui/drawer'
 import { doc, getDoc } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
-import { travelerReviews } from '@/app/data/mockData'
 import Image from 'next/image'
+import { getApprovedReviewsForItem, type ApprovedReview } from '@/app/lib/reviews-service'
 
 interface FirestoreActivity {
   id: string
   activityName: string
   activityDetails: string
   pricePerGuest: number
+  minimumNumberOfPeople?: number
+  maximumNumberOfPeople?: number
   activityLocation: string
   activityTag: string
   activityRating: number
@@ -50,13 +52,19 @@ function ActivityDetailInner() {
     return t ? Math.max(1, parseInt(t, 10)) : 1
   })
   const [bookingDrawerOpen, setBookingDrawerOpen] = useState(false)
+  const [reviews, setReviews] = useState<ApprovedReview[]>([])
+  const [reviewsVisible, setReviewsVisible] = useState(5)
 
   useEffect(() => {
     async function load() {
       try {
         const snap = await getDoc(doc(firebaseDb, 'activities', activityId))
         if (!snap.exists()) { setNotFound(true); setLoading(false); return }
-        setActivity({ id: snap.id, ...snap.data() } as FirestoreActivity)
+        const loaded = { id: snap.id, ...snap.data() } as FirestoreActivity
+        setActivity(loaded)
+        if (!searchParams.get('travelers')) {
+          setTravelers(Math.max(1, loaded.minimumNumberOfPeople ?? 1))
+        }
       } catch (err) {
         console.error(err)
         setNotFound(true)
@@ -67,6 +75,14 @@ function ActivityDetailInner() {
     load()
   }, [activityId])
 
+  useEffect(() => {
+    if (!activityId) return
+    getApprovedReviewsForItem(activityId, 'activity').then(setReviews).catch(console.error)
+  }, [activityId])
+
+  const minGuests = Math.max(1, activity?.minimumNumberOfPeople ?? 1)
+  const maxGuests = activity?.maximumNumberOfPeople ? Math.max(activity.maximumNumberOfPeople, minGuests) : 30
+
   const handleBook = () => {
     if (!activity) return
     const params = new URLSearchParams({
@@ -74,6 +90,8 @@ function ActivityDetailInner() {
       activityName: activity.activityName,
       date,
       guests: travelers.toString(),
+      minGuests: minGuests.toString(),
+      maxGuests: maxGuests.toString(),
     })
     router.push(`/booking/guest-info?${params.toString()}`)
   }
@@ -144,23 +162,39 @@ function ActivityDetailInner() {
             {/* Reviews */}
             <section className="mb-8">
               <h2 className="text-base font-bold text-gray-900 mb-4">
-                Reviews <span className="text-gray-400 font-normal text-sm">({travelerReviews.length * 2} reviews)</span>
+                Reviews <span className="text-gray-400 font-normal text-sm">({reviews.length} reviews)</span>
               </h2>
-              <div className="space-y-5">
-                {[...travelerReviews, ...travelerReviews].map((review, i) => (
-                  <div key={i} className="flex items-start gap-4 pb-5 border-b border-gray-100 last:border-0">
-                    <Image src={review.avatar} alt={review.name} width={40} height={40} className="rounded-full object-cover shrink-0" />
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="text-sm font-semibold text-gray-800">{review.name}</p>
-                        <p className="text-xs text-gray-400">{review.date}</p>
+              {reviews.length === 0 ? (
+                <p className="text-sm text-gray-400 italic">No reviews yet — be one of the first!</p>
+              ) : (
+                <>
+                  <div className="space-y-5">
+                    {reviews.slice(0, reviewsVisible).map((review) => (
+                      <div key={review.id} className="flex items-start gap-4 pb-5 border-b border-gray-100 last:border-0">
+                        <div className="h-10 w-10 shrink-0 rounded-full bg-gray-200 flex items-center justify-center text-sm font-bold text-gray-500">
+                          {review.reviewerName.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="text-sm font-semibold text-gray-800">{review.reviewerName}</p>
+                            <p className="text-xs text-gray-400">{review.createdAt?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) ?? ''}</p>
+                          </div>
+                          <StarRating rating={review.rating} />
+                          <p className="text-sm text-gray-500 mt-1.5 leading-relaxed">{review.text}</p>
+                        </div>
                       </div>
-                      <StarRating rating={review.rating} />
-                      <p className="text-sm text-gray-500 mt-1.5 leading-relaxed">{review.text}</p>
-                    </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                  {reviewsVisible < reviews.length && (
+                    <button
+                      onClick={() => setReviewsVisible((v) => v + 5)}
+                      className="mt-3 text-sm font-semibold text-[#558B2F] hover:underline"
+                    >
+                      Show more
+                    </button>
+                  )}
+                </>
+              )}
             </section>
           </div>
 

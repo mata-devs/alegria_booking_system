@@ -1,6 +1,13 @@
 'use client';
 
 import { useState, useRef, useEffect, useMemo } from 'react';
+import {
+  useReactTable,
+  getCoreRowModel,
+  flexRender,
+  type ColumnDef,
+  type RowData,
+} from '@tanstack/react-table';
 import Image from 'next/image';
 import { Plus, Search, SlidersHorizontal, X, Upload, ChevronLeft, ChevronRight, Pencil, Trash2, LayoutGrid, Table as TableIcon } from 'lucide-react';
 import ToggleSwitch from '@/app/components/ui/ToggleSwitch';
@@ -21,6 +28,15 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { firebaseDb, firebaseStorage } from '@/app/lib/firebase';
 import { useAuth } from '@/app/context/AuthContext';
 import { ACTIVITY_TAGS, type ActivityTag, type StoredActivityTag } from '@/app/lib/activity-tags';
+
+declare module '@tanstack/react-table' {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface ColumnMeta<TData extends RowData, TValue> {
+    tdClassName?: string;
+    thClassName?: string;
+  }
+}
+
 type ActivityStatus = 'active' | 'disabled';
 
 const CEBU_MUNICIPALITIES = [
@@ -45,6 +61,8 @@ interface OperatorActivity {
   activityName: string;
   activityDetails: string;
   pricePerGuest: number;
+  minimumNumberOfPeople: number;
+  maximumNumberOfPeople: number;
   activityLocation: string;
   activityTag: StoredActivityTag;
   activityRating: number;
@@ -325,6 +343,8 @@ interface EditFormState {
   activityName: string;
   activityDetails: string;
   pricePerGuest: string;
+  minimumNumberOfPeople: string;
+  maximumNumberOfPeople: string;
   activityLocation: string;
   activityTag: ActivityTag | '';
   status: ActivityStatus;
@@ -337,6 +357,8 @@ function EditActivityModal({ activity, onClose, operatorId }: { activity: Operat
     activityName: activity.activityName,
     activityDetails: activity.activityDetails,
     pricePerGuest: String(activity.pricePerGuest),
+    minimumNumberOfPeople: String(activity.minimumNumberOfPeople ?? 1),
+    maximumNumberOfPeople: String(activity.maximumNumberOfPeople ?? 30),
     activityLocation: activity.activityLocation,
     activityTag: (ACTIVITY_TAGS as ReadonlyArray<string>).includes(activity.activityTag) ? activity.activityTag as ActivityTag : '',
     status: activity.status,
@@ -383,6 +405,9 @@ function EditActivityModal({ activity, onClose, operatorId }: { activity: Operat
     if (!form.activityName.trim()) e.activityName = 'Required';
     if (!form.activityDetails.trim()) e.activityDetails = 'Required';
     if (!form.pricePerGuest || Number(form.pricePerGuest) <= 0) e.pricePerGuest = 'Enter a valid price';
+    if (!form.minimumNumberOfPeople || Number(form.minimumNumberOfPeople) < 1) e.minimumNumberOfPeople = 'Minimum 1';
+    if (!form.maximumNumberOfPeople || Number(form.maximumNumberOfPeople) < 1) e.maximumNumberOfPeople = 'Minimum 1';
+    if (Number(form.maximumNumberOfPeople) < Number(form.minimumNumberOfPeople)) e.maximumNumberOfPeople = 'Must be ≥ minimum';
     if (!CEBU_MUNICIPALITIES.includes(form.activityLocation as typeof CEBU_MUNICIPALITIES[number]))
       e.activityLocation = 'Select a valid municipality';
     if (!form.activityTag) e.activityTag = 'Select a tag';
@@ -407,6 +432,8 @@ function EditActivityModal({ activity, onClose, operatorId }: { activity: Operat
         activityName: form.activityName.trim(),
         activityDetails: form.activityDetails.trim(),
         pricePerGuest: parseFloat(form.pricePerGuest),
+        minimumNumberOfPeople: Number(form.minimumNumberOfPeople),
+        maximumNumberOfPeople: Number(form.maximumNumberOfPeople),
         activityLocation: form.activityLocation.trim(),
         activityTag: form.activityTag,
         status: form.status,
@@ -472,6 +499,21 @@ function EditActivityModal({ activity, onClose, operatorId }: { activity: Operat
             <input type="number" min="0" value={form.pricePerGuest} onChange={(e) => field('pricePerGuest', e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
             {errors.pricePerGuest && <p className="text-red-500 text-xs mt-1">{errors.pricePerGuest}</p>}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Min Guests</label>
+              <input type="number" min="1" value={form.minimumNumberOfPeople} onChange={(e) => field('minimumNumberOfPeople', e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
+              {errors.minimumNumberOfPeople && <p className="text-red-500 text-xs mt-1">{errors.minimumNumberOfPeople}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Max Guests</label>
+              <input type="number" min="1" value={form.maximumNumberOfPeople} onChange={(e) => field('maximumNumberOfPeople', e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
+              {errors.maximumNumberOfPeople && <p className="text-red-500 text-xs mt-1">{errors.maximumNumberOfPeople}</p>}
+            </div>
           </div>
 
           <div>
@@ -540,11 +582,13 @@ interface AddFormState {
   activityName: string;
   activityDetails: string;
   pricePerGuest: string;
+  minimumNumberOfPeople: string;
+  maximumNumberOfPeople: string;
   activityLocation: string;
   activityTag: ActivityTag | '';
 }
 
-const EMPTY_FORM: AddFormState = { activityName: '', activityDetails: '', pricePerGuest: '', activityLocation: '', activityTag: '' };
+const EMPTY_FORM: AddFormState = { activityName: '', activityDetails: '', pricePerGuest: '', minimumNumberOfPeople: '1', maximumNumberOfPeople: '30', activityLocation: '', activityTag: '' };
 
 function AddActivityModal({ onClose, operatorId }: { onClose: () => void; operatorId: string }) {
   const [form, setForm] = useState<AddFormState>(EMPTY_FORM);
@@ -585,6 +629,9 @@ function AddActivityModal({ onClose, operatorId }: { onClose: () => void; operat
     if (!form.activityName.trim()) e.activityName = 'Required';
     if (!form.activityDetails.trim()) e.activityDetails = 'Required';
     if (!form.pricePerGuest || Number(form.pricePerGuest) <= 0) e.pricePerGuest = 'Enter a valid price';
+    if (!form.minimumNumberOfPeople || Number(form.minimumNumberOfPeople) < 1) e.minimumNumberOfPeople = 'Minimum 1';
+    if (!form.maximumNumberOfPeople || Number(form.maximumNumberOfPeople) < 1) e.maximumNumberOfPeople = 'Minimum 1';
+    if (Number(form.maximumNumberOfPeople) < Number(form.minimumNumberOfPeople)) e.maximumNumberOfPeople = 'Must be ≥ minimum';
     if (!CEBU_MUNICIPALITIES.includes(form.activityLocation as typeof CEBU_MUNICIPALITIES[number])) e.activityLocation = 'Select a valid municipality';
     if (!form.activityTag) e.activityTag = 'Select a tag';
     if (imageFiles.length === 0) e.images = 'At least 1 image required';
@@ -608,6 +655,8 @@ function AddActivityModal({ onClose, operatorId }: { onClose: () => void; operat
         activityName: form.activityName.trim(),
         activityDetails: form.activityDetails.trim(),
         pricePerGuest: parseFloat(form.pricePerGuest),
+        minimumNumberOfPeople: Number(form.minimumNumberOfPeople),
+        maximumNumberOfPeople: Number(form.maximumNumberOfPeople),
         activityLocation: form.activityLocation.trim(),
         activityTag: form.activityTag,
         activityRating: 0,
@@ -652,6 +701,20 @@ function AddActivityModal({ onClose, operatorId }: { onClose: () => void; operat
             <input type="number" min="0" value={form.pricePerGuest} onChange={(e) => field('pricePerGuest', e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="e.g. 1500" />
             {errors.pricePerGuest && <p className="text-red-500 text-xs mt-1">{errors.pricePerGuest}</p>}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Min Guests</label>
+              <input type="number" min="1" value={form.minimumNumberOfPeople} onChange={(e) => field('minimumNumberOfPeople', e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="e.g. 1" />
+              {errors.minimumNumberOfPeople && <p className="text-red-500 text-xs mt-1">{errors.minimumNumberOfPeople}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Max Guests</label>
+              <input type="number" min="1" value={form.maximumNumberOfPeople} onChange={(e) => field('maximumNumberOfPeople', e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="e.g. 30" />
+              {errors.maximumNumberOfPeople && <p className="text-red-500 text-xs mt-1">{errors.maximumNumberOfPeople}</p>}
+            </div>
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">Activity Location</label>
@@ -933,6 +996,59 @@ export default function OperatorActivitiesPage() {
     return true;
   }), [activities, search, filters, pendingDeleteId]);
 
+  const activityColumns = useMemo<ColumnDef<OperatorActivity>[]>(() => [
+    {
+      accessorKey: 'activityName',
+      header: 'Activity',
+      meta: { tdClassName: 'px-4 py-3 font-medium text-gray-900' },
+      cell: ({ row }) => (
+        <button onClick={() => setDetailActivity(row.original)} className="text-left hover:text-green-600">
+          {row.original.activityName}
+        </button>
+      ),
+    },
+    { accessorKey: 'activityTag', header: 'Tag', meta: { tdClassName: 'px-4 py-3 text-gray-600' } },
+    { accessorKey: 'activityLocation', header: 'Location', meta: { tdClassName: 'px-4 py-3 text-gray-600' } },
+    {
+      accessorKey: 'pricePerGuest',
+      header: 'Price',
+      meta: { thClassName: 'text-right px-4 py-3 font-semibold', tdClassName: 'px-4 py-3 text-right text-gray-900' },
+      cell: ({ getValue }) => <>&#8369;{(getValue() as number).toLocaleString()}</>,
+    },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      meta: { tdClassName: 'px-4 py-3 w-28' },
+      cell: ({ getValue }) => <StatusBadge status={getValue() as ActivityStatus} />,
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      meta: { thClassName: 'text-right px-4 py-3 font-semibold w-40', tdClassName: 'px-4 py-3 w-40 whitespace-nowrap' },
+      cell: ({ row }) => (
+        <div className="flex items-center justify-end gap-3">
+          <button onClick={() => setEditActivity(row.original)} title="Edit" aria-label="Edit activity" className="p-1.5 rounded hover:bg-gray-100 text-gray-600 hover:text-green-600">
+            <Pencil className="w-4 h-4" />
+          </button>
+          <ToggleSwitch
+            checked={row.original.status === 'active'}
+            onChange={() => handleToggleStatus(row.original)}
+            ariaLabel={row.original.status === 'active' ? 'Disable activity' : 'Enable activity'}
+          />
+          <button onClick={() => handleDelete(row.original)} title="Delete" aria-label="Delete activity" className="p-1.5 rounded hover:bg-red-50 text-gray-600 hover:text-red-600">
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      ),
+    },
+  ], [setDetailActivity, setEditActivity, handleToggleStatus, handleDelete]);
+
+  const activityTable = useReactTable({
+    data: filtered,
+    columns: activityColumns,
+    getCoreRowModel: getCoreRowModel(),
+  });
+
   return (
     <>
       <div className="space-y-5">
@@ -1018,55 +1134,24 @@ export default function OperatorActivitiesPage() {
           <div className="overflow-x-auto border border-gray-200 rounded-lg bg-white">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-gray-600 text-xs uppercase tracking-wide">
-                <tr>
-                  <th className="text-left px-4 py-3 font-semibold">Activity</th>
-                  <th className="text-left px-4 py-3 font-semibold">Tag</th>
-                  <th className="text-left px-4 py-3 font-semibold">Location</th>
-                  <th className="text-right px-4 py-3 font-semibold">Price</th>
-                  <th className="text-left px-4 py-3 font-semibold w-28">Status</th>
-                  <th className="text-right px-4 py-3 font-semibold w-40">Actions</th>
-                </tr>
+                {activityTable.getHeaderGroups().map(headerGroup => (
+                  <tr key={headerGroup.id}>
+                    {headerGroup.headers.map(header => (
+                      <th key={header.id} className={header.column.columnDef.meta?.thClassName ?? 'text-left px-4 py-3 font-semibold'}>
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                      </th>
+                    ))}
+                  </tr>
+                ))}
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filtered.map((act) => (
-                  <tr key={act.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-900">
-                      <button
-                        onClick={() => setDetailActivity(act)}
-                        className="text-left hover:text-green-600"
-                      >
-                        {act.activityName}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{act.activityTag}</td>
-                    <td className="px-4 py-3 text-gray-600">{act.activityLocation}</td>
-                    <td className="px-4 py-3 text-right text-gray-900">₱{act.pricePerGuest.toLocaleString()}</td>
-                    <td className="px-4 py-3 w-28"><StatusBadge status={act.status} /></td>
-                    <td className="px-4 py-3 w-40 whitespace-nowrap">
-                      <div className="flex items-center justify-end gap-3">
-                        <button
-                          onClick={() => setEditActivity(act)}
-                          title="Edit"
-                          aria-label="Edit activity"
-                          className="p-1.5 rounded hover:bg-gray-100 text-gray-600 hover:text-green-600"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <ToggleSwitch
-                          checked={act.status === 'active'}
-                          onChange={() => handleToggleStatus(act)}
-                          ariaLabel={act.status === 'active' ? 'Disable activity' : 'Enable activity'}
-                        />
-                        <button
-                          onClick={() => handleDelete(act)}
-                          title="Delete"
-                          aria-label="Delete activity"
-                          className="p-1.5 rounded hover:bg-red-50 text-gray-600 hover:text-red-600"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
+                {activityTable.getRowModel().rows.map(row => (
+                  <tr key={row.id} className="hover:bg-gray-50">
+                    {row.getVisibleCells().map(cell => (
+                      <td key={cell.id} className={cell.column.columnDef.meta?.tdClassName ?? 'px-4 py-3'}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
                   </tr>
                 ))}
               </tbody>

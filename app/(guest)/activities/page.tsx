@@ -8,6 +8,7 @@ import SearchBar from '@/app/components/SearchBar'
 import ActivityCard from '@/app/components/ActivityCard'
 import PackageCard from '@/app/components/ui/PackageCard'
 import { useSearchParams } from 'next/navigation'
+import { parseGuestListingSearchParams } from '@/app/lib/searchSchema'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
 import { CategoryFilterCollapsible } from '@/app/components/CategoryFilterCollapsible'
@@ -25,10 +26,12 @@ export default function ActivitiesPage() {
 
 function ActivitiesContent() {
   const searchParams = useSearchParams()
+  const queryKey = searchParams.toString()
+  const initialSearch = parseGuestListingSearchParams(searchParams)
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
-  const [searchLocation, setSearchLocation] = useState(() => searchParams.get('location') ?? '')
-  const [searchDate, setSearchDate] = useState(() => searchParams.get('date') ?? '')
-  const [searchTravelers, setSearchTravelers] = useState(() => searchParams.get('travelers') ?? '')
+  const [searchLocation, setSearchLocation] = useState(initialSearch.location)
+  const [searchDate, setSearchDate] = useState(initialSearch.date)
+  const [searchTravelers, setSearchTravelers] = useState(initialSearch.travelers)
   const [visibleCount, setVisibleCount] = useState(8)
   const [activities, setActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
@@ -39,6 +42,13 @@ function ActivitiesContent() {
     pricePerPerson: number; packageLocation: string; duration: string;
     packageTag: string; packageImages: string[]; packageRating: number; slug: string;
   }[]>([])
+
+  useEffect(() => {
+    const p = parseGuestListingSearchParams(new URLSearchParams(queryKey))
+    setSearchLocation(p.location)
+    setSearchDate(p.date)
+    setSearchTravelers(p.travelers)
+  }, [queryKey])
 
   useEffect(() => {
     async function fetchActivities() {
@@ -124,6 +134,9 @@ function ActivitiesContent() {
       <div className="relative z-10 -mt-8 px-4 sm:px-6 md:px-16 mb-4 hidden sm:block">
         <SearchBar
           className="max-w-4xl mx-auto"
+          defaultWhere={searchLocation}
+          defaultWhen={searchDate}
+          defaultTravelers={searchTravelers}
           onSearch={({ where, when, travelers }) => { setSearchLocation(where); setSearchDate(when); setSearchTravelers(travelers); setVisibleCount(8) }}
         />
       </div>
@@ -136,6 +149,9 @@ function ActivitiesContent() {
           </DrawerHeader>
           <div className="px-4 pb-2">
             <SearchBar
+              defaultWhere={searchLocation}
+              defaultWhen={searchDate}
+              defaultTravelers={searchTravelers}
               onSearch={({ where, when, travelers }) => {
                 setSearchLocation(where)
                 setSearchDate(when)

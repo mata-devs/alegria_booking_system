@@ -84,7 +84,7 @@ export default function SuperAdminSettingsPage() {
         lastName: profile.lastName,
       });
 
-      try { sessionStorage.removeItem('sc_auth_v1'); } catch {}
+      try { sessionStorage.removeItem('vc_auth_v1'); } catch {}
       setPhotoFile(null);
       setProfileStatus({ type: 'success', msg: 'Profile updated.' });
     } catch (err) {
@@ -227,7 +227,7 @@ export default function SuperAdminSettingsPage() {
                   readOnly
                   className="mt-1.5 h-10 w-full cursor-not-allowed rounded-md border border-gray-200 bg-gray-100 px-3 text-sm text-gray-500 outline-none"
                 />
-                <p className="mt-1 text-[11px] text-gray-400">Contact another super admin to change your email.</p>
+                <p className="mt-1 text-[11px] text-gray-400">You cannot change the email</p>
               </div>
             </div>
 
@@ -257,7 +257,7 @@ export default function SuperAdminSettingsPage() {
           >
             <div className="border-b border-gray-200 px-6 py-4">
               <h2 className="text-base font-semibold text-gray-900">Update Password</h2>
-              <p className="mt-0.5 text-xs text-gray-500">Choose a strong password — at least 8 characters.</p>
+              <p className="mt-0.5 text-xs text-gray-500">Choose a strong password with at least 8 characters.</p>
             </div>
 
             <div className="px-6 py-5 space-y-4">

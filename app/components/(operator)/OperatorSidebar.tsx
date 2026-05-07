@@ -64,7 +64,7 @@ export default function OperatorSidebar({ isCollapsed, onToggleCollapse, onHover
       {/* Mobile menu button */}
       <button
         onClick={() => setIsMobileOpen(true)}
-        className="fixed top-4 left-4 z-50 rounded-lg bg-white p-2 shadow-md lg:hidden"
+        className="fixed top-3.5 left-3.5 z-50 flex h-10 w-10 items-center justify-center rounded-full border border-gray-200/90 bg-white shadow-md shadow-gray-900/5 ring-1 ring-gray-900/5 sm:top-4 sm:left-4 lg:hidden hover:bg-gray-50 transition-colors"
         aria-label="Open menu"
       >
         <Menu className="h-6 w-6 text-gray-700" />

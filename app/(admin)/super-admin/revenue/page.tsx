@@ -2,6 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  useReactTable,
+  getCoreRowModel,
+  flexRender,
+  type ColumnDef,
+  type RowData,
+} from '@tanstack/react-table';
+import {
   Search,
   SlidersHorizontal,
   ChevronDown,
@@ -29,6 +36,14 @@ import {
 import { firebaseDb } from '@/app/lib/firebase';
 import { useAuth } from '@/app/context/AuthContext';
 
+declare module '@tanstack/react-table' {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface ColumnMeta<TData extends RowData, TValue> {
+    tdClassName?: string;
+    thClassName?: string;
+  }
+}
+
 const PAGE_SIZE = 10;
 
 const REVENUE_WINDOW_DAYS = 90;
@@ -55,7 +70,6 @@ interface BookingRow {
   guests: Guest[];
   numberOfGuests: number;
   tourDate: Date | null;
-  timeSlot: 'AM' | 'PM' | string;
   pricePerGuest: number;
   serviceCharge: number;
   discountAmount: number;
@@ -68,11 +82,9 @@ function peso(n: number) {
   return `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function fmtSchedule(d: Date | null, slot: string) {
+function fmtSchedule(d: Date | null) {
   if (!d) return '—';
-  const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  const time = slot === 'AM' ? '8:00AM' : slot === 'PM' ? '2:00PM' : '';
-  return `${date}${time ? `, ${time}` : ''}`;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function tsToDate(v: unknown): Date | null {
@@ -153,7 +165,6 @@ export default function RevenueReportsPage() {
             guests: Array.isArray(b.guests) ? b.guests : [],
             numberOfGuests: Number(b.numberOfGuests) || 0,
             tourDate: tsToDate(b.tourDate),
-            timeSlot: b.timeSlot ?? 'AM',
             pricePerGuest: Number(b.pricePerGuest) || 0,
             serviceCharge: Number(b.serviceCharge) || 0,
             discountAmount: Number(b.discountAmount) || 0,
@@ -252,7 +263,6 @@ function mapBookingDoc(d: QueryDocumentSnapshot<DocumentData>, userMap: Map<stri
     guests: Array.isArray(b.guests) ? b.guests : [],
     numberOfGuests: Number(b.numberOfGuests) || 0,
     tourDate: tsToDate(b.tourDate),
-    timeSlot: b.timeSlot ?? 'AM',
     pricePerGuest: Number(b.pricePerGuest) || 0,
     serviceCharge: Number(b.serviceCharge) || 0,
     discountAmount: Number(b.discountAmount) || 0,
@@ -389,6 +399,57 @@ function IndividualBookings() {
     setPageIndex(idx);
   };
 
+  const bookingColumns = useMemo<ColumnDef<BookingRow>[]>(() => [
+    {
+      accessorKey: 'bookingId',
+      header: 'Booking ID',
+      meta: { thClassName: 'px-6 py-3', tdClassName: 'px-6 py-3 font-mono text-gray-700' },
+    },
+    {
+      accessorKey: 'operatorName',
+      header: 'Operator',
+      meta: { tdClassName: 'px-4 py-3 text-gray-700 truncate max-w-[160px]' },
+    },
+    {
+      id: 'representative',
+      header: 'Representative',
+      meta: { tdClassName: 'px-4 py-3 text-gray-700' },
+      cell: ({ row }) => row.original.representative.fullName || '—',
+    },
+    {
+      id: 'schedule',
+      header: 'Schedule',
+      meta: { tdClassName: 'px-4 py-3 text-gray-600' },
+      cell: ({ row }) => fmtSchedule(row.original.tourDate),
+    },
+    {
+      accessorKey: 'numberOfGuests',
+      header: 'Guests',
+      meta: { tdClassName: 'px-4 py-3 text-gray-700' },
+    },
+    {
+      accessorKey: 'finalPrice',
+      header: 'Total price',
+      meta: { tdClassName: 'px-4 py-3 font-semibold text-gray-800' },
+      cell: ({ getValue }) => peso(getValue() as number),
+    },
+  ], []);
+
+  const bookingTable = useReactTable({
+    data: filtered,
+    columns: bookingColumns,
+    pageCount: totalPages ?? -1,
+    state: { pagination: { pageIndex, pageSize: PAGE_SIZE } },
+    onPaginationChange: (updater) => {
+      const next = typeof updater === 'function'
+        ? updater({ pageIndex, pageSize: PAGE_SIZE })
+        : updater;
+      goTo(next.pageIndex);
+    },
+    manualPagination: true,
+    getCoreRowModel: getCoreRowModel(),
+  });
+
   return (
     <div className="grid grid-cols-1 xl:grid-cols-5 gap-4 h-full">
       <div className="xl:col-span-3 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col min-h-0">
@@ -402,36 +463,36 @@ function IndividualBookings() {
         <div className="flex-1 overflow-auto">
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-white z-10">
-              <tr className="text-left text-xs font-bold text-gray-700 border-b border-gray-200">
-                <th className="px-6 py-3">Booking ID</th>
-                <th className="px-4 py-3">Operator</th>
-                <th className="px-4 py-3">Representative</th>
-                <th className="px-4 py-3">Schedule</th>
-                <th className="px-4 py-3">Guests</th>
-                <th className="px-4 py-3">Total price</th>
-              </tr>
+              {bookingTable.getHeaderGroups().map(headerGroup => (
+                <tr key={headerGroup.id} className="text-left text-xs font-bold text-gray-700 border-b border-gray-200">
+                  {headerGroup.headers.map(header => (
+                    <th key={header.id} className={header.column.columnDef.meta?.thClassName ?? 'px-4 py-3'}>
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                    </th>
+                  ))}
+                </tr>
+              ))}
             </thead>
             <tbody>
               {loading && currentPage.length === 0 ? (
                 <tr><td colSpan={6} className="px-6 py-16 text-center text-gray-400"><Loader2 className="inline animate-spin mr-2" size={16} />Loading…</td></tr>
               ) : error ? (
                 <tr><td colSpan={6} className="px-6 py-16 text-center text-red-500">{error}</td></tr>
-              ) : filtered.length === 0 ? (
+              ) : bookingTable.getRowModel().rows.length === 0 ? (
                 <tr><td colSpan={6} className="px-6 py-16 text-center text-gray-400">No bookings found.</td></tr>
-              ) : filtered.map(b => {
-                const active = b.bookingId === selectedId;
+              ) : bookingTable.getRowModel().rows.map(row => {
+                const isActive = row.original.bookingId === selectedId;
                 return (
                   <tr
-                    key={b.bookingId}
-                    onClick={() => setSelectedId(b.bookingId)}
-                    className={`cursor-pointer border-b border-gray-100 transition-colors ${active ? 'bg-[#F1F8E9]' : 'hover:bg-gray-50'}`}
+                    key={row.id}
+                    onClick={() => setSelectedId(row.original.bookingId)}
+                    className={`cursor-pointer border-b border-gray-100 transition-colors ${isActive ? 'bg-[#F1F8E9]' : 'hover:bg-gray-50'}`}
                   >
-                    <td className="px-6 py-3 font-mono text-gray-700">{b.bookingId}</td>
-                    <td className="px-4 py-3 text-gray-700 truncate max-w-[160px]">{b.operatorName}</td>
-                    <td className="px-4 py-3 text-gray-700">{b.representative.fullName || '—'}</td>
-                    <td className="px-4 py-3 text-gray-600">{fmtSchedule(b.tourDate, b.timeSlot)}</td>
-                    <td className="px-4 py-3 text-gray-700">{b.numberOfGuests}</td>
-                    <td className="px-4 py-3 font-semibold text-gray-800">{peso(b.finalPrice)}</td>
+                    {row.getVisibleCells().map(cell => (
+                      <td key={cell.id} className={cell.column.columnDef.meta?.tdClassName ?? 'px-4 py-3'}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
                   </tr>
                 );
               })}
@@ -493,7 +554,7 @@ function IndividualReportPanel({ b }: { b: BookingRow }) {
       <div className="px-6 py-5 overflow-auto flex-1 space-y-5 text-sm">
         <KV label="Booking ID:" value={<span className="font-semibold">{b.bookingId}</span>} />
         <KV label="Tour Operator:" value={<span className="font-semibold">{b.operatorName}</span>} />
-        <KV label="Schedule:" value={<span className="font-semibold">{fmtSchedule(b.tourDate, b.timeSlot)}</span>} />
+        <KV label="Schedule:" value={<span className="font-semibold">{fmtSchedule(b.tourDate)}</span>} />
 
         <section>
           <p className="text-gray-500 mb-2">Representative:</p>
@@ -605,6 +666,28 @@ function SummarizedReport({ bookings, loading }: { bookings: BookingRow[]; loadi
 
   const selected = rows.find(r => r.key === selectedKey) ?? null;
 
+  const summaryColumns = useMemo<ColumnDef<MonthRow>[]>(() => [
+    {
+      accessorKey: 'month',
+      header: 'Month',
+      meta: { thClassName: 'px-6 py-3', tdClassName: 'px-6 py-3 text-gray-700' },
+    },
+    { accessorKey: 'year', header: 'Year', meta: { tdClassName: 'px-4 py-3 text-gray-600' } },
+    { accessorKey: 'totalBookings', header: 'Total Bookings', meta: { tdClassName: 'px-4 py-3 text-gray-700' } },
+    {
+      accessorKey: 'totalRevenue',
+      header: 'Total Revenue',
+      meta: { tdClassName: 'px-4 py-3 font-semibold text-gray-800' },
+      cell: ({ getValue }) => peso(getValue() as number),
+    },
+  ], []);
+
+  const summaryTable = useReactTable({
+    data: filtered,
+    columns: summaryColumns,
+    getCoreRowModel: getCoreRowModel(),
+  });
+
   return (
     <div className="grid grid-cols-1 xl:grid-cols-5 gap-4 h-full">
       <div className="xl:col-span-3 flex flex-col gap-3 min-h-0">
@@ -637,30 +720,34 @@ function SummarizedReport({ bookings, loading }: { bookings: BookingRow[]; loadi
           <div className="flex-1 overflow-auto">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-white z-10">
-                <tr className="text-left text-xs font-bold text-gray-700 border-b border-gray-200">
-                  <th className="px-6 py-3">Month</th>
-                  <th className="px-4 py-3">Year</th>
-                  <th className="px-4 py-3">Total Bookings</th>
-                  <th className="px-4 py-3">Total Revenue</th>
-                </tr>
+                {summaryTable.getHeaderGroups().map(headerGroup => (
+                  <tr key={headerGroup.id} className="text-left text-xs font-bold text-gray-700 border-b border-gray-200">
+                    {headerGroup.headers.map(header => (
+                      <th key={header.id} className={header.column.columnDef.meta?.thClassName ?? 'px-4 py-3'}>
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                      </th>
+                    ))}
+                  </tr>
+                ))}
               </thead>
               <tbody>
                 {loading ? (
                   <tr><td colSpan={4} className="px-6 py-16 text-center text-gray-400"><Loader2 className="inline animate-spin mr-2" size={16} />Loading…</td></tr>
-                ) : filtered.length === 0 ? (
+                ) : summaryTable.getRowModel().rows.length === 0 ? (
                   <tr><td colSpan={4} className="px-6 py-16 text-center text-gray-400">No records.</td></tr>
-                ) : filtered.map(r => {
-                  const active = r.key === selectedKey;
+                ) : summaryTable.getRowModel().rows.map(row => {
+                  const isActive = row.original.key === selectedKey;
                   return (
                     <tr
-                      key={r.key}
-                      onClick={() => setSelectedKey(r.key)}
-                      className={`cursor-pointer border-b border-gray-100 transition-colors ${active ? 'bg-[#F1F8E9]' : 'hover:bg-gray-50'}`}
+                      key={row.id}
+                      onClick={() => setSelectedKey(row.original.key)}
+                      className={`cursor-pointer border-b border-gray-100 transition-colors ${isActive ? 'bg-[#F1F8E9]' : 'hover:bg-gray-50'}`}
                     >
-                      <td className="px-6 py-3 text-gray-700">{r.month}</td>
-                      <td className="px-4 py-3 text-gray-600">{r.year}</td>
-                      <td className="px-4 py-3 text-gray-700">{r.totalBookings}</td>
-                      <td className="px-4 py-3 font-semibold text-gray-800">{peso(r.totalRevenue)}</td>
+                      {row.getVisibleCells().map(cell => (
+                        <td key={cell.id} className={cell.column.columnDef.meta?.tdClassName ?? 'px-4 py-3'}>
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      ))}
                     </tr>
                   );
                 })}

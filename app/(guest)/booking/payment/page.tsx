@@ -6,6 +6,7 @@ import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { doc, getDoc, collection, getDocs, query, where } from "firebase/firestore";
 import { firestore } from "@/app/lib/firebase";
 import { createBooking, type PaymentMethod } from "@/app/lib/booking-service";
+import { SERVICE_CHARGE } from "@/app/lib/serviceCharge";
 import { PaymentInstructions } from "./_components/PaymentInstructions";
 import { BookingSummary } from "./_components/BookingSummary";
 import { UploadPayment } from "./_components/UploadPayment";
@@ -114,10 +115,6 @@ function PaymentPageContent() {
     const [operatorPayment, setOperatorPayment] = useState<OperatorPaymentInfo>({ imageUrl: null, accountName: null, accountNumber: null });
     const [operatorMeta, setOperatorMeta] = useState<OperatorMeta>({ companyName: null, phoneNumber: null });
     const [pricingTotal, setPricingTotal] = useState<number | null>(null);
-
-    // ─── SERVICE_CHARGE constant (same as sidebar/summary) ────────────────────
-    // TODO: Move to a global config or fetch from Firestore `activities` collection
-    const SERVICE_CHARGE = 500;
 
     useEffect(() => {
         setSessionData(loadSessionData());
@@ -247,7 +244,6 @@ function PaymentPageContent() {
 
             const result = await createBooking({
                 tourDate: context.bookingDate,
-                timeSlot: "AM", // whole-day booking — timeSlot retained for backend compatibility
                 activityId: context.selectedActivityId,
                 sourceType: context.sourceType,
                 tourOperatorUid: context.tourOperatorUid || formData.tourOperator || undefined,

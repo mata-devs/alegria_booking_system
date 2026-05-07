@@ -11,12 +11,12 @@ export default function Navbar() {
   const handleNavClick = () => setMenuOpen(false)
 
   const linkClass = (path: string, exact = false) => {
-    const isActive = exact ? pathname === path : pathname === path
+    const isActive = exact ? pathname === path : pathname === path || pathname.startsWith(path + '/')
     return `text-base font-medium transition-colors ${isActive ? 'text-green-500' : 'text-gray-700 hover:text-green-500'}`
   }
 
   const mobileLinkClass = (path: string, exact = false) => {
-    const isActive = exact ? pathname === path : pathname === path
+    const isActive = exact ? pathname === path : pathname === path || pathname.startsWith(path + '/')
     return `block px-4 py-3 text-base font-medium rounded-xl transition-colors ${
       isActive ? 'bg-green-50 text-green-600' : 'text-gray-700 hover:bg-gray-50'
     }`

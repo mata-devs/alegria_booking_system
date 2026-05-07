@@ -74,7 +74,7 @@ export default function Page() {
         if (!Number.isNaN(g) && b.payment.qty !== g) return false;
       }
 
-      // ---- SCHEDULE range (scheduleLabel like "Jan 6, 2026  8 AM") ----
+      // ---- SCHEDULE range (scheduleLabel like "Jan 6, 2026") ----
       const sched = toDateOnly(b.scheduleLabel);
       if (schedFrom && sched && sched < schedFrom) return false;
       if (schedTo && sched && sched > schedTo) return false;

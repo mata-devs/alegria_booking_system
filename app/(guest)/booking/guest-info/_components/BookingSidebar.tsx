@@ -4,12 +4,11 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { firestore } from "@/app/lib/firebase";
-import { ChevronDown, X, Users } from "lucide-react";
+import { ChevronDown, X, Users, Pencil } from "lucide-react";
 import type { PaymentMethod } from "@/app/lib/booking-service";
 
-// ─── Pricing constants ────────────────────────────────────────────────────────
-// TODO: Move to a global config or fetch from Firestore `activities` collection
-const SERVICE_CHARGE = 500;
+import { SERVICE_CHARGE } from '@/app/lib/serviceCharge';
+import { ItemDetailModal } from '@/app/(guest)/booking/_components/ItemDetailModal';
 
 const MAX_GUESTS = 30;
 const PAYMENT_METHODS: PaymentMethod[] = ["Gcash / Maya", "BDO", "BPI"];
@@ -71,6 +70,8 @@ export function BookingSidebar({
         { length: Math.min(5, effectiveMax - effectiveMin + 1) },
         (_, i) => effectiveMin + i,
     );
+
+    const [showItemModal, setShowItemModal] = useState(false);
 
     const [pricePerGuest, setPricePerGuest] = useState<number | null>(priceOverride ?? null);
     const [priceLoading, setPriceLoading] = useState(priceOverride === undefined);
@@ -188,15 +189,15 @@ export function BookingSidebar({
             const vd = voucherDoc.data();
             if (vd.voucherStatus !== "Active") throw new Error("This promo code is no longer active.");
             if (vd.numberOfUsesAllowed !== undefined && vd.usageCount !== undefined && vd.usageCount >= vd.numberOfUsesAllowed) {
-                throw new Error("This promo code has reached its usage limit.");
+                throw new Error("Sorry, this promo code has reached its usage limit.");
             }
             if (vd.expirationDate && new Date() > vd.expirationDate.toDate()) {
-                throw new Error("This promo code has expired.");
+                throw new Error("Sorry, this promo code has expired.");
             }
             if (vd.operatorUid) {
                 // For tour packages: voucher's operatorUid must match the package's operator
                 if (packageOperatorId && vd.operatorUid !== packageOperatorId) {
-                    throw new Error("This promo code is not valid for this tour package.");
+                    throw new Error("Sorry, this promo code is not valid for this tour package.");
                 }
                 const opSnap = await getDoc(doc(firestore, "users", vd.operatorUid));
                 if (!opSnap.exists()) throw new Error("The associated operator for this voucher was not found.");
@@ -241,10 +242,15 @@ export function BookingSidebar({
 
                     {/* Activity name banner */}
                     {activityName && (
-                        <div className="mb-6 rounded-2xl bg-[#f0fce0] border border-[#74C00F]/20 px-4 py-3">
+                        <button
+                            type="button"
+                            onClick={() => setShowItemModal(true)}
+                            className="mb-6 w-full rounded-2xl bg-[#f0fce0] border border-[#74C00F]/20 px-4 py-3 text-left transition hover:bg-[#e6fad0] hover:border-[#74C00F]/40 group"
+                        >
                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Booking for</p>
-                            <p className="text-sm font-bold text-[#74C00F] truncate">{activityName}</p>
-                        </div>
+                            <p className="text-sm font-bold text-[#74C00F] truncate group-hover:underline">{activityName}</p>
+                            <p className="text-[10px] text-[#74C00F]/60 mt-0.5">Tap to view details</p>
+                        </button>
                     )}
 
                     {/* Price per guest */}
@@ -266,9 +272,19 @@ export function BookingSidebar({
                         <div className={`border rounded-2xl p-4 flex flex-col gap-1 ${!bookingDate ? 'border-red-300 bg-red-50' : 'border-gray-200'}`}>
                             <span className={`text-[10px] font-bold uppercase tracking-wider ${!bookingDate ? 'text-red-400' : 'text-gray-400'}`}>Date</span>
                             {bookingDate ? (
-                                <span className="font-semibold text-black text-sm">
-                                    {new Date(bookingDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                                </span>
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className="font-semibold text-black text-sm">
+                                        {new Date(bookingDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => onDateChange?.("")}
+                                        className="shrink-0 flex items-center gap-1 text-[10px] font-semibold text-gray-400 hover:text-[#74C00F] transition"
+                                    >
+                                        <Pencil size={11} />
+                                        Change
+                                    </button>
+                                </div>
                             ) : (
                                 <input
                                     type="date"
@@ -444,6 +460,15 @@ export function BookingSidebar({
                     <p className="text-center text-xs text-gray-400 mt-4">You won&#39;t be charged yet</p>
                 </div>
             </div>
+
+            {/* Item detail modal */}
+            {showItemModal && selectedActivityId && (
+                <ItemDetailModal
+                    itemId={selectedActivityId}
+                    sourceType={sourceType}
+                    onClose={() => setShowItemModal(false)}
+                />
+            )}
 
             {/* Custom guest modal */}
             {showModal && (

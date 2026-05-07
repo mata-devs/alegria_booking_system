@@ -99,7 +99,16 @@ function GuestBookingContent() {
         try {
             const ctxRaw = window.sessionStorage.getItem("bookingContext");
             if (!ctxRaw) return;
-            const ctx = JSON.parse(ctxRaw) as { paymentMethod?: unknown };
+            const ctx = JSON.parse(ctxRaw) as {
+                paymentMethod?: unknown;
+                bookingDate?: unknown;
+                selectedActivityId?: unknown;
+            };
+            if (ctx.selectedActivityId === selectedActivityId) {
+                if (typeof ctx.bookingDate === "string" && ctx.bookingDate) {
+                    setBookingDate(ctx.bookingDate);
+                }
+            }
             if (typeof ctx.paymentMethod === "string" && PAYMENT_METHODS.includes(ctx.paymentMethod as PaymentMethod)) {
                 setPaymentMethod(ctx.paymentMethod as PaymentMethod);
             }

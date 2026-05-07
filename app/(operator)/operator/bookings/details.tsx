@@ -3,12 +3,27 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { X, Printer } from 'lucide-react';
+import {
+  useReactTable,
+  getCoreRowModel,
+  flexRender,
+  type ColumnDef,
+  type RowData,
+} from '@tanstack/react-table';
+
+declare module '@tanstack/react-table' {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface ColumnMeta<TData extends RowData, TValue> {
+    tdClassName?: string;
+    thClassName?: string;
+  }
+}
 
 export type BookingStatus =
     | 'Pending'
     | 'Confirmed'
     | 'In Progress'
-    | 'Complete'
+    | 'Completed'
     | 'Cancelled';
 
 export type PaymentStatus = 'Pending' | 'Paid' | 'Expired';
@@ -44,6 +59,8 @@ export type Booking = {
     serviceCharge: number;
     option: string;
   };
+  sourceType?: 'activity' | 'tourPackage';
+  itemName?: string;
   status: BookingStatus;
   paymentStatus: PaymentStatus;
   uploads: UploadedFile[];
@@ -68,6 +85,30 @@ function uid() {
   const c = globalThis as { crypto?: { randomUUID?: () => string } };
   return c.crypto?.randomUUID?.() ?? `${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
+
+const guestColumns: ColumnDef<Guest>[] = [
+  {
+    id: 'index',
+    header: '#',
+    meta: { thClassName: 'py-1.5 text-left font-semibold text-neutral-600', tdClassName: 'py-1.5 text-neutral-400' },
+    cell: ({ row }) => row.index + 1,
+  },
+  {
+    accessorKey: 'name',
+    header: 'Name',
+    meta: { thClassName: 'py-1.5 text-left font-semibold text-neutral-600', tdClassName: 'py-1.5 font-medium' },
+  },
+  {
+    accessorKey: 'age',
+    header: 'Age',
+    meta: { thClassName: 'py-1.5 text-center font-semibold text-neutral-600', tdClassName: 'py-1.5 text-center' },
+  },
+  {
+    accessorKey: 'gender',
+    header: 'Gender',
+    meta: { thClassName: 'py-1.5 text-right font-semibold text-neutral-600', tdClassName: 'py-1.5 text-right' },
+  },
+];
 
 interface BookingDetailsCardProps {
   booking?: Booking;
@@ -98,6 +139,12 @@ export default function BookingDetailsCard({
     setVisibleUploads(booking.uploads ?? []);
     setPaymentStatus(booking.paymentStatus);
   }, [booking?.id, booking?.paymentStatus]);
+
+  const guestTable = useReactTable({
+    data: booking?.otherGuests ?? [],
+    columns: guestColumns,
+    getCoreRowModel: getCoreRowModel(),
+  });
 
   const totals = useMemo(() => {
     if (!booking) return null;
@@ -297,6 +344,23 @@ export default function BookingDetailsCard({
                 </span>
                   }
               />
+              {booking.itemName && (
+                <Row
+                  label={booking.sourceType === 'tourPackage' ? 'Tour Package:' : 'Activity:'}
+                  value={
+                    <span className="flex items-center gap-2">
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                        booking.sourceType === 'tourPackage'
+                          ? 'bg-purple-100 text-purple-700'
+                          : 'bg-blue-100 text-blue-700'
+                      }`}>
+                        {booking.sourceType === 'tourPackage' ? 'Tour Package' : 'Activity'}
+                      </span>
+                      <span className="font-semibold text-gray-900">{booking.itemName}</span>
+                    </span>
+                  }
+                />
+              )}
               <Row label="Representative:" value="" />
             </div>
 
@@ -533,6 +597,18 @@ export default function BookingDetailsCard({
                     <div className="mb-5 rounded-md bg-green-50 border border-green-100 px-4 py-3">
                       <div className="text-[11px] font-medium uppercase tracking-wider text-[#558B2F]">Tour Schedule</div>
                       <div className="mt-1 text-sm font-bold text-neutral-900">{booking.scheduleLabel}</div>
+                      {booking.itemName && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                            booking.sourceType === 'tourPackage'
+                              ? 'bg-purple-100 text-purple-700'
+                              : 'bg-blue-100 text-blue-700'
+                          }`}>
+                            {booking.sourceType === 'tourPackage' ? 'Tour Package' : 'Activity'}
+                          </span>
+                          <span className="text-[13px] font-semibold text-neutral-800">{booking.itemName}</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Representative */}
@@ -570,20 +646,24 @@ export default function BookingDetailsCard({
                         </div>
                         <table className="w-full text-[13px]">
                           <thead>
-                            <tr className="border-b border-neutral-200">
-                              <th className="py-1.5 text-left font-semibold text-neutral-600">#</th>
-                              <th className="py-1.5 text-left font-semibold text-neutral-600">Name</th>
-                              <th className="py-1.5 text-center font-semibold text-neutral-600">Age</th>
-                              <th className="py-1.5 text-right font-semibold text-neutral-600">Gender</th>
-                            </tr>
+                            {guestTable.getHeaderGroups().map(headerGroup => (
+                              <tr key={headerGroup.id} className="border-b border-neutral-200">
+                                {headerGroup.headers.map(header => (
+                                  <th key={header.id} className={header.column.columnDef.meta?.thClassName ?? 'py-1.5 text-left font-semibold text-neutral-600'}>
+                                    {flexRender(header.column.columnDef.header, header.getContext())}
+                                  </th>
+                                ))}
+                              </tr>
+                            ))}
                           </thead>
                           <tbody>
-                            {booking.otherGuests.map((guest, idx) => (
-                              <tr key={`${guest.name}-${idx}`} className="border-b border-neutral-100">
-                                <td className="py-1.5 text-neutral-400">{idx + 1}</td>
-                                <td className="py-1.5 font-medium">{guest.name}</td>
-                                <td className="py-1.5 text-center">{guest.age}</td>
-                                <td className="py-1.5 text-right">{guest.gender}</td>
+                            {guestTable.getRowModel().rows.map(row => (
+                              <tr key={row.id} className="border-b border-neutral-100">
+                                {row.getVisibleCells().map(cell => (
+                                  <td key={cell.id} className={cell.column.columnDef.meta?.tdClassName ?? 'py-1.5'}>
+                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                  </td>
+                                ))}
                               </tr>
                             ))}
                           </tbody>

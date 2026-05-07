@@ -9,13 +9,21 @@ import { firebaseDb } from '@/app/lib/firebase'
 interface Props {
   className?: string
   defaultWhere?: string
+  defaultWhen?: string
+  defaultTravelers?: string
   onSearch?: (params: { where: string; when: string; travelers: string }) => void
 }
 
-export default function SearchBar({ className = '', defaultWhere = '', onSearch }: Props) {
+export default function SearchBar({
+  className = '',
+  defaultWhere = '',
+  defaultWhen = '',
+  defaultTravelers = '',
+  onSearch,
+}: Props) {
   const [where, setWhere] = useState(defaultWhere)
-  const [when, setWhen] = useState('')
-  const [travelers, setTravelers] = useState('')
+  const [when, setWhen] = useState(defaultWhen)
+  const [travelers, setTravelers] = useState(defaultTravelers)
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [locationData, setLocationData] = useState<{ name: string; count: number }[]>([])
   const desktopWhereRef = useRef<HTMLDivElement>(null)
@@ -44,6 +52,12 @@ export default function SearchBar({ className = '', defaultWhere = '', onSearch 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  useEffect(() => {
+    setWhere(defaultWhere)
+    setWhen(defaultWhen)
+    setTravelers(defaultTravelers)
+  }, [defaultWhere, defaultWhen, defaultTravelers])
+
   const suggestions = where.trim()
     ? locationData.filter((l) => l.name.toLowerCase().includes(where.toLowerCase()))
     : locationData
@@ -52,7 +66,11 @@ export default function SearchBar({ className = '', defaultWhere = '', onSearch 
     if (onSearch) {
       onSearch({ where, when, travelers })
     } else {
-      router.push(`/activities?location=${where}&date=${when}&travelers=${travelers}`)
+      const params = new URLSearchParams()
+      if (where) params.set('location', where)
+      if (when) params.set('date', when)
+      if (travelers) params.set('travelers', travelers)
+      router.push(`/activities?${params.toString()}`)
     }
   }
 
@@ -62,9 +80,11 @@ export default function SearchBar({ className = '', defaultWhere = '', onSearch 
     if (onSearch) {
       onSearch({ where: name, when, travelers })
     } else {
-      router.push(
-        `/activities?location=${encodeURIComponent(name)}&date=${encodeURIComponent(when)}&travelers=${encodeURIComponent(travelers)}`
-      )
+      const params = new URLSearchParams()
+      if (name) params.set('location', name)
+      if (when) params.set('date', when)
+      if (travelers) params.set('travelers', travelers)
+      router.push(`/activities?${params.toString()}`)
     }
   }
 

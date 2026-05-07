@@ -6,7 +6,7 @@ type BookingStatus =
   | 'Pending'
   | 'Confirmed'
   | 'In Progress'
-  | 'Complete'
+  | 'Completed'
   | 'Cancelled';
 
 const statusStyles: Record<
@@ -16,7 +16,7 @@ const statusStyles: Record<
   Pending: { dot: 'bg-yellow-300', text: 'text-yellow-700' },
   Confirmed: { dot: 'bg-green-500', text: 'text-green-700' },
   'In Progress': { dot: 'bg-orange-500', text: 'text-orange-700' },
-  Complete: { dot: 'bg-blue-500', text: 'text-blue-700' },
+  Completed: { dot: 'bg-blue-500', text: 'text-blue-700' },
   Cancelled: { dot: 'bg-red-500', text: 'text-red-700' },
 };
 
@@ -57,10 +57,27 @@ export default function BookingRequestsPanel({
 
   const [openSearchBy, setOpenSearchBy] = React.useState(false);
   const [currentPage, setCurrentPage] = React.useState(1);
+  const rowRefs = React.useRef<Record<string, HTMLButtonElement | null>>({});
 
   React.useEffect(() => {
     setCurrentPage(1);
   }, [query, searchBy, bookings.length]);
+
+  React.useEffect(() => {
+    if (!selectedId) return;
+    const idx = bookings.findIndex((b) => b.id === selectedId);
+    if (idx >= 0) {
+      setCurrentPage(Math.floor(idx / ROWS_PER_PAGE) + 1);
+    }
+  }, [selectedId, bookings]);
+
+  React.useEffect(() => {
+    if (!selectedId) return;
+    const el = rowRefs.current[selectedId];
+    window.requestAnimationFrame(() => {
+      el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  }, [selectedId, currentPage]);
 
   const totalItems = bookings.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / ROWS_PER_PAGE));
@@ -168,11 +185,12 @@ export default function BookingRequestsPanel({
         </div>
 
         {/* Column headers — desktop */}
-        <div className="mt-5 hidden md:grid grid-cols-[1fr_0.9fr_1.3fr_1.2fr_0.5fr_0.7fr_0.8fr] gap-0">
+        <div className="mt-5 hidden md:grid grid-cols-[1fr_0.9fr_1.3fr_1.2fr_0.9fr_0.5fr_0.7fr_0.8fr] gap-0">
           <span className="px-3 text-xs font-bold text-gray-900 truncate">Booking ID</span>
           <span className="px-3 text-xs font-bold text-gray-900 truncate">Request Date</span>
           <span className="px-3 text-xs font-bold text-gray-900 truncate">Representative</span>
           <span className="px-3 text-xs font-bold text-gray-900 truncate">Schedule</span>
+          <span className="px-3 text-xs font-bold text-gray-900 truncate">Type</span>
           <span className="px-3 text-xs font-bold text-gray-900 text-center truncate">Guests</span>
           <span className="px-3 text-xs font-bold text-gray-900 truncate">Total</span>
           <span className="px-3 text-xs font-bold text-gray-900 truncate">Status</span>
@@ -193,16 +211,19 @@ export default function BookingRequestsPanel({
               return (
                 <button
                   key={b.id}
+                  ref={(el) => {
+                    rowRefs.current[b.id] = el;
+                  }}
                   type="button"
                   onClick={() => onSelect?.(b.id)}
                   className={`rounded-lg text-left transition-colors ${
                     selectedId === b.id
-                      ? 'bg-green-100 ring-1 ring-green-300'
+                      ? 'bg-green-50 ring-2 ring-[#558B2F] shadow-sm'
                       : 'bg-gray-100 hover:bg-gray-200'
                   }`}
                 >
                   {/* Desktop row */}
-                  <div className="hidden md:grid grid-cols-[1fr_0.9fr_1.3fr_1.2fr_0.5fr_0.7fr_0.8fr] items-center gap-0">
+                  <div className="hidden md:grid grid-cols-[1fr_0.9fr_1.3fr_1.2fr_0.9fr_0.5fr_0.7fr_0.8fr] items-center gap-0">
                     <span className="border-r border-gray-300 px-4 text-xs text-gray-700 truncate">
                       {b.bookingIdLabel ?? b.id}
                     </span>
@@ -214,6 +235,20 @@ export default function BookingRequestsPanel({
                     </span>
                     <span className="border-r border-gray-300 px-4 text-xs text-gray-700 truncate">
                       {b.scheduleLabel}
+                    </span>
+                    <span className="border-r border-gray-300 px-4 py-3 text-xs truncate flex flex-col gap-0.5">
+                      {b.sourceType === 'tourPackage' ? (
+                        <span className="inline-flex items-center self-start rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-700 shrink-0">
+                          Tour Package
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center self-start rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700 shrink-0">
+                          Activity
+                        </span>
+                      )}
+                      {b.itemName && (
+                        <span className="truncate text-[11px] text-gray-700 font-medium">{b.itemName}</span>
+                      )}
                     </span>
                     <span className="border-r border-gray-300 px-4 py-3 text-xs text-gray-700 text-center truncate">
                       {b.payment.qty}
@@ -240,9 +275,17 @@ export default function BookingRequestsPanel({
                     </div>
                     <div className="flex items-center justify-between text-xs text-gray-500">
                       <span>ID: {b.bookingIdLabel ?? b.id}</span>
-                      <span>{b.scheduleLabel}</span>
+                      {b.sourceType === 'tourPackage' ? (
+                        <span className="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-700">Tour Package</span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700">Activity</span>
+                      )}
                     </div>
+                    {b.itemName && (
+                      <div className="text-xs font-medium text-gray-700 truncate">{b.itemName}</div>
+                    )}
                     <div className="flex items-center justify-between text-xs text-gray-500">
+                      <span>{b.scheduleLabel}</span>
                       <span>{b.payment.qty} guest{b.payment.qty !== 1 ? 's' : ''}</span>
                       <span className="font-medium text-gray-700">{pesoShort(total)}</span>
                     </div>

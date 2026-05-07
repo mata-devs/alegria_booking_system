@@ -112,8 +112,7 @@ type DayStatus = 'none' | 'green' | 'orange' | 'red';
 
 type DayInfo = {
   dateKey: string; // YYYY-MM-DD
-  morning: { used: number; capacity: number };
-  afternoon: { used: number; capacity: number };
+  dayUsed: number;
   status: DayStatus;
 };
 
@@ -202,20 +201,16 @@ function SmallRing({
 
 // ---------- derive day info from real bookings ----------
 function buildDayInfo(bookings: FirestoreBooking[]): DayInfo[] {
-  const map = new Map<string, { am: number; pm: number }>();
+  const map = new Map<string, number>();
   for (const b of bookings) {
     const d = b.tourDate?.toDate?.();
     if (!d) continue;
     const key = toKey(d);
-    const slot = map.get(key) ?? { am: 0, pm: 0 };
-    if (b.timeSlot === 'AM') slot.am += b.numberOfGuests;
-    else slot.pm += b.numberOfGuests;
-    map.set(key, slot);
+    map.set(key, (map.get(key) ?? 0) + b.numberOfGuests);
   }
-  return Array.from(map.entries()).map(([dateKey, { am, pm }]) => ({
+  return Array.from(map.entries()).map(([dateKey, dayUsed]) => ({
     dateKey,
-    morning: { used: am, capacity: 0 },
-    afternoon: { used: pm, capacity: 0 },
+    dayUsed,
     status: 'orange' as DayStatus,
   }));
 }
@@ -379,25 +374,10 @@ export default function CalendarAvailability({ bookings = [] }: { bookings?: Fir
                   <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider px-1">{dayLabel}</div>
                   <div className="flex gap-2">
                     <div className="flex-1 flex items-center gap-2 rounded-lg bg-gray-50 px-2 py-2">
-                      <SmallRing value={selInfo.morning.used} max={selInfo.morning.capacity} size={32} stroke={3} />
+                      <SmallRing value={selInfo.dayUsed} max={0} size={32} stroke={3} />
                       <div className="flex flex-col leading-tight">
-                        <span className="text-[11px] font-bold text-gray-800">Morning</span>
-                        <span className="text-[10px] text-gray-500">
-                          {selInfo.morning.capacity > 0
-                            ? `${selInfo.morning.used}/${selInfo.morning.capacity}`
-                            : `${selInfo.morning.used} guests`}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex-1 flex items-center gap-2 rounded-lg bg-gray-50 px-2 py-2">
-                      <SmallRing value={selInfo.afternoon.used} max={selInfo.afternoon.capacity} size={32} stroke={3} />
-                      <div className="flex flex-col leading-tight">
-                        <span className="text-[11px] font-bold text-gray-800">Afternoon</span>
-                        <span className="text-[10px] text-gray-500">
-                          {selInfo.afternoon.capacity > 0
-                            ? `${selInfo.afternoon.used}/${selInfo.afternoon.capacity}`
-                            : `${selInfo.afternoon.used} guests`}
-                        </span>
+                        <span className="text-[11px] font-bold text-gray-800">Bookings</span>
+                        <span className="text-[10px] text-gray-500">{selInfo.dayUsed} guests</span>
                       </div>
                     </div>
                   </div>

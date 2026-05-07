@@ -19,11 +19,11 @@ export function firestoreToBooking(doc: FirestoreBooking): Booking {
   const createdAt = doc.createdAt?.toDate?.();
 
   const scheduleLabel = tourDate
-    ? `${tourDate.toLocaleDateString('en-US', {
+    ? tourDate.toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
         year: 'numeric',
-      })}  ${doc.timeSlot === 'AM' ? '8 AM' : '1 PM'}`
+      })
     : '—';
 
   const requestDate = createdAt
@@ -39,7 +39,7 @@ export function firestoreToBooking(doc: FirestoreBooking): Booking {
     pending: 'Pending',
     paid: 'Confirmed',
     confirmed: 'Confirmed',
-    completed: 'Complete',
+    completed: 'Completed',
     in_progress: 'In Progress',
     cancelled: 'Cancelled',
   };
@@ -73,6 +73,8 @@ export function firestoreToBooking(doc: FirestoreBooking): Booking {
       serviceCharge: doc.serviceCharge,
       option: doc.paymentMethod,
     },
+    sourceType: (doc.sourceType === 'tourPackage' ? 'tourPackage' : 'activity') as 'activity' | 'tourPackage',
+    itemName: doc.activityName,
     status: statusMap[doc.status] ?? 'Pending',
     paymentStatus: paymentStatusMap[doc.paymentStatus] ?? 'Pending',
     uploads: doc.receiptUrl

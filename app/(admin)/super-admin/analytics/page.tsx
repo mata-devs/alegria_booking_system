@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
-import { BookOpen, CreditCard, Wallet } from "lucide-react";
+import { BookOpen, CreditCard, SlidersHorizontal, Wallet } from "lucide-react";
 import {
   getAnalyticsDashboard,
   type AnalyticsDashboardResponse,
@@ -33,6 +33,7 @@ export default function SuperAdminAnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedOperators, setSelectedOperators] = useState<string[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,131 +73,188 @@ export default function SuperAdminAnalyticsPage() {
   const grossRevenue = dashboard?.summary.grossRevenue ?? 0;
   const netRevenue = dashboard?.summary.netRevenue ?? 0;
 
+  useEffect(() => {
+    if (!showFilters) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowFilters(false);
+    };
+    window.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [showFilters]);
+
   return (
     <div className="-m-6 min-h-[calc(100vh-0px)] bg-gray-50">
-      <div className="flex flex-col md:flex-row">
-        {/* Sidebar */}
-        <div className="w-full md:w-64 md:shrink-0">
-          <Filters
-            operators={operatorOptions}
-            selectedOperators={selectedOperators}
-            onSelectedOperatorsChange={setSelectedOperators}
+      {/* Glassy filters overlay */}
+      {showFilters && (
+        <div
+          className="fixed inset-0 z-40 flex"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Filters"
+        >
+          <style jsx>{`
+            @keyframes fadeInOverlay { from { opacity: 0 } to { opacity: 1 } }
+            @keyframes slideInLeft { from { transform: translateX(-12px); opacity: 0 } to { transform: translateX(0); opacity: 1 } }
+            .anim-fade { animation: fadeInOverlay 180ms ease-out both }
+            .anim-slide { animation: slideInLeft 220ms cubic-bezier(0.22,1,0.36,1) both }
+          `}</style>
+          <button
+            type="button"
+            aria-label="Close filters"
+            onClick={() => setShowFilters(false)}
+            className="anim-fade absolute inset-0 bg-neutral-900/30 backdrop-blur-sm"
           />
+          <aside className="anim-slide relative ml-0 flex h-full w-full max-w-sm flex-col overflow-hidden border-r border-white/40 bg-white/70 shadow-2xl ring-1 ring-black/5 backdrop-blur-xl backdrop-saturate-150">
+            <button
+              type="button"
+              onClick={() => setShowFilters(false)}
+              aria-label="Close filters"
+              className="absolute right-3 top-3 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/60 bg-white/70 text-gray-600 shadow-sm backdrop-blur transition-colors hover:bg-white"
+            >
+              <span aria-hidden className="text-base leading-none">×</span>
+            </button>
+            <div className="flex-1 overflow-y-auto">
+              <Filters
+                operators={operatorOptions}
+                selectedOperators={selectedOperators}
+                onSelectedOperatorsChange={setSelectedOperators}
+              />
+            </div>
+          </aside>
         </div>
+      )}
 
-        {/* Main content */}
-        <div className="min-w-0 flex-1 p-6">
-          {/* Header */}
-          <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                Super Admin
-              </p>
-              <h1 className="mt-1 text-2xl font-bold leading-tight text-gray-900">
-                Analytics Overview
-              </h1>
-              <p className="mt-1 text-xs text-gray-500">
+      <div className="min-w-0 flex-1 p-6">
+        {/* Header */}
+        <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+              Super Admin
+            </p>
+            <h1 className="mt-1 text-2xl font-bold leading-tight text-gray-900">
+              Analytics Overview
+            </h1>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <p className="text-xs text-gray-500">
                 Scope:{" "}
                 <span className="font-medium text-gray-700">{scopeText}</span>
               </p>
-            </div>
-
-            <div className="text-xs">
-              {loading && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-gray-600">
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-gray-400" />
-                  Loading…
-                </span>
-              )}
-              {error && !loading && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-1 text-red-700">
-                  <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
-                  {error}
-                </span>
-              )}
-              {!loading && !error && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-1 text-[#558B2F]">
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#558B2F]" />
-                  Live
-                </span>
-              )}
-            </div>
-          </header>
-
-          {/* Top 3 metric cards */}
-          <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                  Total Bookings
-                </p>
-                <p className="mt-1.5 text-3xl font-bold text-[#558B2F]">
-                  {loading ? "—" : totalBookings}
-                </p>
-              </div>
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-green-50 text-[#558B2F]">
-                <BookOpen size={20} />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                  Gross Revenue
-                </p>
-                <p className="mt-1.5 text-xl font-bold text-[#558B2F]">
-                  {loading ? "—" : formatPeso(grossRevenue)}
-                </p>
-              </div>
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
-                <CreditCard size={20} />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                  Net Revenue
-                </p>
-                <p className="mt-1.5 text-xl font-bold text-[#558B2F]">
-                  {loading ? "—" : formatPeso(netRevenue)}
-                </p>
-              </div>
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-purple-50 text-purple-600">
-                <Wallet size={20} />
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowFilters((v) => !v)}
+                aria-pressed={showFilters}
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-medium shadow-sm transition-colors ${
+                  showFilters
+                    ? "border-[#558B2F] bg-[#558B2F] text-white hover:bg-[#4a7a28]"
+                    : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                <SlidersHorizontal className="h-3 w-3" />
+                {showFilters ? "Hide Filters" : "Filters"}
+              </button>
             </div>
           </div>
 
-          {/* Full-width: Bookings Trend */}
-          <div className="mb-5">
-            <ChartLineLinear points={dashboard?.bookingsTrend.points || []} />
+          <div className="text-xs">
+            {loading && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-gray-600">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-gray-400" />
+                Loading…
+              </span>
+            )}
+            {error && !loading && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-1 text-red-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                {error}
+              </span>
+            )}
+            {!loading && !error && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-1 text-[#558B2F]">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#558B2F]" />
+                Live
+              </span>
+            )}
+          </div>
+        </header>
+
+        {/* Top 3 metric cards */}
+        <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                Total Bookings
+              </p>
+              <p className="mt-1.5 text-3xl font-bold text-[#558B2F]">
+                {loading ? "—" : totalBookings}
+              </p>
+            </div>
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-green-50 text-[#558B2F]">
+              <BookOpen size={20} />
+            </div>
           </div>
 
-          {/* Mid bento: nationalities (1) | age distribution (2) | promo codes (1) */}
-          <div className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-4">
+          <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
             <div>
-              <ChartPieSimple points={dashboard?.touristNationalities || []} />
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                Gross Revenue
+              </p>
+              <p className="mt-1.5 text-xl font-bold text-[#558B2F]">
+                {loading ? "—" : formatPeso(grossRevenue)}
+              </p>
             </div>
-            <div className="lg:col-span-2">
-              <ChartBarDefault points={dashboard?.touristAgeDistribution || []} />
-            </div>
-            <div>
-              <ChartPieCodes
-                withPromo={dashboard?.promoCodeStats.withPromo || 0}
-                withoutPromo={dashboard?.promoCodeStats.withoutPromo || 0}
-              />
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+              <CreditCard size={20} />
             </div>
           </div>
 
-          {/* Bottom: payment methods | used promo codes */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
             <div>
-              <PaymentMethod data={dashboard?.paymentMethods || []} />
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                Net Revenue
+              </p>
+              <p className="mt-1.5 text-xl font-bold text-[#558B2F]">
+                {loading ? "—" : formatPeso(netRevenue)}
+              </p>
             </div>
-            <div>
-              <ChartBarCodesDistribution data={dashboard?.affiliatedEntities || []} />
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-purple-50 text-purple-600">
+              <Wallet size={20} />
             </div>
+          </div>
+        </div>
+
+        {/* Full-width: Bookings Trend */}
+        <div className="mb-5">
+          <ChartLineLinear points={dashboard?.bookingsTrend.points || []} />
+        </div>
+
+        {/* Mid bento: nationalities (1) | age distribution (2) | promo codes (1) */}
+        <div className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-4">
+          <div>
+            <ChartPieSimple points={dashboard?.touristNationalities || []} />
+          </div>
+          <div className="lg:col-span-2">
+            <ChartBarDefault points={dashboard?.touristAgeDistribution || []} />
+          </div>
+          <div>
+            <ChartPieCodes
+              withPromo={dashboard?.promoCodeStats.withPromo || 0}
+              withoutPromo={dashboard?.promoCodeStats.withoutPromo || 0}
+            />
+          </div>
+        </div>
+
+        {/* Bottom: payment methods | used promo codes */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div>
+            <PaymentMethod data={dashboard?.paymentMethods || []} />
+          </div>
+          <div>
+            <ChartBarCodesDistribution data={dashboard?.affiliatedEntities || []} />
           </div>
         </div>
       </div>
