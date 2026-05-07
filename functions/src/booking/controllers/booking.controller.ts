@@ -36,6 +36,7 @@ export async function create(req: Request, res: Response) {
 
       const { pricing, activityName, numberOfGuests } = result;
       const fmt = (n: number) => `₱${n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      const opInfo = await BookingService.getOperatorContact(result.operatorUid).catch(() => null);
 
       const guestRows = payload.guests.length > 0
         ? payload.guests.map((g, i) => `
@@ -87,6 +88,15 @@ export async function create(req: Request, res: Response) {
                     <td style="padding:6px 0">${payload.specialRequests}</td>
                   </tr>` : ""}
                 </table>
+
+                <!-- Tour Operator -->
+                ${opInfo ? `
+                <h3 style="margin:0 0 10px;font-size:14px;text-transform:uppercase;color:#558B2F;letter-spacing:.05em">Tour Operator</h3>
+                <table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:14px">
+                  ${opInfo.companyName ? `<tr><td style="padding:6px 0;color:#6b7280;width:42%">Company</td><td style="padding:6px 0;font-weight:600">${opInfo.companyName}</td></tr>` : ""}
+                  ${opInfo.phoneNumber ? `<tr style="border-top:1px solid #f3f4f6"><td style="padding:6px 0;color:#6b7280">Phone</td><td style="padding:6px 0">${opInfo.phoneNumber}</td></tr>` : ""}
+                  ${opInfo.email ? `<tr style="border-top:1px solid #f3f4f6"><td style="padding:6px 0;color:#6b7280">Email</td><td style="padding:6px 0">${opInfo.email}</td></tr>` : ""}
+                </table>` : ""}
 
                 <!-- Representative -->
                 <h3 style="margin:0 0 10px;font-size:14px;text-transform:uppercase;color:#558B2F;letter-spacing:.05em">Representative</h3>

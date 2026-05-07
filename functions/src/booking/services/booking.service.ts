@@ -16,7 +16,6 @@ const BOOKING_ID_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 const BOOKING_ID_MAX_ATTEMPTS = 5;
 const TOKEN_HEX_BYTES = 12; // 24-char hex token
 
-export type TimeSlot = "AM" | "PM";
 export type PaymentMethod = "Gcash / Maya" | "BDO" | "BPI";
 
 interface Representative {
@@ -37,7 +36,6 @@ interface Guest {
 
 export interface CreateBookingInput {
   tourDate: string;
-  timeSlot: TimeSlot;
   activityId: string;
   sourceType?: "activity" | "tourPackage";
   representative: Representative;
@@ -70,8 +68,8 @@ function toStartOfDayTimestamp(dateStr: string): Timestamp {
   return Timestamp.fromDate(d);
 }
 
-function buildTimeSlotId(activityId: string, tourDate: string, timeSlot: TimeSlot): string {
-  return `${activityId}_${tourDate}_${timeSlot}`;
+function buildTimeSlotId(activityId: string, tourDate: string): string {
+  return `${activityId}_${tourDate}`;
 }
 
 async function getActivity(activityId: string) {
@@ -88,18 +86,16 @@ async function getTourPackage(packageId: string) {
 
 async function ensureTimeSlot(
   tx: FirebaseFirestore.Transaction,
-  args: { activityId: string; tourDate: string; timeSlot: TimeSlot; maxSlots: number }
+  args: { activityId: string; tourDate: string; maxSlots: number }
 ) {
-  const timeSlotId = buildTimeSlotId(args.activityId, args.tourDate, args.timeSlot);
+  const timeSlotId = buildTimeSlotId(args.activityId, args.tourDate);
   const ref = db.collection("timeslots").doc(timeSlotId);
   const snap = await tx.get(ref);
 
   if (!snap.exists) {
     const [year, month, day] = args.tourDate.split("-").map(Number);
-    const startHour = args.timeSlot === "AM" ? 8 : 13;
-    const endHour = args.timeSlot === "AM" ? 12 : 17;
-    const startTime = new Date(year, month - 1, day, startHour, 0, 0, 0);
-    const endTime = new Date(year, month - 1, day, endHour, 0, 0, 0);
+    const startTime = new Date(year, month - 1, day, 8, 0, 0, 0);
+    const endTime = new Date(year, month - 1, day, 17, 0, 0, 0);
     const now = FieldValue.serverTimestamp();
 
     tx.set(ref, {
@@ -321,8 +317,8 @@ function isAlreadyExistsError(error: unknown): boolean {
 }
 
 function validateCreateInput(data: CreateBookingInput) {
-  if (!data.activityId || !data.tourDate || !data.timeSlot || !data.representative) {
-    throw new Error("Missing required fields: activityId, tourDate, timeSlot, representative");
+  if (!data.activityId || !data.tourDate || !data.representative) {
+    throw new Error("Missing required fields: activityId, tourDate, representative");
   }
   if (!Array.isArray(data.guests)) {
     throw new Error("guests must be an array");
@@ -441,7 +437,7 @@ export async function createBooking(data: CreateBookingInput) {
     }
   }
 
-  const timeSlotId = buildTimeSlotId(data.activityId, normalizedDate, data.timeSlot);
+  const timeSlotId = buildTimeSlotId(data.activityId, normalizedDate);
   const maxSlots = maxSlotsForSource;
 
   const paymentRef = db.collection("payments").doc();
@@ -464,7 +460,6 @@ export async function createBooking(data: CreateBookingInput) {
         const ensuredSlot = await ensureTimeSlot(tx, {
           activityId: data.activityId,
           tourDate: normalizedDate,
-          timeSlot: data.timeSlot,
           maxSlots,
         });
 
@@ -484,7 +479,6 @@ export async function createBooking(data: CreateBookingInput) {
           activityName: sourceDisplayName ?? data.activityId,
           sourceType: data.sourceType ?? "activity",
           timeSlotId,
-          timeSlot: data.timeSlot,
           tourDate: tourDateTs,
           status: "reserved",
           numberOfGuests,
@@ -633,6 +627,71 @@ export async function expireUnpaidBookings(batchLimit = 20) {
         });
       }
     });
+
+    // Send expiry/cancellation email — fire-and-forget
+    const rep = data.representative as { fullName?: string; email?: string } | undefined;
+    if (rep?.email) {
+      const tourDate: Date | null = data.tourDate?.toDate?.() ?? null;
+      const tourDateFormatted = tourDate
+        ? tourDate.toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric", timeZone: "Asia/Manila" })
+        : "—";
+      const opInfo = await getOperatorContact(data.operatorUid ?? "").catch(() => null);
+
+      createTransporter().sendMail({
+        from: getFromAddress(),
+        to: rep.email,
+        subject: `Reservation Expired – ${bookingId}`,
+        html: `
+          <div style="font-family:sans-serif;max-width:580px;margin:0 auto;color:#1f2937">
+            <div style="background:#dc2626;padding:24px 32px;border-radius:12px 12px 0 0">
+              <h1 style="margin:0;color:#fff;font-size:22px">Reservation Expired</h1>
+              <p style="margin:6px 0 0;color:#fecaca;font-size:14px">Booking ID: <strong>${bookingId}</strong></p>
+            </div>
+            <div style="border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;padding:28px 32px">
+              <p style="margin:0 0 20px">Hi <strong>${rep.fullName ?? "Guest"}</strong>, your reservation has <strong>expired</strong> because payment was not verified within the required time.</p>
+              <table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:14px">
+                ${data.activityName ? `
+                <tr>
+                  <td style="padding:6px 0;color:#6b7280;width:42%">${data.sourceType === "tourPackage" ? "Tour Package" : "Activity"}</td>
+                  <td style="padding:6px 0;font-weight:600">${data.activityName}</td>
+                </tr>` : ""}
+                <tr style="${data.activityName ? "border-top:1px solid #f3f4f6" : ""}">
+                  <td style="padding:6px 0;color:#6b7280">Tour Date</td>
+                  <td style="padding:6px 0">${tourDateFormatted}</td>
+                </tr>
+                <tr style="border-top:1px solid #f3f4f6">
+                  <td style="padding:6px 0;color:#6b7280">Guests</td>
+                  <td style="padding:6px 0">${data.numberOfGuests ?? "—"}</td>
+                </tr>
+              </table>
+              ${opInfo ? `
+              <h3 style="margin:0 0 10px;font-size:13px;text-transform:uppercase;color:#558B2F;letter-spacing:.05em">Tour Operator</h3>
+              <table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:14px">
+                ${opInfo.companyName ? `<tr><td style="padding:5px 0;color:#6b7280;width:42%">Company</td><td style="padding:5px 0;font-weight:600">${opInfo.companyName}</td></tr>` : ""}
+                ${opInfo.phoneNumber ? `<tr style="border-top:1px solid #f3f4f6"><td style="padding:5px 0;color:#6b7280">Phone</td><td style="padding:5px 0">${opInfo.phoneNumber}</td></tr>` : ""}
+                ${opInfo.email ? `<tr style="border-top:1px solid #f3f4f6"><td style="padding:5px 0;color:#6b7280">Email</td><td style="padding:5px 0">${opInfo.email}</td></tr>` : ""}
+              </table>` : ""}
+              <p style="margin:0;font-size:13px;color:#6b7280">If you still wish to book, please start a new reservation. We apologize for the inconvenience.</p>
+            </div>
+          </div>
+        `,
+      }).catch(() => { /* ignore */ });
+    }
+  }
+}
+
+export async function getOperatorContact(operatorUid: string): Promise<{ companyName: string; phoneNumber: string; email: string } | null> {
+  try {
+    const snap = await db.doc(`users/${operatorUid}`).get();
+    if (!snap.exists) return null;
+    const d = snap.data() as Record<string, unknown>;
+    return {
+      companyName: typeof d.companyName === "string" ? d.companyName : "",
+      phoneNumber: typeof d.phoneNumber === "string" ? d.phoneNumber : "",
+      email: typeof d.email === "string" ? d.email : "",
+    };
+  } catch {
+    return null;
   }
 }
 
@@ -642,6 +701,7 @@ export async function confirmPayment(bookingId: string) {
   if (!snap.exists) throw new Error("Booking not found");
 
   const booking = snap.data() as any;
+  const opInfo = await getOperatorContact(booking.operatorUid ?? "");
 
   const now = FieldValue.serverTimestamp();
   await bookingRef.update({ status: "paid", paymentStatus: "paid", updatedAt: now });
@@ -722,6 +782,15 @@ export async function confirmPayment(bookingId: string) {
                 <td style="padding:6px 0"><span style="background:#dcfce7;color:#14532d;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600">Confirmed & Paid</span></td>
               </tr>
             </table>
+
+            <!-- Tour Operator -->
+            ${opInfo ? `
+            <h3 style="margin:0 0 10px;font-size:13px;text-transform:uppercase;color:#558B2F;letter-spacing:.05em">Tour Operator</h3>
+            <table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:14px">
+              ${opInfo.companyName ? `<tr><td style="padding:5px 0;color:#6b7280;width:42%">Company</td><td style="padding:5px 0;font-weight:600">${opInfo.companyName}</td></tr>` : ""}
+              ${opInfo.phoneNumber ? `<tr style="border-top:1px solid #f3f4f6"><td style="padding:5px 0;color:#6b7280">Phone</td><td style="padding:5px 0">${opInfo.phoneNumber}</td></tr>` : ""}
+              ${opInfo.email ? `<tr style="border-top:1px solid #f3f4f6"><td style="padding:5px 0;color:#6b7280">Email</td><td style="padding:5px 0">${opInfo.email}</td></tr>` : ""}
+            </table>` : ""}
 
             <!-- Representative -->
             <h3 style="margin:0 0 10px;font-size:13px;text-transform:uppercase;color:#558B2F;letter-spacing:.05em">Representative</h3>

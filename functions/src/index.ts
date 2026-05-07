@@ -8,3 +8,4 @@ export { declineOperatorSignup } from "./operator/declineSignup";
 export { sendSignupLinkEmail } from "./operator/sendSignupLink";
 export { api } from "./booking/api.http";
 export { completeInProgressBookings } from "./reviews/completeInProgressBookings";
+export { onBookingCreatedNotifyOperator } from "./notifications/onBookingCreate";

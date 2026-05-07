@@ -93,6 +93,7 @@ export const approveOperatorSignup = onCall(
       role: "operator",
       firstName,
       lastName,
+      companyName: reqData.companyName ?? "",
       operatorId,
       phoneNumber: reqData.phoneNumber ?? "",
       mobileNumber: reqData.mobileNumber ?? "",
