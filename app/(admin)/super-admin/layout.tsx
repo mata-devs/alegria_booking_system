@@ -27,14 +27,18 @@ function SuperAdminShell({
         isCollapsed={isCollapsed}
         onToggleCollapse={() => setIsCollapsed((prev) => !prev)}
       />
-      <NotificationsBell uid={uid} seeAllHref="/super-admin/notifications" />
-      <main
-        className={`min-h-screen p-6 pt-16 lg:pt-6 transition-all duration-200 ${
+      <div
+        className={`flex flex-col min-h-screen transition-all duration-200 ${
           isCollapsed ? 'lg:ml-[4.5rem]' : 'lg:ml-56'
         }`}
       >
-        {children}
-      </main>
+        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-end border-b border-gray-200 bg-white/80 backdrop-blur-sm px-4">
+          <NotificationsBell uid={uid} seeAllHref="/super-admin/notifications" className="relative" />
+        </header>
+        <main className="flex-1 p-6">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }

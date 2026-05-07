@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import {
     collection, getDocs, query, where, addDoc, updateDoc, deleteDoc, doc,
-    serverTimestamp, Timestamp,
+    serverTimestamp, Timestamp, arrayUnion,
 } from 'firebase/firestore';
 import { firebaseDb } from '@/app/lib/firebase';
 import { useAuth } from '@/app/context/AuthContext';
@@ -556,6 +556,12 @@ function CreateCodeModal({ isOpen, onClose, onSaved }: CreateCodeModalProps) {
                 voucherStatus: 'Active',
                 createdAt: serverTimestamp(),
             });
+            if (formData.entityId && formData.operatorUid) {
+                await updateDoc(doc(firebaseDb, 'entities', formData.entityId), {
+                    associatedOperatorUids: arrayUnion(formData.operatorUid),
+                    updatedAt: serverTimestamp(),
+                });
+            }
             setSuccess(true);
             setTimeout(() => {
                 setSuccess(false);

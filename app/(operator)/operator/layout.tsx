@@ -26,10 +26,14 @@ function OperatorShell({
         onHoverEnter={() => setIsCollapsed(false)}
         onHoverLeave={() => setIsCollapsed(true)}
       />
-      <NotificationsBell uid={uid} seeAllHref="/operator/notifications" />
-      <main className="min-h-screen p-6 pt-16 lg:pt-6 transition-all duration-200 lg:ml-[4.5rem]">
-        {children}
-      </main>
+      <div className="flex flex-col min-h-screen transition-all duration-200 lg:ml-[4.5rem]">
+        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-end border-b border-gray-200 bg-white/80 backdrop-blur-sm px-4">
+          <NotificationsBell uid={uid} seeAllHref="/operator/notifications" className="relative" />
+        </header>
+        <main className="flex-1 p-6">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }
