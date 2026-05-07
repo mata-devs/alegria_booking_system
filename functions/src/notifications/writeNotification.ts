@@ -16,6 +16,7 @@ export interface WriteNotificationInput {
   title: string;
   body: string;
   link: string;
+  imageUrl?: string;
   metadata?: Record<string, unknown>;
   /** Stable doc id so retries / duplicate triggers do not create extra rows */
   dedupeKey: string;
@@ -45,6 +46,7 @@ export async function writeNotification(
     title: input.title,
     body: input.body,
     link: input.link,
+    imageUrl: input.imageUrl ?? null,
     metadata: input.metadata ?? {},
     read: false,
     createdAt: FieldValue.serverTimestamp(),

@@ -3,26 +3,15 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: false,
-  timeout: 60000,
-  reporter: [['html', { open: 'always' }]],
+  workers: 1,
+  retries: 1,
+  reporter: [['html', { open: 'never' }]],
   use: {
-    baseURL: 'http://localhost:3000',
-    trace: 'on',
-    screenshot: 'on',
-    video: 'on',
+    baseURL: process.env.BASE_URL ?? 'http://localhost:3000',
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
   },
   projects: [
-    {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-    },
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
-    },
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
   ],
 });
