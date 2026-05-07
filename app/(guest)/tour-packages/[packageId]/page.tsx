@@ -10,6 +10,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } f
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
 import { getApprovedReviewsForItem, type ApprovedReview } from '@/app/lib/reviews-service'
+import { CircleFlag } from 'react-circle-flags'
 
 interface ItineraryStep {
   itineraryTime: string
@@ -314,7 +315,12 @@ function TourPackageDetailInner() {
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-1">
-                            <p className="text-sm font-semibold text-gray-800">{review.reviewerName}</p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-sm font-semibold text-gray-800">{review.reviewerName}</p>
+                              {review.reviewerCountry && (
+                                <CircleFlag countryCode={review.reviewerCountry.toLowerCase()} className="w-4 h-4 shrink-0" />
+                              )}
+                            </div>
                             <p className="text-xs text-gray-400">{review.createdAt?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) ?? ''}</p>
                           </div>
                           <StarRating rating={review.rating} />
