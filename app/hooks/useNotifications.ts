@@ -34,6 +34,9 @@ export interface NotificationRow {
   link: string;
   read: boolean;
   createdAt: Date | null;
+  imageUrl: string | null;
+  bookingId: string | null;
+  activityName: string | null;
 }
 
 export function useNotifications(uid: string | undefined, listLimit = 10) {
@@ -60,6 +63,7 @@ export function useNotifications(uid: string | undefined, listLimit = 10) {
         const rows: NotificationRow[] = snap.docs.map((d) => {
           const data = d.data();
           const created = data.createdAt;
+          const meta = (data.metadata ?? {}) as Record<string, unknown>;
           return {
             id: d.id,
             kind: (data.kind ?? 'booking_new') as NotificationKind,
@@ -68,6 +72,9 @@ export function useNotifications(uid: string | undefined, listLimit = 10) {
             link: String(data.link ?? '/'),
             read: Boolean(data.read),
             createdAt: created instanceof Timestamp ? created.toDate() : null,
+            imageUrl: typeof data.imageUrl === 'string' && data.imageUrl ? data.imageUrl : null,
+            bookingId: typeof meta.bookingId === 'string' ? meta.bookingId : null,
+            activityName: typeof meta.activityName === 'string' ? meta.activityName : null,
           };
         });
         setItems(rows);

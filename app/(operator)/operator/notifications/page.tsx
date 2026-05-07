@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
 import { useNotifications } from '@/app/hooks/useNotifications';
+import NotificationThumbnail from '@/app/components/NotificationThumbnail';
 
 export default function OperatorNotificationsPage() {
   const router = useRouter();
@@ -57,24 +58,60 @@ export default function OperatorNotificationsPage() {
                     : 'border-gray-200 bg-gray-50/90 hover:bg-gray-100/90'
                 }`}
               >
-                <span className="flex shrink-0 pt-1 justify-center w-2.5">
+                {/* Unread dot */}
+                <span className="flex shrink-0 pt-1.5 justify-center w-2.5">
                   {!n.read ? (
                     <span className="h-2.5 w-2.5 rounded-full bg-red-500 shrink-0" aria-hidden />
                   ) : (
                     <span className="h-2.5 w-2.5 shrink-0" aria-hidden />
                   )}
                 </span>
+
+                {/* Thumbnail */}
+                <NotificationThumbnail imageUrl={n.imageUrl} size="lg" />
+
+                {/* Content */}
                 <span className="min-w-0 flex-1">
-                  <p
-                    className={`text-sm ${
-                      n.read ? 'font-medium text-gray-700' : 'font-semibold text-gray-900'
-                    }`}
-                  >
+                  <p className={`text-sm ${n.read ? 'font-medium text-gray-700' : 'font-semibold text-gray-900'}`}>
                     {n.title}
                   </p>
-                  <p className="text-sm text-gray-600 mt-1">{n.body}</p>
+
+                  {/* Body with bold activity name */}
+                  <p className="text-sm text-gray-600 mt-0.5">
+                    {n.activityName ? (() => {
+                      const idx = n.body.indexOf(n.activityName!);
+                      if (idx === -1) return n.body;
+                      return (
+                        <>
+                          {n.body.slice(0, idx)}
+                          <strong className="font-semibold text-gray-800">{n.activityName}</strong>
+                          {n.body.slice(idx + n.activityName!.length)}
+                        </>
+                      );
+                    })() : n.body}
+                  </p>
+
+                  {/* Booking ID */}
+                  {n.bookingId && (
+                    <p className="text-xs text-gray-400 mt-1 font-mono">
+                      #{n.bookingId.slice(0, 8).toUpperCase()}
+                    </p>
+                  )}
+
+                  {/* CTA for new bookings */}
+                  {n.kind === 'booking_new' && (
+                    <p className="text-xs font-medium text-[#558B2F] mt-1">
+                      Review and confirm this booking →
+                    </p>
+                  )}
+                  {n.kind === 'booking_paid' && (
+                    <p className="text-xs font-medium text-[#558B2F] mt-1">
+                      Payment received — confirm and prepare →
+                    </p>
+                  )}
+
                   {n.createdAt && (
-                    <p className="text-xs text-gray-400 mt-2">
+                    <p className="text-xs text-gray-400 mt-1.5">
                       {n.createdAt.toLocaleString(undefined, {
                         dateStyle: 'medium',
                         timeStyle: 'short',

@@ -100,14 +100,6 @@ export default function BookingRequestsPanel({
 
           <div className="flex items-center gap-6">
             <div className="text-center">
-              <div className="text-2xl font-bold text-red-600">32<span>/30</span></div>
-              <div className="text-sm font-medium text-gray-900">Morning Slot</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-gray-600">{newBookings24h}<span>/30</span></div>
-              <div className="text-sm font-medium text-gray-900">Afternoon Slot</div>
-            </div>
-            <div className="text-center">
               <div className="text-2xl font-bold text-gray-600">{newBookings24h}</div>
               <div className="text-sm font-medium text-gray-900">New Bookings</div>
             </div>

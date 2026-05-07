@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { AuthProvider, useAuth } from '@/app/context/AuthContext';
 import RoleGuard from '@/app/components/(operator)/RoleGuard';
 import OperatorSidebar from '@/app/components/(operator)/OperatorSidebar';
-import NotificationsBell from '@/app/components/NotificationsBell';
+import RightRail from '@/app/components/RightRail';
 
 function OperatorShell({
   children,
@@ -15,8 +15,9 @@ function OperatorShell({
   isCollapsed: boolean;
   setIsCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
-  const { authState } = useAuth();
+  const { authState, signOutUser } = useAuth();
   const uid = authState.status === 'authenticated' ? authState.user.uid : undefined;
+  const profile = authState.status === 'authenticated' ? authState.profile : null;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -26,14 +27,10 @@ function OperatorShell({
         onHoverEnter={() => setIsCollapsed(false)}
         onHoverLeave={() => setIsCollapsed(true)}
       />
-      <div className="flex flex-col min-h-screen transition-all duration-200 lg:ml-[4.5rem]">
-        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-end border-b border-gray-200 bg-white/80 backdrop-blur-sm px-4">
-          <NotificationsBell uid={uid} seeAllHref="/operator/notifications" className="relative" />
-        </header>
-        <main className="flex-1 p-6">
-          {children}
-        </main>
-      </div>
+      <RightRail uid={uid} profile={profile} seeAllHref="/operator/notifications" onSignOut={signOutUser} />
+      <main className="min-h-screen p-6 pt-16 lg:pt-6 pr-16 transition-all duration-200 lg:ml-[4.5rem]">
+        {children}
+      </main>
     </div>
   );
 }
