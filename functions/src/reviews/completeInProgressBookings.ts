@@ -1,6 +1,7 @@
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { FieldValue } from "firebase-admin/firestore";
 import { db } from "../shared/firebase";
+import { sendReviewEmailForBooking } from "./sendReviewEmail";
 
 const DEFAULT_GRACE_HOURS = 12;
 const DEFAULT_DURATION_MINUTES = 0;
@@ -38,7 +39,7 @@ export const completeInProgressBookings = onSchedule(
         completedAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       });
-      // Review email trigger is handled in TASK-69.
+      await sendReviewEmailForBooking(doc.id, booking);
     }
   }
 );

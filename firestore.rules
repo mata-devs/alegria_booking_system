@@ -12,6 +12,18 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'operator';
     }
 
+    function isOwnUserDoc(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function isAllowedSelfUserUpdate() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+        'firstName',
+        'lastName',
+        'paymentMethods'
+      ]);
+    }
+
     function bookingSourceType() {
       return request.resource.data.sourceType;
     }
@@ -100,7 +112,13 @@ service cloud.firestore {
     // Users collection
     match /users/{userId} {
       // Any authenticated user can read their own profile
-      allow read: if request.auth != null && request.auth.uid == userId;
+      allow read: if isOwnUserDoc(userId);
+      // ── CHANGED 2026-05-07 ─────────────────────────────────────────
+      // Operators can update limited self-service fields from settings page.
+      // Operators can update their own profile/payment options only.
+      allow update: if isOperator()
+        && isOwnUserDoc(userId)
+        && isAllowedSelfUserUpdate();
       // Super admins can read and update any user
       allow read, update: if isSuperAdmin();
 
