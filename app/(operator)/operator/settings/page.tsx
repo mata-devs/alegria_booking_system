@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
-import { Camera, Check, Loader2, Plus, Trash2, TriangleAlert, User } from 'lucide-react';
+import { Camera, Check, Loader2, TriangleAlert, User } from 'lucide-react';
 import {
   EmailAuthProvider,
   reauthenticateWithCredential,
@@ -20,7 +20,7 @@ type Status =
   | { type: 'success'; msg: string }
   | { type: 'error'; msg: string };
 
-type PaymentMethodKey = 'gcash' | 'maya' | 'credit_debit_card' | 'bank_transfer';
+type PaymentMethodKey = 'gcash_maya' | 'bdo' | 'bpi';
 
 interface PaymentOption {
   id: string;
@@ -34,11 +34,28 @@ interface PaymentOption {
 }
 
 const PAYMENT_METHODS: { key: PaymentMethodKey; label: string }[] = [
-  { key: 'gcash', label: 'GCash (e-Wallet)' },
-  { key: 'maya', label: 'Maya (e-Wallet)' },
-  { key: 'credit_debit_card', label: 'Credit/Debit Card (bank)' },
-  { key: 'bank_transfer', label: 'Bank Transfer' },
+  { key: 'gcash_maya', label: 'Gcash / Maya' },
+  { key: 'bdo', label: 'BDO' },
+  { key: 'bpi', label: 'BPI' },
 ];
+
+const PAYMENT_METHOD_INDEX: Record<PaymentMethodKey, number> = {
+  gcash_maya: 0,
+  bdo: 1,
+  bpi: 2,
+};
+
+type StoredPaymentMethod = {
+  gcashMayaAccountName?: string;
+  gcashMayaAccountNumber?: string;
+  gcashMayaImageUrl?: string;
+  bdoAccountName?: string;
+  bdoAccountNumber?: string;
+  bdoImageUrl?: string;
+  bpiAccountName?: string;
+  bpiAccountNumber?: string;
+  bpiImageUrl?: string;
+};
 
 const LABEL = 'block text-[11px] font-semibold uppercase tracking-wide text-gray-500';
 const INPUT =
@@ -46,10 +63,10 @@ const INPUT =
 const BTN_PRIMARY =
   'inline-flex items-center justify-center gap-2 h-10 rounded-md bg-[#558B2F] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#4a7a28] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60';
 
-function newOption(): PaymentOption {
+function newOption(method: PaymentMethodKey): PaymentOption {
   return {
-    id: crypto.randomUUID(),
-    method: 'gcash',
+    id: method,
+    method,
     accountName: '',
     accountNumber: '',
     qrCodeUrl: null,
@@ -59,6 +76,59 @@ function newOption(): PaymentOption {
   };
 }
 
+function toStoredPaymentMethod(option: PaymentOption): StoredPaymentMethod {
+  if (option.method === 'gcash_maya') {
+    return {
+      gcashMayaAccountName: option.accountName,
+      gcashMayaAccountNumber: option.accountNumber,
+      gcashMayaImageUrl: option.qrCodeUrl ?? '',
+    };
+  }
+  if (option.method === 'bdo') {
+    return {
+      bdoAccountName: option.accountName,
+      bdoAccountNumber: option.accountNumber,
+      bdoImageUrl: option.qrCodeUrl ?? '',
+    };
+  }
+  return {
+    bpiAccountName: option.accountName,
+    bpiAccountNumber: option.accountNumber,
+    bpiImageUrl: option.qrCodeUrl ?? '',
+  };
+}
+
+function fromStoredPaymentMethods(stored: StoredPaymentMethod[] | undefined): PaymentOption[] {
+  return PAYMENT_METHODS.map(({ key }) => {
+    const entry = stored?.[PAYMENT_METHOD_INDEX[key]] ?? {};
+    if (key === 'gcash_maya') {
+      return {
+        ...newOption(key),
+        accountName: entry.gcashMayaAccountName ?? '',
+        accountNumber: entry.gcashMayaAccountNumber ?? '',
+        qrCodeUrl: entry.gcashMayaImageUrl ?? null,
+        qrPreview: entry.gcashMayaImageUrl ?? null,
+      };
+    }
+    if (key === 'bdo') {
+      return {
+        ...newOption(key),
+        accountName: entry.bdoAccountName ?? '',
+        accountNumber: entry.bdoAccountNumber ?? '',
+        qrCodeUrl: entry.bdoImageUrl ?? null,
+        qrPreview: entry.bdoImageUrl ?? null,
+      };
+    }
+    return {
+      ...newOption(key),
+      accountName: entry.bpiAccountName ?? '',
+      accountNumber: entry.bpiAccountNumber ?? '',
+      qrCodeUrl: entry.bpiImageUrl ?? null,
+      qrPreview: entry.bpiImageUrl ?? null,
+    };
+  });
+}
+
 export default function OperatorSettingsPage() {
   const { authState } = useAuth();
   const photoFileRef = useRef<HTMLInputElement | null>(null);
@@ -66,7 +136,7 @@ export default function OperatorSettingsPage() {
 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [profile, setProfile] = useState({ firstName: '', lastName: '', email: '' });
+  const [profile, setProfile] = useState({ firstName: '', lastName: '', email: '', companyName: '' });
   const [profileStatus, setProfileStatus] = useState<Status>({ type: 'idle' });
 
   const [passwords, setPasswords] = useState({
@@ -76,7 +146,11 @@ export default function OperatorSettingsPage() {
   });
   const [passwordStatus, setPasswordStatus] = useState<Status>({ type: 'idle' });
 
-  const [paymentOptions, setPaymentOptions] = useState<PaymentOption[]>([]);
+  const [paymentOptions, setPaymentOptions] = useState<PaymentOption[]>(
+    PAYMENT_METHODS.map(({ key }) => newOption(key)),
+  );
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deletingOption, setDeletingOption] = useState(false);
 
   useEffect(() => {
     if (authState.status !== 'authenticated') return;
@@ -84,28 +158,23 @@ export default function OperatorSettingsPage() {
       firstName: authState.profile.firstName ?? '',
       lastName: authState.profile.lastName ?? '',
       email: authState.profile.email ?? '',
+      companyName: '',
     });
     if (authState.user.photoURL) setPhotoPreview(authState.user.photoURL);
 
     getDoc(doc(firebaseDb, 'users', authState.user.uid)).then((snap) => {
       if (!snap.exists()) return;
-      const stored = (
-        snap.data().paymentOptions as Array<{
-          id: string;
-          method: PaymentMethodKey;
-          accountName: string;
-          accountNumber: string;
-          qrCodeUrl: string | null;
-        }>
-      ) ?? [];
-      setPaymentOptions(
-        stored.map((o) => ({
-          ...o,
-          qrFile: null,
-          qrPreview: o.qrCodeUrl,
-          status: { type: 'idle' },
-        }))
-      );
+      const data = snap.data() as {
+        companyName?: string;
+        paymentMethods?: StoredPaymentMethod[];
+      };
+
+      setProfile((prev) => ({
+        ...prev,
+        companyName: data.companyName ?? '',
+      }));
+
+      setPaymentOptions(fromStoredPaymentMethods(data.paymentMethods));
     });
   }, [authState]);
 
@@ -196,22 +265,6 @@ export default function OperatorSettingsPage() {
   const updateOption = (id: string, patch: Partial<PaymentOption>) =>
     setPaymentOptions((opts) => opts.map((o) => (o.id === id ? { ...o, ...patch } : o)));
 
-  const onAddOption = () => setPaymentOptions((opts) => [...opts, newOption()]);
-
-  const onRemoveOption = async (id: string) => {
-    if (authState.status !== 'authenticated') return;
-    const remaining = paymentOptions.filter((o) => o.id !== id);
-    setPaymentOptions(remaining);
-    const toStore = remaining.map(({ id: oid, method, accountName, accountNumber, qrCodeUrl }) => ({
-      id: oid, method, accountName, accountNumber, qrCodeUrl: qrCodeUrl ?? null,
-    }));
-    try {
-      await updateDoc(doc(firebaseDb, 'users', authState.user.uid), { paymentOptions: toStore });
-    } catch (err) {
-      console.error('Failed to remove payment option:', err);
-    }
-  };
-
   const onQrChange = (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -231,21 +284,22 @@ export default function OperatorSettingsPage() {
 
       if (opt.qrFile) {
         const ext = opt.qrFile.name.split('.').pop() || 'jpg';
-        const path = `users/${uid}/payment-qr/${opt.id}.${ext}`;
+        const path = `users/${uid}/payment-qr/${opt.method}.${ext}`;
         const ref = storageRef(firebaseStorage, path);
         await uploadBytes(ref, opt.qrFile);
         qrCodeUrl = await getDownloadURL(ref);
       }
 
-      const toStore = snapshot.map((o) => ({
-        id: o.id,
-        method: o.id === id ? opt.method : o.method,
-        accountName: o.id === id ? opt.accountName : o.accountName,
-        accountNumber: o.id === id ? opt.accountNumber : o.accountNumber,
-        qrCodeUrl: o.id === id ? (qrCodeUrl ?? null) : (o.qrCodeUrl ?? null),
-      }));
+      const toStore = snapshot.map((o) =>
+        toStoredPaymentMethod({
+          ...o,
+          accountName: o.id === id ? opt.accountName : o.accountName,
+          accountNumber: o.id === id ? opt.accountNumber : o.accountNumber,
+          qrCodeUrl: o.id === id ? (qrCodeUrl ?? null) : (o.qrCodeUrl ?? null),
+        }),
+      );
 
-      await updateDoc(doc(firebaseDb, 'users', uid), { paymentOptions: toStore });
+      await updateDoc(doc(firebaseDb, 'users', uid), { paymentMethods: toStore });
       updateOption(id, {
         qrCodeUrl,
         qrFile: null,
@@ -258,6 +312,42 @@ export default function OperatorSettingsPage() {
           msg: err instanceof Error ? err.message : 'Failed to save.',
         },
       });
+    }
+  };
+
+  const onDeleteOption = async (id: string) => {
+    if (authState.status !== 'authenticated') return;
+    const uid = authState.user.uid;
+
+    const nextOptions = paymentOptions.map((option) =>
+      option.id === id
+        ? {
+            ...option,
+            accountName: '',
+            accountNumber: '',
+            qrCodeUrl: null,
+            qrFile: null,
+            qrPreview: null,
+            status: { type: 'idle' as const },
+          }
+        : option,
+    );
+
+    setDeletingOption(true);
+    try {
+      const toStore = nextOptions.map((option) => toStoredPaymentMethod(option));
+      await updateDoc(doc(firebaseDb, 'users', uid), { paymentMethods: toStore });
+      setPaymentOptions(nextOptions);
+      setDeleteConfirmId(null);
+    } catch (err) {
+      updateOption(id, {
+        status: {
+          type: 'error',
+          msg: err instanceof Error ? err.message : 'Failed to delete payment option.',
+        },
+      });
+    } finally {
+      setDeletingOption(false);
     }
   };
 
@@ -333,6 +423,17 @@ export default function OperatorSettingsPage() {
                   className={INPUT}
                 />
               </div>
+            </div>
+
+            <div>
+              <label className={LABEL}>Company Name</label>
+              <input
+                value={profile.companyName}
+                type="text"
+                readOnly
+                className="mt-1.5 h-10 w-full cursor-not-allowed rounded-md border border-gray-200 bg-gray-100 px-3 text-sm text-gray-500 outline-none"
+              />
+              <p className="mt-1 text-[11px] text-gray-400">Company name is set by admin and cannot be changed here.</p>
             </div>
 
             <div>
@@ -441,20 +542,42 @@ export default function OperatorSettingsPage() {
               onQrChange={(e) => onQrChange(opt.id, e)}
               onPickQr={() => qrRefs.current.get(opt.id)?.click()}
               onSave={() => onSaveOption(opt.id)}
-              onRemove={() => onRemoveOption(opt.id)}
+              onDelete={() => setDeleteConfirmId(opt.id)}
             />
           ))}
-
-          <button
-            type="button"
-            onClick={onAddOption}
-            className="flex items-center gap-2 text-sm text-gray-400 hover:text-[#558B2F] transition-colors"
-          >
-            <Plus className="h-4 w-4" strokeWidth={2} />
-            Add payment option
-          </button>
         </div>
       </SettingsSection>
+
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/45 p-4">
+          <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white shadow-2xl">
+            <div className="border-b border-gray-100 px-5 py-4">
+              <h3 className="text-base font-semibold text-gray-900">Delete payment option?</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                This clears account name, account number, and QR code for this payment method.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmId(null)}
+                disabled={deletingOption}
+                className="inline-flex h-10 items-center justify-center rounded-md border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void onDeleteOption(deleteConfirmId)}
+                disabled={deletingOption}
+                className="inline-flex h-10 items-center justify-center rounded-md bg-red-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-60"
+              >
+                {deletingOption ? 'Deleting...' : 'Confirm Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -487,7 +610,7 @@ function PaymentOptionCard({
   onQrChange,
   onPickQr,
   onSave,
-  onRemove,
+  onDelete,
 }: {
   option: PaymentOption;
   index: number;
@@ -496,36 +619,25 @@ function PaymentOptionCard({
   onQrChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onPickQr: () => void;
   onSave: () => void;
-  onRemove: () => void;
+  onDelete: () => void;
 }) {
+  const methodLabel = PAYMENT_METHODS.find((m) => m.key === option.method)?.label ?? option.method;
   return (
     <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
         <h3 className="text-sm font-semibold text-gray-700">Payment Option {index + 1}</h3>
-        <button
-          type="button"
-          onClick={onRemove}
-          title="Remove"
-          className="text-gray-300 hover:text-red-500 transition-colors"
-        >
-          <Trash2 className="h-4 w-4" strokeWidth={2} />
-        </button>
+        <span className="text-xs font-semibold text-[#558B2F]">{methodLabel}</span>
       </div>
 
       <div className="px-5 py-4 space-y-4">
         <div>
           <label className={LABEL}>Payment Method</label>
-          <select
-            value={option.method}
-            onChange={(e) => onChange({ method: e.target.value as PaymentMethodKey })}
-            className="mt-1.5 h-10 w-full rounded-md border border-gray-200 bg-gray-50 px-3 text-sm text-gray-900 outline-none transition-colors focus:border-[#558B2F] focus:bg-white focus:ring-1 focus:ring-[#558B2F]"
-          >
-            {PAYMENT_METHODS.map((m) => (
-              <option key={m.key} value={m.key}>
-                {m.label}
-              </option>
-            ))}
-          </select>
+          <input
+            type="text"
+            readOnly
+            value={methodLabel}
+            className="mt-1.5 h-10 w-full cursor-not-allowed rounded-md border border-gray-200 bg-gray-100 px-3 text-sm font-semibold text-gray-600 outline-none"
+          />
         </div>
 
         <div>
@@ -593,18 +705,28 @@ function PaymentOptionCard({
       <StatusLine status={option.status} />
 
       <div className="flex justify-end border-t border-gray-100 px-5 py-3">
-        <button
-          type="button"
-          onClick={onSave}
-          disabled={option.status.type === 'saving'}
-          className={BTN_PRIMARY}
-        >
-          {option.status.type === 'saving' ? (
-            <><Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} />Saving</>
-          ) : (
-            'Save'
-          )}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={option.status.type === 'saving'}
+            className="inline-flex h-10 items-center justify-center rounded-md border border-red-200 bg-white px-4 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:opacity-60"
+          >
+            Delete
+          </button>
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={option.status.type === 'saving'}
+            className={BTN_PRIMARY}
+          >
+            {option.status.type === 'saving' ? (
+              <><Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} />Saving</>
+            ) : (
+              'Save'
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

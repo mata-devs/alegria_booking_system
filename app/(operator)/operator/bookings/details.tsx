@@ -119,6 +119,7 @@ interface BookingDetailsCardProps {
   onClose?: () => void;
   onPaymentStatusChange?: (bookingId: string, newStatus: PaymentStatus) => void | Promise<void>;
   onMarkTourStarted?: (bookingId: string, token: string) => void | Promise<void>;
+  onMarkTourCompleted?: (bookingId: string) => void | Promise<void>;
 }
 
 export default function BookingDetailsCard({
@@ -126,6 +127,7 @@ export default function BookingDetailsCard({
                                              onClose,
                                              onPaymentStatusChange,
                                              onMarkTourStarted,
+                                             onMarkTourCompleted,
                                            }: BookingDetailsCardProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const printSheetRef = useRef<HTMLDivElement | null>(null);
@@ -136,6 +138,7 @@ export default function BookingDetailsCard({
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<PaymentStatus | null>(null);
   const [isStartingTour, setIsStartingTour] = useState(false);
+  const [isCompletingTour, setIsCompletingTour] = useState(false);
   const [operatorInfo, setOperatorInfo] = useState<{ companyName: string; email: string; phoneNumber: string } | null>(null);
 
   useEffect(() => {
@@ -592,6 +595,26 @@ export default function BookingDetailsCard({
                   className="rounded-lg bg-[#558B2F] px-4 py-2 text-xs font-semibold text-white hover:bg-[#4a7a28] disabled:opacity-60"
                 >
                   {isStartingTour ? 'Starting tour...' : 'Mark Tour Started'}
+                </button>
+              </div>
+            )}
+
+            {booking.status === 'In Progress' && (
+              <div className="mt-3 flex justify-center">
+                <button
+                  type="button"
+                  disabled={isCompletingTour}
+                  onClick={async () => {
+                    setIsCompletingTour(true);
+                    try {
+                      await onMarkTourCompleted?.(booking.id);
+                    } finally {
+                      setIsCompletingTour(false);
+                    }
+                  }}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                >
+                  {isCompletingTour ? 'Completing tour...' : 'Mark Tour Completed'}
                 </button>
               </div>
             )}

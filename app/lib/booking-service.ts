@@ -55,6 +55,23 @@ export const createBooking = async (payload: BookingPayload) => {
     return data as { bookingId: string };
 };
 
+export const completeBooking = async (bookingId: string) => {
+    const user = firebaseAuth.currentUser;
+    if (!user) throw new Error("Authentication required.");
+    const idToken = await user.getIdToken();
+
+    const res = await fetch(`${API_URL}/operator/bookings/${bookingId}/complete`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${idToken}`,
+        },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.error || "Failed to complete booking");
+    return data as { bookingId: string; status: string };
+};
+
 export const checkInBooking = async (bookingId: string, token: string) => {
     const user = firebaseAuth.currentUser;
     if (!user) throw new Error("Authentication required.");

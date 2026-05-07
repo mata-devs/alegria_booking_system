@@ -116,22 +116,22 @@ export default function NotificationsBell({ uid, seeAllHref, className }: Notifi
                     key={n.id}
                     type="button"
                     onClick={() => handleRowClick(n.id, n.link)}
-                    className={`flex w-full gap-3 text-left px-5 py-3.5 transition-colors ${
+                    className={`flex items-stretch w-full gap-3 text-left px-5 py-3.5 transition-colors ${
                       n.read
                         ? 'bg-transparent hover:bg-white/50'
-                        : 'bg-white/40 hover:bg-white/60'
+                        : 'bg-green-50/70 hover:bg-green-50/90'
                     }`}
                   >
                     {/* Unread dot */}
                     <span className="flex shrink-0 pt-2 w-2 justify-center">
                       {!n.read
-                        ? <span className="h-2 w-2 rounded-full bg-red-500 shrink-0" aria-hidden />
+                        ? <span className="h-2 w-2 rounded-full bg-[#558B2F] shrink-0" aria-hidden />
                         : <span className="h-2 w-2 shrink-0" aria-hidden />
                       }
                     </span>
 
                     {/* Thumbnail */}
-                    <NotificationThumbnail imageUrl={n.imageUrl} size="sm" />
+                    <NotificationThumbnail imageUrl={n.imageUrl} size="md" stretch />
 
                     {/* Content */}
                     <span className="min-w-0 flex-1">

@@ -92,7 +92,7 @@ export default function SuperAdminAnalyticsPage() {
       {/* Glassy filters overlay */}
       {showFilters && (
         <div
-          className="fixed inset-0 z-40 flex"
+          className="fixed inset-0 z-[70] flex lg:left-[4.5rem]"
           role="dialog"
           aria-modal="true"
           aria-label="Filters"

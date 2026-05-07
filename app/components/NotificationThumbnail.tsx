@@ -1,41 +1,47 @@
 'use client';
 
 import Image from 'next/image';
+import { useState } from 'react';
 import { Bell } from 'lucide-react';
 
 const SIZE_MAP = {
-  sm: { px: 36, icon: 'h-4 w-4' },
-  md: { px: 44, icon: 'h-5 w-5' },
-  lg: { px: 56, icon: 'h-5 w-5' },
+  sm: { px: 40, icon: 'h-4 w-4' },
+  md: { px: 60, icon: 'h-6 w-6' },
+  lg: { px: 80, icon: 'h-7 w-7' },
 } as const;
 
 interface NotificationThumbnailProps {
   imageUrl: string | null;
   size?: keyof typeof SIZE_MAP;
+  stretch?: boolean;
 }
 
 export default function NotificationThumbnail({
   imageUrl,
   size = 'md',
+  stretch = false,
 }: NotificationThumbnailProps) {
   const { px, icon } = SIZE_MAP[size];
+  const [imgError, setImgError] = useState(false);
+  const hasImage = !!(imageUrl && imageUrl.trim() && !imgError);
 
   return (
     <div
-      className="shrink-0 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center"
-      style={{ width: px, height: px }}
+      className={`shrink-0 rounded-lg overflow-hidden flex items-center justify-center ${stretch ? 'self-stretch' : ''} ${hasImage ? 'bg-gray-100' : 'bg-green-50'}`}
+      style={{ width: px, ...(stretch ? {} : { height: px }) }}
     >
-      {imageUrl ? (
-        <Image
-          src={imageUrl}
-          alt=""
-          width={px}
-          height={px}
-          className="object-cover w-full h-full"
-          // next/image handles CDN caching — minimumCacheTTL=31536000 (1yr) in next.config.ts
-        />
+      {hasImage ? (
+        <div className="relative w-full h-full">
+          <Image
+            src={imageUrl!}
+            alt=""
+            fill
+            className="object-cover object-center"
+            onError={() => setImgError(true)}
+          />
+        </div>
       ) : (
-        <Bell className={`${icon} text-gray-400`} strokeWidth={1.75} />
+        <Bell className={`${icon} text-[#558B2F]`} strokeWidth={1.75} />
       )}
     </div>
   );

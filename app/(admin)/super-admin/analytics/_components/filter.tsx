@@ -28,9 +28,9 @@ const SECTION_LABEL =
   "text-[11px] font-semibold uppercase tracking-wide text-gray-500";
 const FIELD_LABEL = "block text-[11px] font-medium text-gray-600 mb-1";
 const INPUT_BASE =
-  "h-9 w-full rounded-md border border-gray-200 bg-gray-50 px-3 text-xs text-gray-800 outline-none transition-colors focus:border-[#558B2F] focus:bg-white focus:ring-1 focus:ring-[#558B2F]";
+  "h-9 w-full rounded-md border border-gray-200 bg-gray-50 px-3 text-xs text-gray-800 outline-none transition-colors focus:border-[#0F5132] focus:bg-white focus:ring-1 focus:ring-[#0F5132]";
 const CHECKBOX =
-  "h-3.5 w-3.5 rounded-[3px] border border-gray-300 accent-[#558B2F]";
+  "h-3.5 w-3.5 rounded-[3px] border border-gray-300 accent-[#0F5132]";
 
 export default function SuperAdminFilters({
   operators = [],
@@ -97,7 +97,7 @@ export default function SuperAdminFilters({
   const clearOperators = () => onSelectedOperatorsChange?.([]);
 
   return (
-    <aside className="min-h-full w-full overflow-y-auto border-r border-gray-200 bg-white px-5 py-5 text-gray-900">
+    <aside className="min-h-full w-full overflow-y-auto bg-transparent px-5 py-5 text-gray-900">
       <div className="flex items-center justify-between">
         <h2 className="text-base font-bold leading-none text-gray-900">
           Filters
@@ -106,7 +106,7 @@ export default function SuperAdminFilters({
           <button
             type="button"
             onClick={clearOperators}
-            className="text-[11px] font-medium text-[#558B2F] hover:text-[#4a7a28]"
+            className="text-[11px] font-medium text-[#0F5132] hover:text-[#0c4128]"
           >
             Clear
           </button>
@@ -270,7 +270,7 @@ export default function SuperAdminFilters({
 
       <button
         type="button"
-        className="mt-8 w-full rounded-xl bg-[#558B2F] py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#4a7a28]"
+        className="mt-8 w-full rounded-xl bg-[#0F5132] py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#0c4128]"
       >
         Apply Filters
       </button>
