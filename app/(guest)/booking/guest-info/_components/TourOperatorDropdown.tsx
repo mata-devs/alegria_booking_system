@@ -11,6 +11,7 @@ interface TourOperatorDropdownProps {
     value: string;
     onChange: (val: string) => void;
     lockedByPromo?: boolean;
+    lockReason?: "promo" | "source";
 }
 
 interface TourOperatorOption {
@@ -20,7 +21,7 @@ interface TourOperatorOption {
     imageUrl: string | null;
 }
 
-export const TourOperatorDropdown = ({ value, onChange, lockedByPromo = false }: TourOperatorDropdownProps) => {
+export const TourOperatorDropdown = ({ value, onChange, lockedByPromo = false, lockReason = "promo" }: TourOperatorDropdownProps) => {
     const [operators, setOperators] = useState<TourOperatorOption[]>([]);
     const [loading, setLoading] = useState(true);
     const [open, setOpen] = useState(false);
@@ -109,13 +110,15 @@ export const TourOperatorDropdown = ({ value, onChange, lockedByPromo = false }:
                 {lockedByPromo && (
                     <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#74C00F] bg-[#74C00F]/10 px-2 py-0.5 rounded-full">
                         <Lock className="w-3 h-3" />
-                        Set by promo
+                        {lockReason === "source" ? "Set by item owner" : "Set by promo"}
                     </span>
                 )}
             </div>
             <p className="text-sm text-gray-500 mb-4">
                 {lockedByPromo
-                    ? "This operator is required by your promo code. Remove the promo in the order summary to choose a different operator."
+                    ? lockReason === "source"
+                        ? "This operator is locked to the owner of the selected activity or tour package."
+                        : "This operator is required by your promo code. Remove the promo in the order summary to choose a different operator."
                     : "Select a tour operator if you have a preferred guide"}
             </p>
 

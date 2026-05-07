@@ -8,13 +8,13 @@ import { BentoGallery, Lightbox } from '@/app/components/ui/BentoGallery'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/app/components/ui/drawer'
 import { doc, getDoc } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
-import Image from 'next/image'
 import { getApprovedReviewsForItem, type ApprovedReview } from '@/app/lib/reviews-service'
 
 interface FirestoreActivity {
   id: string
   activityName: string
   activityDetails: string
+  operatorId?: string
   pricePerGuest: number
   minimumNumberOfPeople?: number
   maximumNumberOfPeople?: number
@@ -85,6 +85,7 @@ function ActivityDetailInner() {
 
   const handleBook = () => {
     if (!activity) return
+    if (!activity.operatorId) return
     const params = new URLSearchParams({
       activityId: activity.id,
       activityName: activity.activityName,
@@ -92,6 +93,7 @@ function ActivityDetailInner() {
       guests: travelers.toString(),
       minGuests: minGuests.toString(),
       maxGuests: maxGuests.toString(),
+      activityOperatorId: activity.operatorId,
     })
     router.push(`/booking/guest-info?${params.toString()}`)
   }

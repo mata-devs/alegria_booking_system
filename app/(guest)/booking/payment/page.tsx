@@ -184,7 +184,12 @@ function PaymentPageContent() {
                     const snap = await getDocs(query(collection(firestore, "voucherCodes"), where("code", "==", codeUpper)));
                     if (!snap.empty) {
                         const voucher = snap.docs[0].data() as Record<string, unknown>;
-                        discountPercent = typeof voucher.discount === "number" ? voucher.discount : null;
+                        const voucherOperatorUid =
+                            typeof voucher.operatorUid === "string" ? voucher.operatorUid : null;
+                        const requiredOperatorUid = sessionData.context.tourOperatorUid ?? null;
+                        if (!voucherOperatorUid || !requiredOperatorUid || voucherOperatorUid === requiredOperatorUid) {
+                            discountPercent = typeof voucher.discount === "number" ? voucher.discount : null;
+                        }
                     }
                 }
 

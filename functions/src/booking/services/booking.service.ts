@@ -6,7 +6,6 @@ import { createTransporter, getFromAddress } from "../../shared/mailer";
 const BOOKING_ADVANCE_DAYS = 180;
 const MAX_PERSONS_PER_SLOT = 30; //this is for the time slot (should be in the dedicated `activity` collection)
 const SERVICE_CHARGE_PERCENTAGE = 5; //percentage of the total price
-const ACTIVE_BOOKING_STATUSES = ["reserved", "confirmed", "paid"] as const;
 const MIN_AGE = 10; //minimum age for the representative and guests
 const MAX_SPECIAL_REQUESTS_LENGTH = 300; //maximum length of the special requests
 const PHONE_PREFIX = "+63"; //phone prefix for the Philippines
@@ -137,7 +136,7 @@ async function validatePromoCode(code: string, requiredOperatorUid?: string): Pr
     return null;
   }
 
-  // For tour packages: only accept if voucher is global (no operatorUid) or matches the package operator
+  // Only accept vouchers when global (no operatorUid) or matching the source owner operator.
   if (requiredOperatorUid !== undefined) {
     const voucherOperatorUid = typeof voucher.operatorUid === "string" && voucher.operatorUid ? voucher.operatorUid : null;
     if (voucherOperatorUid && voucherOperatorUid !== requiredOperatorUid) {
@@ -150,54 +149,6 @@ async function validatePromoCode(code: string, requiredOperatorUid?: string): Pr
     operatorUid: typeof voucher.operatorUid === "string" ? voucher.operatorUid : undefined,
     voucherId: voucherDoc.id,
   };
-}
-
-async function assignOperatorByLoadBalancing(
-  tourDate: Timestamp,
-  preferredOperatorUid?: string
-) {
-  if (preferredOperatorUid) return preferredOperatorUid;
-
-  const operatorsSnap = await db
-    .collection("users")
-    .where("role", "==", "operator")
-    .where("status", "==", "active")
-    .get();
-
-  if (operatorsSnap.empty) {
-    throw new Error("No active operators available");
-  }
-
-  const dateStr = new Date(tourDate.toMillis()).toISOString().split("T")[0];
-  const bookingCounts: Record<string, number> = {};
-  let minCount = Number.POSITIVE_INFINITY;
-
-  for (const operatorDoc of operatorsSnap.docs) {
-    const operatorUid = operatorDoc.id;
-    const bookingSnap = await db
-      .collection("bookings")
-      .where("operatorUid", "==", operatorUid)
-      .where("status", "in", [...ACTIVE_BOOKING_STATUSES])
-      .get();
-
-    const count = bookingSnap.docs.filter((bookingDoc) => {
-      const bookingDate = bookingDoc.data().tourDate;
-      const millis = bookingDate?.toMillis?.();
-      if (!millis) return false;
-      const bookingDateStr = new Date(millis).toISOString().split("T")[0];
-      return bookingDateStr === dateStr;
-    }).length;
-
-    bookingCounts[operatorUid] = count;
-    minCount = Math.min(minCount, count);
-  }
-
-  const lowestLoadOperator = Object.entries(bookingCounts).find(([, count]) => count === minCount);
-  if (!lowestLoadOperator) {
-    throw new Error("No operator available");
-  }
-
-  return lowestLoadOperator[0];
 }
 
 function parseDataUrl(dataUrl: string): { mime: string; buffer: Buffer; extension: string } {
@@ -360,7 +311,7 @@ export async function createBooking(data: CreateBookingInput) {
   const isTourPackage = data.sourceType === "tourPackage";
 
   let pricePerGuest: number;
-  let packageOperatorId: string | undefined;
+  let sourceOperatorId: string | undefined;
   let sourceDisplayName: string | undefined;
   let maxSlotsForSource: number;
 
@@ -371,18 +322,23 @@ export async function createBooking(data: CreateBookingInput) {
     if (!tourPkg) throw new Error("Tour package not found");
     if (tourPkg.status !== "active") throw new Error("Tour package is not active");
     pricePerGuest = Number(tourPkg.pricePerPerson) || 0;
-    packageOperatorId = typeof tourPkg.operatorId === "string" ? tourPkg.operatorId : undefined;
+    sourceOperatorId = typeof tourPkg.operatorId === "string" ? tourPkg.operatorId : undefined;
     sourceDisplayName = typeof tourPkg.packageName === "string" ? tourPkg.packageName : undefined;
     maxSlotsForSource = Number(tourPkg.maximumNumberOfPeople) || MAX_PERSONS_PER_SLOT;
   } else {
     const activity = (await getActivity(data.activityId)) as
-      | (Record<string, unknown> & { maxSlots?: number; pricePerGuest?: number; status?: string; activityName?: string })
+      | (Record<string, unknown> & { maxSlots?: number; pricePerGuest?: number; status?: string; activityName?: string; operatorId?: string })
       | null;
     if (!activity) throw new Error("Activity not found");
     if (activity.status !== "active") throw new Error("Activity is not active");
     pricePerGuest = Number(activity.pricePerGuest) || 0;
+    sourceOperatorId = typeof activity.operatorId === "string" ? activity.operatorId : undefined;
     sourceDisplayName = typeof activity.activityName === "string" ? activity.activityName : undefined;
     maxSlotsForSource = Number(activity.maxSlots) || MAX_PERSONS_PER_SLOT;
+  }
+
+  if (!sourceOperatorId) {
+    throw new Error(isTourPackage ? "Tour package has no assigned operator" : "Activity has no assigned operator");
   }
 
   const numberOfGuests = data.guests.length + 1;
@@ -391,7 +347,7 @@ export async function createBooking(data: CreateBookingInput) {
   }
 
   const promoData = data.promoCode
-    ? await validatePromoCode(data.promoCode, isTourPackage ? packageOperatorId : undefined)
+    ? await validatePromoCode(data.promoCode, sourceOperatorId)
     : null;
   if (data.promoCode && !promoData) {
     throw new Error("Invalid or expired promo code");
@@ -399,23 +355,8 @@ export async function createBooking(data: CreateBookingInput) {
 
   const pricing = calculatePricing(numberOfGuests, pricePerGuest, promoData?.discount ?? 0);
 
-  let operatorUid: string;
-  let assignmentType: string;
-
-  if (isTourPackage) {
-    if (!packageOperatorId) throw new Error("Tour package has no assigned operator");
-    operatorUid = packageOperatorId;
-    assignmentType = promoData?.operatorUid ? "voucher" : "package-selection";
-  } else {
-    const selectedOperatorUid = data.tourOperatorUid?.trim() || undefined;
-    const preferredOperatorUid = promoData?.operatorUid || selectedOperatorUid;
-    assignmentType = promoData?.operatorUid
-      ? "voucher"
-      : selectedOperatorUid
-        ? "manual-selection"
-        : "auto book-balancing";
-    operatorUid = await assignOperatorByLoadBalancing(tourDateTs, preferredOperatorUid);
-  }
+  const operatorUid = sourceOperatorId;
+  const assignmentType = promoData?.operatorUid ? "voucher" : "source-owner";
 
   if (data.idempotencyKey) {
     const existing = await db

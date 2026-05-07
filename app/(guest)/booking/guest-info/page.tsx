@@ -74,6 +74,9 @@ function GuestBookingContent() {
     const maxGuests = searchParams.get("maxGuests") ? Number(searchParams.get("maxGuests")) : undefined;
     const sourceType = (searchParams.get("sourceType") as "activity" | "tourPackage" | null) ?? "activity";
     const packageOperatorId = searchParams.get("packageOperatorId") || undefined;
+    const activityOperatorId = searchParams.get("activityOperatorId") || undefined;
+    const lockedSourceOperatorUid =
+        sourceType === "tourPackage" ? packageOperatorId : activityOperatorId;
 
     const [isMounted, setIsMounted] = useState(false);
     const [summaryDrawerOpen, setSummaryDrawerOpen] = useState(false);
@@ -122,13 +125,13 @@ function GuestBookingContent() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Auto-lock operator for tour packages
+    // Auto-lock operator to the owner of the selected source item.
     useEffect(() => {
-        if (sourceType === "tourPackage" && packageOperatorId) {
-            setFormData((prev) => ({ ...prev, tourOperator: packageOperatorId }));
+        if (lockedSourceOperatorUid) {
+            setFormData((prev) => ({ ...prev, tourOperator: lockedSourceOperatorUid }));
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [sourceType, packageOperatorId]);
+    }, [lockedSourceOperatorUid]);
 
     useEffect(() => {
         try { window.sessionStorage.setItem("guestFormGuests", JSON.stringify(guests)); } catch { /* ignore */ }
@@ -192,7 +195,7 @@ function GuestBookingContent() {
                 activityName,
                 guestCount,
                 promoCode: appliedPromo || undefined,
-                tourOperatorUid: formData.tourOperator || undefined,
+                tourOperatorUid: formData.tourOperator || lockedSourceOperatorUid || undefined,
                 paymentMethod,
                 sourceType,
             }));
@@ -223,7 +226,7 @@ function GuestBookingContent() {
         priceOverride,
         minGuests,
         maxGuests,
-        packageOperatorId,
+        packageOperatorId: lockedSourceOperatorUid,
         onDateChange: setBookingDate,
         sourceType,
         onPromoApplied: (promo: { code: string; discount: number; operatorUid?: string }) => {
@@ -238,7 +241,7 @@ function GuestBookingContent() {
         onPromoRemoved: () => {
             setAppliedPromo("");
             setPromoOperatorUid(null);
-            setFormData((prev) => ({ ...prev, tourOperator: "" }));
+            setFormData((prev) => ({ ...prev, tourOperator: lockedSourceOperatorUid || "" }));
         },
     };
 
@@ -267,13 +270,12 @@ function GuestBookingContent() {
                             guestErrors={guestErrors}
                             submitted={submitted}
                         />
-                        {sourceType !== "tourPackage" && (
-                            <TourOperatorDropdown
-                                value={formData.tourOperator}
-                                onChange={(val) => setFormData((prev) => ({ ...prev, tourOperator: val }))}
-                                lockedByPromo={!!promoOperatorUid}
-                            />
-                        )}
+                        <TourOperatorDropdown
+                            value={formData.tourOperator}
+                            onChange={(val) => setFormData((prev) => ({ ...prev, tourOperator: val }))}
+                            lockedByPromo={!!promoOperatorUid || !!lockedSourceOperatorUid}
+                            lockReason={lockedSourceOperatorUid ? "source" : "promo"}
+                        />
                     </div>
                 </div>
 

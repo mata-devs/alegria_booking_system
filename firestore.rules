@@ -12,6 +12,25 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'operator';
     }
 
+    function bookingSourceType() {
+      return request.resource.data.sourceType;
+    }
+
+    function bookingSourceId() {
+      return request.resource.data.activityId;
+    }
+
+    function bookingOperatorUid() {
+      return request.resource.data.operatorUid;
+    }
+
+    function bookingMatchesSourceOwner() {
+      return (bookingSourceType() == 'activity'
+          && bookingOperatorUid() == get(/databases/$(database)/documents/activities/$(bookingSourceId())).data.operatorId)
+        || (bookingSourceType() == 'tourPackage'
+          && bookingOperatorUid() == get(/databases/$(database)/documents/tourPackages/$(bookingSourceId())).data.operatorId);
+    }
+
     // ── ADDED 2026-04-24 ───────────────────────────────────────────
     // Activities: public read for guest catalog. Only the owning operator can
     // create/edit/delete their own activities. Super admins and guests are read-only.
@@ -132,8 +151,11 @@ service cloud.firestore {
       allow update: if isOperator()
         && resource.data.operatorUid == request.auth.uid
         && request.resource.data.operatorUid == resource.data.operatorUid;
-      // Public create so the guest booking form works without sign-in
-      allow create: if true;
+      // Public create for guest booking flow, but operator must match source owner.
+      allow create: if bookingSourceType() in ['activity', 'tourPackage']
+        && bookingSourceId() is string
+        && bookingOperatorUid() is string
+        && bookingMatchesSourceOwner();
       // Super admins have full access
       allow read, write: if isSuperAdmin();
     }
