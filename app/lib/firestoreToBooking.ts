@@ -53,6 +53,7 @@ export function firestoreToBooking(doc: FirestoreBooking): Booking {
   return {
     id: doc.bookingId,
     bookingIdLabel: doc.bookingId,
+    operatorUid: doc.operatorUid,
     scheduleLabel,
     requestDate,
     representative: {

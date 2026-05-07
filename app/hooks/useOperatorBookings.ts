@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import {
   collection,
+  doc,
+  getDoc,
   query,
   where,
   orderBy,
@@ -60,6 +62,23 @@ export interface FirestoreBooking {
   updatedAt: Timestamp;
 }
 
+async function bookingBelongsToOperator(booking: FirestoreBooking, operatorUid: string): Promise<boolean> {
+  if (!booking.activityId) return false;
+
+  const sourceType = booking.sourceType === 'tourPackage' ? 'tourPackage' : 'activity';
+  const sourceCollection = sourceType === 'tourPackage' ? 'tourPackages' : 'activities';
+
+  try {
+    const sourceSnap = await getDoc(doc(firebaseDb, sourceCollection, booking.activityId));
+    if (!sourceSnap.exists()) return false;
+
+    const sourceData = sourceSnap.data() as { operatorId?: unknown };
+    return typeof sourceData.operatorId === 'string' && sourceData.operatorId === operatorUid;
+  } catch {
+    return false;
+  }
+}
+
 /* ── Hook ─────────────────────────────────────────────────── */
 
 export function useOperatorBookings(operatorUid: string | undefined) {
@@ -83,10 +102,22 @@ export function useOperatorBookings(operatorUid: string | undefined) {
 
     const unsubscribe = onSnapshot(
       q,
-      (snapshot) => {
-        const docs = snapshot.docs.map((d) => d.data() as FirestoreBooking);
-        setBookings(docs);
-        setLoading(false);
+      async (snapshot) => {
+        try {
+          const docs = snapshot.docs.map((d) => d.data() as FirestoreBooking);
+          const ownershipChecks = await Promise.all(
+            docs.map(async (booking) => ({
+              booking,
+              isOwnedBySourceOperator: await bookingBelongsToOperator(booking, operatorUid),
+            })),
+          );
+          setBookings(ownershipChecks.filter((x) => x.isOwnedBySourceOperator).map((x) => x.booking));
+          setLoading(false);
+        } catch (err) {
+          console.error('useOperatorBookings ownership filter:', err);
+          setError(err instanceof Error ? err.message : 'Failed to verify booking ownership.');
+          setLoading(false);
+        }
       },
       (err) => {
         console.error('useOperatorBookings:', err);

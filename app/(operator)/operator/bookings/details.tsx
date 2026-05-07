@@ -3,7 +3,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { X, Printer } from 'lucide-react';
+import { doc, getDoc } from 'firebase/firestore';
 import PaymentUndoToast from '@/app/components/PaymentUndoToast';
+import { firebaseDb } from '@/app/lib/firebase';
 import {
   useReactTable,
   getCoreRowModel,
@@ -44,6 +46,7 @@ export type UploadedFile = {
 export type Booking = {
   id: string;
   bookingIdLabel?: string;
+  operatorUid?: string;
   scheduleLabel: string;
   requestDate: string;
   representative: {
@@ -133,6 +136,7 @@ export default function BookingDetailsCard({
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<PaymentStatus | null>(null);
   const [isStartingTour, setIsStartingTour] = useState(false);
+  const [operatorInfo, setOperatorInfo] = useState<{ companyName: string; email: string; phoneNumber: string } | null>(null);
 
   useEffect(() => {
     if (!booking) return;
@@ -140,6 +144,46 @@ export default function BookingDetailsCard({
     setPaymentStatus(booking.paymentStatus);
     setPendingStatus(null);
   }, [booking?.id, booking?.paymentStatus]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadOperatorInfo() {
+      if (!booking?.operatorUid) {
+        setOperatorInfo(null);
+        return;
+      }
+
+      try {
+        const snap = await getDoc(doc(firebaseDb, 'users', booking.operatorUid));
+        if (!snap.exists() || cancelled) {
+          if (!cancelled) setOperatorInfo(null);
+          return;
+        }
+
+        const data = snap.data() as {
+          companyName?: unknown;
+          email?: unknown;
+          phoneNumber?: unknown;
+        };
+
+        if (!cancelled) {
+          setOperatorInfo({
+            companyName: typeof data.companyName === 'string' ? data.companyName : 'Operator',
+            email: typeof data.email === 'string' ? data.email : '—',
+            phoneNumber: typeof data.phoneNumber === 'string' ? data.phoneNumber : '—',
+          });
+        }
+      } catch {
+        if (!cancelled) setOperatorInfo(null);
+      }
+    }
+
+    void loadOperatorInfo();
+    return () => {
+      cancelled = true;
+    };
+  }, [booking?.operatorUid]);
 
   const guestTable = useReactTable({
     data: booking?.otherGuests ?? [],
@@ -690,9 +734,9 @@ export default function BookingDetailsCard({
                     <div className="border-t border-neutral-200 pt-4">
                       <div className="text-[11px] font-bold uppercase tracking-wider text-neutral-500 mb-2">Tour Operator</div>
                       <div className="text-[13px] space-y-0.5">
-                        <div className="font-medium">Operator 1</div>
-                        <div className="text-neutral-500">tourop1@email.com</div>
-                        <div className="text-neutral-500">0932221458</div>
+                        <div className="font-medium">{operatorInfo?.companyName ?? 'Operator'}</div>
+                        <div className="text-neutral-500">{operatorInfo?.email ?? '—'}</div>
+                        <div className="text-neutral-500">{operatorInfo?.phoneNumber ?? '—'}</div>
                       </div>
                     </div>
                   </div>
