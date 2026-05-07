@@ -9,6 +9,7 @@ import ActivityCard from '@/app/components/ActivityCard'
 import PackageCard from '@/app/components/ui/PackageCard'
 import { useSearchParams } from 'next/navigation'
 import { parseGuestListingSearchParams } from '@/app/lib/searchSchema'
+import { getDayCapacity } from '@/app/lib/getDayCapacity'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
 import { CategoryFilterCollapsible } from '@/app/components/CategoryFilterCollapsible'
@@ -35,6 +36,7 @@ function ActivitiesContent() {
   const [visibleCount, setVisibleCount] = useState(8)
   const [activities, setActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
+  const [dayCapacity, setDayCapacity] = useState<Record<string, number | null>>({})
   const [searchDrawerOpen, setSearchDrawerOpen] = useState(false)
   const [filterPanelOpen, setFilterPanelOpen] = useState(false)
   const [popularPackages, setPopularPackages] = useState<{
@@ -69,6 +71,7 @@ function ActivitiesContent() {
             rating: data.activityRating ?? 0,
             reviewCount: 0,
             price: data.pricePerGuest ?? 0,
+            maxGuests: data.maximumNumberOfPeople ?? data.maxSlots ?? 30,
             image: data.activityImages?.[0] ?? '',
             municipalityId: data.activityLocation ?? '',
           }
@@ -91,10 +94,32 @@ function ActivitiesContent() {
     fetchPopularPackages()
   }, [])
 
+  useEffect(() => {
+    const normalizedDate = searchDate.trim()
+    if (!normalizedDate) {
+      setDayCapacity({})
+      return
+    }
+    const sourceIds = activities
+      .map((activity) => activity.firestoreId)
+      .filter((id): id is string => !!id)
+    getDayCapacity(sourceIds, normalizedDate)
+      .then(setDayCapacity)
+      .catch((err) => {
+        console.error('Failed to load activity day capacity:', err)
+        setDayCapacity({})
+      })
+  }, [activities, searchDate])
+
   const filtered = activities.filter((a) => {
     const matchesTag = !activeFilter || a.category === activeFilter
     const matchesLocation = !searchLocation || a.location.toLowerCase().includes(searchLocation.toLowerCase())
-    return matchesTag && matchesLocation
+    const requestedTravelers = Math.max(1, Number.parseInt(searchTravelers || '1', 10) || 1)
+    const slotsAvailable = a.firestoreId ? dayCapacity[a.firestoreId] : null
+    const fallbackCapacity = a.maxGuests ?? 30
+    const effectiveCapacity = slotsAvailable ?? fallbackCapacity
+    const matchesAvailability = !searchDate || effectiveCapacity >= requestedTravelers
+    return matchesTag && matchesLocation && matchesAvailability
   })
 
   const visible = filtered.slice(0, visibleCount)

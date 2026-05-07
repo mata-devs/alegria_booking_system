@@ -10,8 +10,6 @@ import {
   Download,
   Share2,
   SlidersHorizontal,
-  TrendingDown,
-  TrendingUp,
   Wallet,
 } from "lucide-react";
 import { useAuth } from "@/app/context/AuthContext";
@@ -20,6 +18,7 @@ import {
   type AnalyticsDashboardResponse,
   type AnalyticsQueryFilters,
 } from "@/app/lib/analytics-service";
+import { downloadCsv } from "@/app/lib/csvExport";
 import { firestore } from "@/app/lib/firebase";
 import type {
   FilterGranularity,
@@ -178,13 +177,6 @@ export default function Analytics() {
   const grossRevenue = dashboard?.summary.grossRevenue ?? 0;
   const netRevenue = dashboard?.summary.netRevenue ?? 0;
 
-  // Static deltas mirror the InsightFlow mockup until backend exposes period-over-period.
-  const deltas = {
-    bookings: { value: 12, dir: "up" as const, label: "from last month" },
-    gross: { value: 8.4, dir: "up" as const, label: "from last month" },
-    net: { value: -2.1, dir: "down" as const, label: "from last month" },
-  };
-
   const liveAsOf = dashboard?.generatedAt
     ? new Date(dashboard.generatedAt).toLocaleDateString("en-US", {
         month: "short",
@@ -232,6 +224,42 @@ export default function Analytics() {
   const handleGranularityChange = (g: FilterGranularity) => {
     setFilters((prev) => ({ ...prev, granularity: g }));
     setAppliedFilters((prev) => ({ ...prev, granularity: g }));
+  };
+
+  const handleExportCsv = () => {
+    if (!dashboard) return;
+    const rows: unknown[][] = [
+      ["Section", "Metric", "Value"],
+      ["Summary", "Generated At", dashboard.generatedAt],
+      ["Summary", "Scope", scopeLabel],
+      ["Summary", "Total Bookings", dashboard.summary.totalBookings],
+      ["Summary", "Paid Bookings", dashboard.summary.paidBookings],
+      ["Summary", "Total Travelers", dashboard.summary.totalTravelers],
+      ["Summary", "Promo Bookings", dashboard.summary.promoBookings],
+      ["Summary", "Gross Revenue", dashboard.summary.grossRevenue],
+      ["Summary", "Net Revenue", dashboard.summary.netRevenue],
+      [],
+      ["Bookings Trend", "Label", "Count"],
+      ...dashboard.bookingsTrend.points.map((point) => ["Bookings Trend", point.label, point.count]),
+      [],
+      ["Tourist Nationalities", "Nationality", "Count"],
+      ...dashboard.touristNationalities.map((point) => ["Tourist Nationalities", point.nationality, point.count]),
+      [],
+      ["Tourist Age Distribution", "Range", "Count"],
+      ...dashboard.touristAgeDistribution.map((point) => ["Tourist Age Distribution", point.range, point.count]),
+      [],
+      ["Promo Usage", "State", "Count"],
+      ["Promo Usage", "With Promo", promoStats.withPromo],
+      ["Promo Usage", "Without Promo", promoStats.withoutPromo],
+      [],
+      ["Payment Methods", "Method", "Count"],
+      ...filteredPaymentMethods.map((point) => ["Payment Methods", point.method, point.count]),
+      [],
+      ["Affiliated Entities", "Entity", "Count"],
+      ...dashboard.affiliatedEntities.map((point) => ["Affiliated Entities", point.entityName, point.count]),
+    ];
+    const date = new Date().toISOString().slice(0, 10);
+    downloadCsv(`analytics-${date}.csv`, rows);
   };
 
   useEffect(() => {
@@ -346,6 +374,8 @@ export default function Analytics() {
             <div className="flex items-center gap-2">
               <button
                 type="button"
+                onClick={handleExportCsv}
+                disabled={loading || !dashboard}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
               >
                 <Download className="h-3.5 w-3.5" />
@@ -366,21 +396,18 @@ export default function Analytics() {
             <KpiCard
               label="Total Bookings"
               value={loading ? "—" : totalBookings.toLocaleString("en-PH")}
-              delta={deltas.bookings}
               icon={<BookOpen size={18} />}
               iconBg="bg-emerald-50 text-[#0F5132]"
             />
             <KpiCard
               label="Gross Revenue"
               value={loading ? "—" : formatPeso(grossRevenue)}
-              delta={deltas.gross}
               icon={<CreditCard size={18} />}
               iconBg="bg-emerald-50 text-[#0F5132]"
             />
             <KpiCard
               label="Net Revenue"
               value={loading ? "—" : formatPeso(netRevenue)}
-              delta={deltas.net}
               icon={<Wallet size={18} />}
               iconBg="bg-emerald-50 text-[#0F5132]"
             />
@@ -421,17 +448,11 @@ export default function Analytics() {
 interface KpiCardProps {
   label: string;
   value: string;
-  delta: { value: number; dir: "up" | "down"; label: string };
   icon: React.ReactNode;
   iconBg: string;
 }
 
-function KpiCard({ label, value, delta, icon, iconBg }: KpiCardProps) {
-  const isUp = delta.dir === "up";
-  const TrendIcon = isUp ? TrendingUp : TrendingDown;
-  const trendColor = isUp ? "text-[#0F5132]" : "text-red-600";
-  const sign = delta.value > 0 ? "+" : "";
-
+function KpiCard({ label, value, icon, iconBg }: KpiCardProps) {
   return (
     <div className="rounded-xl border border-neutral-100 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between">
@@ -447,13 +468,6 @@ function KpiCard({ label, value, delta, icon, iconBg }: KpiCardProps) {
       <h3 className="mt-2 text-2xl font-extrabold leading-tight text-neutral-900">
         {value}
       </h3>
-      <p
-        className={`mt-2 inline-flex items-center gap-1 text-[11px] font-medium ${trendColor}`}
-      >
-        <TrendIcon className="h-3 w-3" strokeWidth={2.5} />
-        {sign}
-        {delta.value}% <span className="text-gray-400">{delta.label}</span>
-      </p>
     </div>
   );
 }

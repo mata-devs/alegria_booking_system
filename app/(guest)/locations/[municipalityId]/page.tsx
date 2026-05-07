@@ -1,18 +1,52 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useParams } from 'next/navigation'
+import { collection, getDocs, query, where as firestoreWhere } from 'firebase/firestore'
 import Footer from '@/app/components/Footer'
 import ActivityCard from '@/app/components/ActivityCard'
-import TourPackageCard from '@/app/components/TourPackageCard'
 import LocationCard from '@/app/components/LocationCard'
-import { locations, activities, tourPackages, travelerReviews } from '@/app/data/mockData'
-import type { TravelerReview } from '@/app/types'
+import PackageCard from '@/app/components/ui/PackageCard'
 import SearchBar from '@/app/components/SearchBar'
+import { CategoryFilterCollapsible } from '@/app/components/CategoryFilterCollapsible'
+import { firebaseDb } from '@/app/lib/firebase'
+import { ACTIVITY_TAGS } from '@/app/lib/activity-tags'
+import {
+  countByActivityLocation,
+  countByPackageLocation,
+  mergeGuestLocations,
+} from '@/app/lib/guest-location-list'
+import {
+  matchesMunicipalityRoute,
+  municipalityFromSlug,
+} from '@/app/lib/cebu-municipalities'
+import { travelerReviews } from '@/app/data/mockData'
+import type { Activity, Location, TravelerReview } from '@/app/types'
 
-const ACTIVITY_FILTERS = ['All', 'Diving', 'Culture', 'Canyoneering', 'Beach', 'Museums', 'History']
+interface FirestorePackageRow {
+  id: string
+  packageName: string
+  packageDescription: string
+  pricePerPerson: number
+  minimumNumberOfPeople: number
+  maximumNumberOfPeople?: number
+  packageLocation: string
+  duration: string
+  packageTag: string
+  packageImages: string[]
+  packageRating: number
+  slug: string
+}
+
+function displayNameFromSlug(slug: string): string {
+  return slug
+    .split('-')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+}
 
 function StarRating({ rating }: { rating: number }) {
   return (
@@ -48,17 +82,106 @@ export default function MunicipalityView() {
   const municipalityId = params.municipalityId as string
   const otherRef = useRef<HTMLDivElement>(null)
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [activities, setActivities] = useState<Activity[]>([])
+  const [packages, setPackages] = useState<FirestorePackageRow[]>([])
+  const [otherLocations, setOtherLocations] = useState<Location[]>([])
 
-  const location = locations.find((l) => l.id === municipalityId) ?? locations[0]
-  const municipalityActivities = activities.filter((a) => a.municipalityId === location.id)
-  const allActivities = municipalityActivities.length > 0 ? municipalityActivities : activities.slice(0, 8)
-  const relatedPackages = tourPackages.filter((p) => p.municipalityId === location.id)
-  const featuredPackages = relatedPackages.length > 0 ? relatedPackages : tourPackages.slice(0, 2)
-  const otherLocations = locations.filter((l) => l.id !== location.id)
+  const municipalityName = useMemo(() => {
+    const official = municipalityFromSlug(municipalityId)
+    return official ?? displayNameFromSlug(municipalityId)
+  }, [municipalityId])
 
-  const heroImage = location.id === 'alegria'
-    ? '/images/alegria.png'
-    : `https://picsum.photos/seed/${location.id}-map/1400/480`
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+      try {
+        const [actSnap, pkgSnap] = await Promise.all([
+          getDocs(query(collection(firebaseDb, 'activities'), firestoreWhere('status', '==', 'active'))),
+          getDocs(query(collection(firebaseDb, 'tourPackages'), firestoreWhere('status', '==', 'active'))),
+        ])
+        if (cancelled) return
+
+        const activityByMuni = countByActivityLocation(actSnap)
+        const packageByMuni = countByPackageLocation(pkgSnap)
+        const merged = mergeGuestLocations(activityByMuni, packageByMuni)
+        setOtherLocations(merged.filter((l) => l.id !== municipalityId))
+
+        const actList: Activity[] = []
+        actSnap.docs.forEach((d, idx) => {
+          const data = d.data()
+          if (!matchesMunicipalityRoute(String(data.activityLocation ?? ''), municipalityId)) return
+          actList.push({
+            id: idx,
+            firestoreId: d.id,
+            category: data.activityTag ?? '',
+            title: data.activityName ?? '',
+            location: data.activityLocation ?? '',
+            rating: data.activityRating ?? 0,
+            reviewCount: 0,
+            price: data.pricePerGuest ?? 0,
+            maxGuests: data.maximumNumberOfPeople ?? data.maxSlots ?? 30,
+            image: data.activityImages?.[0] ?? '',
+            municipalityId: data.activityLocation ?? '',
+          })
+        })
+        actList.sort((a, b) => a.title.localeCompare(b.title))
+
+        const pkgList: FirestorePackageRow[] = []
+        pkgSnap.docs.forEach((d) => {
+          const data = d.data()
+          if (!matchesMunicipalityRoute(String(data.packageLocation ?? ''), municipalityId)) return
+          pkgList.push({
+            id: d.id,
+            packageName: data.packageName ?? '',
+            packageDescription: data.packageDescription ?? '',
+            pricePerPerson: data.pricePerPerson ?? 0,
+            minimumNumberOfPeople: data.minimumNumberOfPeople ?? 1,
+            maximumNumberOfPeople: data.maximumNumberOfPeople,
+            packageLocation: data.packageLocation ?? '',
+            duration: data.duration ?? '',
+            packageTag: data.packageTag ?? '',
+            packageImages: data.packageImages ?? [],
+            packageRating: data.packageRating ?? 0,
+            slug: data.slug ?? d.id,
+          })
+        })
+        pkgList.sort((a, b) => a.packageName.localeCompare(b.packageName))
+
+        setActivities(actList)
+        setPackages(pkgList)
+      } catch (e) {
+        console.error('Failed to load municipality listings:', e)
+        setActivities([])
+        setPackages([])
+        setOtherLocations([])
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [municipalityId])
+
+  const filteredActivities = useMemo(
+    () =>
+      activities.filter((a) => !activeFilter || a.category === activeFilter),
+    [activities, activeFilter],
+  )
+  const filteredPackages = useMemo(
+    () =>
+      packages.filter((p) => !activeFilter || p.packageTag === activeFilter),
+    [packages, activeFilter],
+  )
+
+  const heroImage = `https://picsum.photos/seed/${encodeURIComponent(municipalityId)}-map/1400/480`
+  const hasAny =
+    filteredActivities.length > 0 || filteredPackages.length > 0
+  const hasAnyUnfiltered = activities.length > 0 || packages.length > 0
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f0fdf4]">
@@ -66,7 +189,7 @@ export default function MunicipalityView() {
         <div className="relative w-full" style={{ height: 'clamp(300px, 55vw, 780px)' }}>
           <Image
             src={heroImage}
-            alt={location.name}
+            alt={municipalityName}
             fill
             className="object-cover"
             priority
@@ -79,58 +202,94 @@ export default function MunicipalityView() {
             <span className="mx-2">›</span>
             <Link href="/locations" className="hover:text-white transition-colors">Cebu Locations</Link>
             <span className="mx-2">›</span>
-            <span className="text-white font-medium">{location.name}</span>
+            <span className="text-white font-medium">{municipalityName}</span>
           </nav>
         </div>
       </section>
 
       <div className="relative z-10 -mt-8 px-4 sm:px-6 md:px-16 mb-4">
-        <SearchBar defaultWhere={location.name} className="max-w-4xl mx-auto" />
+        <SearchBar defaultWhere={municipalityName} className="max-w-4xl mx-auto" />
       </div>
 
-      <div className="bg-transparent sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-3 overflow-x-auto scrollbar-hide">
-          <div className="flex gap-2 flex-1 flex-nowrap">
-            {ACTIVITY_FILTERS.map((filter) => (
-              <button
-                key={filter}
-                onClick={() => setActiveFilter(activeFilter === filter ? null : filter)}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap border transition-colors ${
-                  activeFilter === filter
-                    ? 'bg-green-500 text-white border-green-500'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-green-400 hover:text-green-600'
-                }`}
-              >
-                {filter}
-              </button>
-            ))}
-          </div>
-          <Link
-            href="/tour-packages"
-            className="ml-auto shrink-0 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold px-5 py-1.5 rounded-full transition-colors"
+      <div className="max-w-7xl mx-auto w-full px-6 lg:px-8 py-4">
+        <CategoryFilterCollapsible
+          expanded={filterPanelOpen}
+          onToggle={() => setFilterPanelOpen((o) => !o)}
+          activeSummary={activeFilter}
+        >
+          <button
+            type="button"
+            onClick={() => setActiveFilter(null)}
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors border ${
+              activeFilter === null
+                ? 'bg-green-500 text-white border-green-500'
+                : 'border-gray-300 text-gray-600 hover:border-green-400 hover:text-green-600'
+            }`}
           >
-            Booking
-          </Link>
-        </div>
+            All
+          </button>
+          {ACTIVITY_TAGS.map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => setActiveFilter(activeFilter === cat ? null : cat)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                activeFilter === cat
+                  ? 'bg-green-500 text-white border border-green-500'
+                  : 'border border-gray-300 text-gray-600 hover:border-green-400 hover:text-green-600'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </CategoryFilterCollapsible>
       </div>
 
       <main className="flex-1">
         <section className="max-w-7xl mx-auto px-6 lg:px-8 py-12">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Activities in {location.name}</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
-            {allActivities.map((act) => (
-              <ActivityCard key={act.id} activity={act} />
-            ))}
-          </div>
-          <div className="mt-8 text-center">
-            <button className="border border-gray-300 text-gray-700 px-8 py-2.5 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors">
-              Show more
-            </button>
-          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">
+            Tourist Destinations in {municipalityName}
+          </h2>
+          {loading ? (
+            <div className="text-sm text-gray-500 py-16 text-center">Loading destinations…</div>
+          ) : !hasAnyUnfiltered ? (
+            <div className="text-sm text-gray-500 py-16 text-center px-4">
+              No activities or tour packages in this location yet. Explore{' '}
+              <Link href="/activities" className="text-green-600 font-medium hover:underline">activities</Link>
+              {' '}or{' '}
+              <Link href="/tour-packages" className="text-green-600 font-medium hover:underline">tour packages</Link>
+              {' '}across Cebu.
+            </div>
+          ) : !hasAny ? (
+            <div className="text-sm text-gray-500 py-12 text-center">
+              Nothing matches this category. Open category filters and choose &quot;All&quot;, or pick another tag.
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5 items-stretch">
+              {filteredActivities.map((act) => (
+                <ActivityCard key={act.firestoreId ?? act.id} activity={act} />
+              ))}
+              {filteredPackages.map((pkg) => (
+                <PackageCard
+                  key={pkg.id}
+                  image={pkg.packageImages[0] ?? ''}
+                  title={pkg.packageName}
+                  price={pkg.pricePerPerson}
+                  pricePrefix="Starting from"
+                  tag={pkg.packageTag}
+                  duration={pkg.duration}
+                  rating={pkg.packageRating}
+                  minGuests={pkg.minimumNumberOfPeople ?? 1}
+                  cardKind="tourPackage"
+                  href={`/tour-packages/${pkg.slug}`}
+                />
+              ))}
+            </div>
+          )}
         </section>
 
         <section className="max-w-7xl mx-auto px-6 lg:px-8 pb-12">
-          <h2 className="text-2xl font-bold text-green-600 mb-8 text-center">Traveler&apos;s Experience in {location.name}</h2>
+          <h2 className="text-2xl font-bold text-green-600 mb-8 text-center">Traveler&apos;s Experience in {municipalityName}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {travelerReviews.map((review) => (
               <ReviewCard key={review.id} review={review} />
@@ -144,31 +303,33 @@ export default function MunicipalityView() {
             <Link href="/locations" className="text-sm text-green-600 font-medium hover:underline">See more</Link>
           </div>
           <div className="relative">
-            <button onClick={() => otherRef.current?.scrollBy({ left: -220, behavior: 'smooth' })}
-              className="absolute -left-5 top-1/2 -translate-y-1/2 z-10 bg-white shadow-md rounded-full w-9 h-9 flex items-center justify-center">
+            <button
+              type="button"
+              onClick={() => otherRef.current?.scrollBy({ left: -220, behavior: 'smooth' })}
+              className="absolute -left-5 top-1/2 -translate-y-1/2 z-10 bg-white shadow-md rounded-full w-9 h-9 flex items-center justify-center"
+              aria-label="Scroll left"
+            >
               <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
             </button>
             <div ref={otherRef} className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
-              {otherLocations.map((loc) => (
-                <LocationCard key={loc.id} location={loc} />
-              ))}
+              {otherLocations.length === 0 ? (
+                <p className="text-sm text-gray-500 py-6">No other municipalities with listings yet.</p>
+              ) : (
+                otherLocations.map((loc) => (
+                  <div key={loc.id} className="shrink-0 w-56 sm:w-64">
+                    <LocationCard location={loc} />
+                  </div>
+                ))
+              )}
             </div>
-            <button onClick={() => otherRef.current?.scrollBy({ left: 220, behavior: 'smooth' })}
-              className="absolute -right-5 top-1/2 -translate-y-1/2 z-10 bg-white shadow-md rounded-full w-9 h-9 flex items-center justify-center">
+            <button
+              type="button"
+              onClick={() => otherRef.current?.scrollBy({ left: 220, behavior: 'smooth' })}
+              className="absolute -right-5 top-1/2 -translate-y-1/2 z-10 bg-white shadow-md rounded-full w-9 h-9 flex items-center justify-center"
+              aria-label="Scroll right"
+            >
               <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
             </button>
-          </div>
-        </section>
-
-        <section className="max-w-7xl mx-auto px-6 lg:px-8 pb-16">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-gray-900">Popular Tour Packages with {location.name}</h2>
-            <Link href="/tour-packages" className="text-sm text-green-600 font-medium hover:underline">See more</Link>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {featuredPackages.map((pkg) => (
-              <TourPackageCard key={pkg.id} pkg={pkg} wide />
-            ))}
           </div>
         </section>
       </main>

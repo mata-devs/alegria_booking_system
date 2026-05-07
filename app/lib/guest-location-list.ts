@@ -1,14 +1,13 @@
 import type { DocumentData, QuerySnapshot } from 'firebase/firestore'
 import type { Location } from '@/app/types'
-
-export function municipalitySlug(name: string): string {
-  return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-}
+import { canonicalMunicipalityLabel, municipalitySlug } from '@/app/lib/cebu-municipalities'
 
 export function countByActivityLocation(snap: QuerySnapshot<DocumentData>): Map<string, number> {
   const m = new Map<string, number>()
   for (const d of snap.docs) {
-    const loc = (d.data().activityLocation as string)?.trim()
+    const raw = (d.data().activityLocation as string)?.trim()
+    if (!raw) continue
+    const loc = canonicalMunicipalityLabel(raw)
     if (!loc) continue
     m.set(loc, (m.get(loc) ?? 0) + 1)
   }
@@ -18,7 +17,9 @@ export function countByActivityLocation(snap: QuerySnapshot<DocumentData>): Map<
 export function countByPackageLocation(snap: QuerySnapshot<DocumentData>): Map<string, number> {
   const m = new Map<string, number>()
   for (const d of snap.docs) {
-    const loc = (d.data().packageLocation as string)?.trim()
+    const raw = (d.data().packageLocation as string)?.trim()
+    if (!raw) continue
+    const loc = canonicalMunicipalityLabel(raw)
     if (!loc) continue
     m.set(loc, (m.get(loc) ?? 0) + 1)
   }

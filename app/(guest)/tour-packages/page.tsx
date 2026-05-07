@@ -12,6 +12,7 @@ import { firebaseDb } from '@/app/lib/firebase'
 import { CategoryFilterCollapsible } from '@/app/components/CategoryFilterCollapsible'
 import { ACTIVITY_TAGS } from '@/app/lib/activity-tags'
 import { parseGuestListingSearchParams } from '@/app/lib/searchSchema'
+import { getDayCapacity } from '@/app/lib/getDayCapacity'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/app/components/ui/drawer'
 
 interface FirestorePackage {
@@ -20,6 +21,7 @@ interface FirestorePackage {
   packageDescription: string
   pricePerPerson: number
   minimumNumberOfPeople: number
+  maximumNumberOfPeople?: number
   packageLocation: string
   duration: string
   packageTag: string
@@ -44,6 +46,7 @@ function TourPackagesContent() {
   const initialSearch = parseGuestListingSearchParams(searchParams)
   const [packages, setPackages] = useState<FirestorePackage[]>([])
   const [loading, setLoading] = useState(true)
+  const [dayCapacity, setDayCapacity] = useState<Record<string, number | null>>({})
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
   const [visibleCount, setVisibleCount] = useState(INITIAL_COUNT)
   const [searchWhere, setSearchWhere] = useState(initialSearch.location)
@@ -87,13 +90,36 @@ function TourPackagesContent() {
     return unsub
   }, [])
 
+  useEffect(() => {
+    const normalizedDate = searchDate.trim()
+    if (!normalizedDate) {
+      setDayCapacity({})
+      return
+    }
+    const sourceIds = packages.map((pkg) => pkg.id).filter(Boolean)
+    getDayCapacity(sourceIds, normalizedDate)
+      .then(setDayCapacity)
+      .catch((err) => {
+        console.error('Failed to load package day capacity:', err)
+        setDayCapacity({})
+      })
+  }, [packages, searchDate])
+
   const filtered = packages.filter((p) => {
     const matchesTag = !activeFilter || p.packageTag === activeFilter
     const term = searchWhere.trim().toLowerCase()
     const matchesSearch = !term ||
       p.packageName.toLowerCase().includes(term) ||
       p.packageLocation.toLowerCase().includes(term)
-    return matchesTag && matchesSearch
+    const requestedTravelers = Math.max(1, Number.parseInt(searchTravelers || '1', 10) || 1)
+    const slotsAvailable = dayCapacity[p.id]
+    const fallbackCapacity = Math.max(
+      p.minimumNumberOfPeople ?? 1,
+      p.maximumNumberOfPeople ?? 30,
+    )
+    const effectiveCapacity = slotsAvailable ?? fallbackCapacity
+    const matchesAvailability = !searchDate || effectiveCapacity >= requestedTravelers
+    return matchesTag && matchesSearch && matchesAvailability
   })
 
   const visible = filtered.slice(0, visibleCount)

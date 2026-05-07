@@ -16,6 +16,7 @@ export interface Activity {
   rating: number
   reviewCount: number
   price: number
+  maxGuests?: number
   image: string
   municipalityId: string
 }

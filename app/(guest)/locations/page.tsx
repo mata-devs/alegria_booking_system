@@ -7,51 +7,25 @@ import { useRouter } from 'next/navigation'
 import { collection, getDocs, query, where as firestoreWhere } from 'firebase/firestore'
 import Footer from '@/app/components/Footer'
 import { LocationOfferCounts } from '@/app/components/LocationOfferCounts'
+import { GuestReviewCard } from '@/app/components/GuestReviewCard'
 import { firebaseDb } from '@/app/lib/firebase'
 import {
   countByActivityLocation,
   countByPackageLocation,
   mergeGuestLocations,
 } from '@/app/lib/guest-location-list'
-import { travelerReviews } from '@/app/data/mockData'
-import type { Location, TravelerReview } from '@/app/types'
+import { getAllApprovedReviewsForCatalog, type CatalogReview } from '@/app/lib/reviews-service'
+import type { Location } from '@/app/types'
 
 const INITIAL_COUNT = 10
-
-function StarRating({ rating }: { rating: number }) {
-  return (
-    <div className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map((s) => (
-        <svg key={s} className={`w-4 h-4 ${s <= Math.round(rating) ? 'text-yellow-400' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20">
-          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-        </svg>
-      ))}
-    </div>
-  )
-}
-
-function ReviewCard({ review }: { review: TravelerReview }) {
-  return (
-    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-      <div className="flex items-center gap-4 mb-4">
-        <Image src={review.avatar} alt={review.name} width={48} height={48} className="rounded-full object-cover" />
-        <div>
-          <p className="font-semibold text-gray-900">{review.name}</p>
-          <p className="text-xs text-gray-400">{review.date}</p>
-        </div>
-      </div>
-      <StarRating rating={review.rating} />
-      <p className="text-xs text-green-600 font-medium mt-1 mb-3">{review.activityTitle}</p>
-      <p className="text-sm text-gray-600 leading-relaxed">{review.text}</p>
-    </div>
-  )
-}
 
 export default function LocationsPage() {
   const [search, setSearch] = useState('')
   const [visibleCount, setVisibleCount] = useState(INITIAL_COUNT)
   const [locations, setLocations] = useState<Location[]>([])
   const [listLoading, setListLoading] = useState(true)
+  const [reviews, setReviews] = useState<CatalogReview[]>([])
+  const [reviewsLoading, setReviewsLoading] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
@@ -72,6 +46,26 @@ export default function LocationsPage() {
       }
     }
     load()
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadReviews() {
+      setReviewsLoading(true)
+      try {
+        const list = await getAllApprovedReviewsForCatalog()
+        if (!cancelled) setReviews(list)
+      } catch (e) {
+        console.error('Failed to load reviews:', e)
+        if (!cancelled) setReviews([])
+      } finally {
+        if (!cancelled) setReviewsLoading(false)
+      }
+    }
+    loadReviews()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const filtered = locations.filter((l) =>
@@ -176,12 +170,21 @@ export default function LocationsPage() {
         </div>
 
         <section>
-          <h2 className="text-2xl font-bold text-green-600 mb-8 text-center">Traveler&apos;s experience in Cebu</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {travelerReviews.map((review) => (
-              <ReviewCard key={review.id} review={review} />
-            ))}
-          </div>
+          <h2 className="text-2xl font-bold text-green-600 mb-2 text-center">Traveler&apos;s experience in Cebu</h2>
+          <p className="text-sm text-gray-500 text-center mb-8 max-w-2xl mx-auto">
+            Reviews from guests across activities and tour packages (published reviews only).
+          </p>
+          {reviewsLoading ? (
+            <div className="text-sm text-gray-500 py-16 text-center">Loading reviews…</div>
+          ) : reviews.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-12 italic">No reviews yet — be one of the first to book and leave feedback!</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {reviews.map((r) => (
+                <GuestReviewCard key={r.id} review={r} itemTitle={r.itemTitle} />
+              ))}
+            </div>
+          )}
         </section>
       </main>
 

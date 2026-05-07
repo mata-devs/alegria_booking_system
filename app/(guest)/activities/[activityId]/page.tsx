@@ -9,7 +9,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } f
 import { doc, getDoc } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
 import { getApprovedReviewsForItem, type ApprovedReview } from '@/app/lib/reviews-service'
-import { CircleFlag } from 'react-circle-flags'
+import { GuestReviewCard } from '@/app/components/GuestReviewCard'
 
 interface FirestoreActivity {
   id: string
@@ -171,26 +171,13 @@ function ActivityDetailInner() {
                 <p className="text-sm text-gray-400 italic">No reviews yet — be one of the first!</p>
               ) : (
                 <>
-                  <div className="space-y-5">
+                  <div className="flex flex-col gap-4">
                     {reviews.slice(0, reviewsVisible).map((review) => (
-                      <div key={review.id} className="flex items-start gap-4 pb-5 border-b border-gray-100 last:border-0">
-                        <div className="h-10 w-10 shrink-0 rounded-full bg-gray-200 flex items-center justify-center text-sm font-bold text-gray-500">
-                          {review.reviewerName.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="flex items-center gap-1.5">
-                              <p className="text-sm font-semibold text-gray-800">{review.reviewerName}</p>
-                              {review.reviewerCountry && (
-                                <CircleFlag countryCode={review.reviewerCountry.toLowerCase()} className="w-4 h-4 shrink-0" />
-                              )}
-                            </div>
-                            <p className="text-xs text-gray-400">{review.createdAt?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) ?? ''}</p>
-                          </div>
-                          <StarRating rating={review.rating} />
-                          <p className="text-sm text-gray-500 mt-1.5 leading-relaxed">{review.text}</p>
-                        </div>
-                      </div>
+                      <GuestReviewCard
+                        key={review.id}
+                        review={review}
+                        itemTitle={activity.activityName}
+                      />
                     ))}
                   </div>
                   {reviewsVisible < reviews.length && (

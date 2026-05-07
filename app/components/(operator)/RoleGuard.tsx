@@ -16,7 +16,7 @@ interface RoleGuardProps {
 }
 
 export default function RoleGuard({ allowedRoles, children }: RoleGuardProps) {
-  const { authState, signOutUser } = useAuth();
+  const { authState, signOutUser, retryAuth } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -61,15 +61,23 @@ export default function RoleGuard({ allowedRoles, children }: RoleGuardProps) {
           </div>
           <h1 className="text-xl font-bold text-gray-900">Access Denied</h1>
           <p className="text-sm text-gray-500">{authState.reason}</p>
-          <button
-            onClick={async () => {
-              await signOutUser();
-              router.replace('/login');
-            }}
-            className="mt-2 w-full rounded-lg bg-[#558B2F] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#4a7a28] transition-colors"
-          >
-            Back to Login
-          </button>
+          <div className="mt-2 flex flex-col gap-2">
+            <button
+              onClick={() => void retryAuth()}
+              className="w-full rounded-lg border border-[#558B2F] bg-white px-6 py-2.5 text-sm font-semibold text-[#558B2F] hover:bg-[#f1f8e9] transition-colors"
+            >
+              Retry Access Check
+            </button>
+            <button
+              onClick={async () => {
+                await signOutUser();
+                router.replace('/login');
+              }}
+              className="w-full rounded-lg bg-[#558B2F] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#4a7a28] transition-colors"
+            >
+              Back to Login
+            </button>
+          </div>
         </div>
       </div>
     );
