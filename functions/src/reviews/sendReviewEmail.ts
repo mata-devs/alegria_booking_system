@@ -9,7 +9,8 @@ const APP_URL =
 
 export async function sendReviewEmailForBooking(
   bookingId: string,
-  booking: Record<string, unknown>
+  booking: Record<string, unknown>,
+  isResend: boolean = false
 ): Promise<void> {
   const reviewToken = String(booking.reviewToken ?? "");
   if (!reviewToken) {
@@ -17,7 +18,7 @@ export async function sendReviewEmailForBooking(
     return;
   }
 
-  if (booking.reviewSentAt) {
+  if (booking.reviewSentAt && !isResend) {
     logger.info(`sendReviewEmail: already sent for bookingId=${bookingId}`);
     return;
   }

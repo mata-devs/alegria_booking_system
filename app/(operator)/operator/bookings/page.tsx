@@ -15,7 +15,7 @@ import FilterModal, {
 } from '@/app/(operator)/operator/bookings/modalfilter';
 import { useOperatorBookings } from '@/app/hooks/useOperatorBookings';
 import { useAuth } from '@/app/context/AuthContext';
-import { checkInBooking, completeBooking, confirmBookingPayment } from '@/app/lib/booking-service';
+import { checkInBooking, completeBooking, confirmBookingPayment, resendReviewEmail } from '@/app/lib/booking-service';
 import { firestoreToBooking } from '@/app/lib/firestoreToBooking';
 
 export default function Page() {
@@ -87,6 +87,14 @@ function BookingsPageInner() {
       await completeBooking(bookingId);
     } catch (err) {
       console.error('Failed to mark booking completed:', err);
+    }
+  };
+
+  const handleResendReviewEmail = async (bookingId: string) => {
+    try {
+      await resendReviewEmail(bookingId);
+    } catch (err) {
+      console.error('Failed to resend review email:', err);
     }
   };
 
@@ -174,6 +182,7 @@ function BookingsPageInner() {
           onPaymentStatusChange={handlePaymentStatusChange}
           onMarkTourStarted={handleMarkTourStarted}
           onMarkTourCompleted={handleMarkTourCompleted}
+          onResendReviewEmail={handleResendReviewEmail}
         />
         <CalendarAvailability bookings={firestoreBookings} />
       </div>
@@ -196,6 +205,7 @@ function BookingsPageInner() {
               onClose={() => setSelectedId(undefined)}
               onMarkTourStarted={handleMarkTourStarted}
               onMarkTourCompleted={handleMarkTourCompleted}
+              onResendReviewEmail={handleResendReviewEmail}
             />
           </div>
         </div>

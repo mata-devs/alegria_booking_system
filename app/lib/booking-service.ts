@@ -72,6 +72,23 @@ export const completeBooking = async (bookingId: string) => {
     return data as { bookingId: string; status: string };
 };
 
+export const resendReviewEmail = async (bookingId: string) => {
+    const user = firebaseAuth.currentUser;
+    if (!user) throw new Error("Authentication required.");
+    const idToken = await user.getIdToken();
+
+    const res = await fetch(`${API_URL}/operator/bookings/${bookingId}/resend-review`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${idToken}`,
+        },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.error || "Failed to resend review email");
+    return data as { success: boolean; message: string };
+};
+
 export const checkInBooking = async (bookingId: string, token: string) => {
     const user = firebaseAuth.currentUser;
     if (!user) throw new Error("Authentication required.");

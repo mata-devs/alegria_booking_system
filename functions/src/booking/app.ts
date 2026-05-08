@@ -165,6 +165,33 @@ app.post("/operator/bookings/:bookingId/complete", requireOperatorAuth, async (r
   return res.status(200).json({ bookingId, status: "completed" });
 });
 
+app.post("/operator/bookings/:bookingId/resend-review", requireOperatorAuth, async (req, res) => {
+  const bookingId = String(req.params.bookingId ?? "").trim();
+  const userUid = (req as Request & { userUid?: string }).userUid;
+
+  if (!bookingId) {
+    return res.status(400).json({ error: "bookingId is required." });
+  }
+
+  const bookingRef = db.collection("bookings").doc(bookingId);
+  const snap = await bookingRef.get();
+  if (!snap.exists) return res.status(404).json({ error: "Booking not found." });
+
+  const booking = snap.data() as Record<string, unknown>;
+  if (booking.operatorUid !== userUid) {
+    return res.status(403).json({ error: "This booking is not assigned to you." });
+  }
+
+  const currentStatus = String(booking.status ?? "");
+  if (currentStatus !== "completed") {
+    return res.status(400).json({ error: "Booking must be completed before sending review emails." });
+  }
+
+  await sendReviewEmailForBooking(bookingId, booking, true);
+
+  return res.status(200).json({ success: true, message: "Review email resent successfully." });
+});
+
 app.post("/operator/bookings/:bookingId/reschedule", requireOperatorAuth, async (req, res) => {
   const bookingId = String(req.params.bookingId ?? "").trim();
   const tourDate = String(req.body?.tourDate ?? "").trim();

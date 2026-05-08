@@ -120,6 +120,7 @@ interface BookingDetailsCardProps {
   onPaymentStatusChange?: (bookingId: string, newStatus: PaymentStatus) => void | Promise<void>;
   onMarkTourStarted?: (bookingId: string, token: string) => void | Promise<void>;
   onMarkTourCompleted?: (bookingId: string) => void | Promise<void>;
+  onResendReviewEmail?: (bookingId: string) => void | Promise<void>;
 }
 
 export default function BookingDetailsCard({
@@ -128,6 +129,7 @@ export default function BookingDetailsCard({
                                              onPaymentStatusChange,
                                              onMarkTourStarted,
                                              onMarkTourCompleted,
+                                             onResendReviewEmail,
                                            }: BookingDetailsCardProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const printSheetRef = useRef<HTMLDivElement | null>(null);
@@ -139,6 +141,8 @@ export default function BookingDetailsCard({
   const [pendingStatus, setPendingStatus] = useState<PaymentStatus | null>(null);
   const [isStartingTour, setIsStartingTour] = useState(false);
   const [isCompletingTour, setIsCompletingTour] = useState(false);
+  const [isResendingEmail, setIsResendingEmail] = useState(false);
+  const [resendEmailSuccess, setResendEmailSuccess] = useState(false);
   const [operatorInfo, setOperatorInfo] = useState<{ companyName: string; email: string; phoneNumber: string } | null>(null);
 
   useEffect(() => {
@@ -615,6 +619,29 @@ export default function BookingDetailsCard({
                   className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
                 >
                   {isCompletingTour ? 'Completing tour...' : 'Mark Tour Completed'}
+                </button>
+              </div>
+            )}
+
+            {booking.status === 'Completed' && (
+              <div className="mt-3 flex flex-col items-center gap-2">
+                <button
+                  type="button"
+                  disabled={isResendingEmail || resendEmailSuccess}
+                  onClick={async () => {
+                    setIsResendingEmail(true);
+                    setResendEmailSuccess(false);
+                    try {
+                      await onResendReviewEmail?.(booking.id);
+                      setResendEmailSuccess(true);
+                      setTimeout(() => setResendEmailSuccess(false), 3000);
+                    } finally {
+                      setIsResendingEmail(false);
+                    }
+                  }}
+                  className="rounded-lg border border-blue-600 px-4 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-50 disabled:opacity-60 transition-colors"
+                >
+                  {isResendingEmail ? 'Sending...' : resendEmailSuccess ? 'Email Sent!' : 'Resend Review Email'}
                 </button>
               </div>
             )}

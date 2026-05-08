@@ -99,7 +99,7 @@ npm run test:e2e:ui     # interactive UI mode
 
 | File | Description |
 |------|-------------|
-| `bookingActivities.spec.ts` | Activity booking flow (guest info → payment → confirmation) |
+| `bookingActivities.spec.ts` | Activity booking flow (guest info → payment with inline confirmation) |
 | `booking-tour-package.spec.ts` | Tour package booking: guest constraints, form validation, full happy path |
 
 ### Happy path tests (Firestore writes)
@@ -161,8 +161,10 @@ app/
 │   │   └── [packageId]/
 │   │       └── page.tsx                 # Package detail, itinerary, guides, chatbot
 │   └── booking/
+│       ├── _components/
+│       │   └── ItemDetailModal.tsx      # Shared booking-flow item detail modal
 │       ├── guest-info/
-│       │   ├── page.tsx                 # Guest info form + payment method select
+│       │   ├── page.tsx                 # Guest info form + payment method select (GCash/Maya, BDO, BPI)
 │       │   └── _components/
 │       │       ├── BookingSidebar.tsx   # Sticky package/price summary sidebar
 │       │       ├── CountryDropdown.tsx  # Country + phone-prefix picker
@@ -170,14 +172,12 @@ app/
 │       │       ├── GuestsList.tsx       # Per-guest fields list
 │       │       ├── RepresentativeForm.tsx # Lead-guest form
 │       │       └── TourOperatorDropdown.tsx # Operator selector
-│       ├── payment/
-│       │   ├── page.tsx                 # GCash QR code, instructions, file upload
-│       │   └── _components/
-│       │       ├── BookingSummary.tsx   # Price + booking recap
-│       │       ├── PaymentInstructions.tsx # GCash step-by-step
-│       │       └── UploadPayment.tsx    # Drag & drop receipt uploader
-│       └── confirmation/
-│           └── page.tsx                 # Reservation received screen with booking ID
+│       └── payment/
+│           ├── page.tsx                 # Operator-specific payment instructions, receipt upload, inline success + booking reference
+│           └── _components/
+│               ├── BookingSummary.tsx   # Price + booking recap
+│               ├── PaymentInstructions.tsx # Bank / e-wallet step-by-step + QR when applicable
+│               └── UploadPayment.tsx    # Drag & drop receipt uploader
 │
 ├── (operator)/                          # Tour operator portal
 │   └── operator/
@@ -194,7 +194,7 @@ app/
 │       │   ├── list.tsx
 │       │   ├── details.tsx
 │       │   └── modalfilter.tsx
-│       ├── analytics/                   # Revenue, booking, and promo charts
+│       ├── analytics/                   # Revenue, booking, and promo charts (+ CSV export)
 │       │   ├── page.tsx                 # Dashboard shell with KPI cards inline
 │       │   ├── loading.tsx              # Skeleton loader
 │       │   ├── filter.tsx
@@ -243,7 +243,7 @@ app/
 │       │   │   └── page.tsx
 │       │   └── entity/
 │       │       └── page.tsx
-│       └── settings/                    # Platform settings
+│       └── settings/                    # Admin profile, photo, password
 │           ├── page.tsx
 │           └── loading.tsx
 │
@@ -268,6 +268,7 @@ app/
 │   ├── ActivityCard.tsx                 # Activity card with rating + price
 │   ├── TourPackageCard.tsx              # Tour package card with overlay
 │   ├── LocationCard.tsx                 # Location card with activity count
+│   ├── GuestReviewCard.tsx              # Approved guest review display (catalog + detail pages)
 │   ├── Auth.tsx                         # Firebase auth UI component
 │   ├── auth/
 │   │   ├── LoginPanel.tsx               # Email/password login panel
@@ -300,6 +301,10 @@ app/
 │   ├── schema.ts                        # Firestore schema constants
 │   ├── analytics-service.ts             # Analytics data fetch + sample dashboard
 │   ├── booking-service.ts               # Client-side booking helpers (payment status, operator info)
+│   ├── reviews-service.ts               # Fetch approved reviews for activities / packages / catalog
+│   ├── guest-location-list.ts           # Merge Firestore counts for guest location browse UI
+│   ├── getDayCapacity.ts                # Same-day booking counts for availability hints on grids
+│   ├── csvExport.ts                     # Client-side CSV download helpers (operator analytics)
 │   ├── activity-tags.ts                 # Activity tag taxonomy
 │   └── utils.ts                         # cn() utility (clsx + tailwind-merge)
 │
@@ -334,15 +339,14 @@ functions/src/
 | Route | Page | Description |
 |-------|------|-------------|
 | `/` | LandingPage | Auto-rotating hero slideshow + discovery sections |
-| `/locations` | LocationsPage | Browse and search all Cebu locations |
-| `/locations/[municipalityId]` | MunicipalityView | Activities for a specific location |
-| `/activities` | ActivitiesPage | All activities with filter chips |
-| `/activities/[activityId]` | ActivityDetail | Single-activity detail page |
-| `/tour-packages` | TourPackagesPage | All tour packages with filter chips |
-| `/tour-packages/[packageId]` | TourPackageDetail | Package detail, itinerary, guides, chatbot |
-| `/booking/guest-info` | GuestInfoForm | Guest details + payment method selection |
-| `/booking/payment` | PaymentPage | GCash QR code payment + screenshot upload |
-| `/booking/confirmation` | BookingConfirmation | Confirmation screen with booking ID |
+| `/locations` | LocationsPage | Browse and search Cebu locations; featured approved reviews |
+| `/locations/[municipalityId]` | MunicipalityView | Location hero, linked activities, reviews |
+| `/activities` | ActivitiesPage | All activities with filter chips and same-day capacity hints |
+| `/activities/[activityId]` | ActivityDetail | Single-activity detail + approved reviews |
+| `/tour-packages` | TourPackagesPage | All tour packages with filter chips and same-day capacity hints |
+| `/tour-packages/[packageId]` | TourPackageDetail | Package detail, itinerary, guides, chatbot, approved reviews |
+| `/booking/guest-info` | GuestInfoForm | Guest details + payment method selection (e-wallet or bank) |
+| `/booking/payment` | PaymentPage | Operator-specific payment instructions, receipt upload, inline confirmation with booking reference |
 
 ### Operator
 
@@ -351,7 +355,7 @@ functions/src/
 | `/operator` | Operator home / redirect |
 | `/operator/bookings` | Live booking management (week-view calendar + request list) |
 | `/operator/history` | Past booking history with search and filters |
-| `/operator/analytics` | Revenue, booking trend, age, nationality, promo, payment charts |
+| `/operator/analytics` | Revenue, booking trend, age, nationality, promo, payment charts; CSV download |
 | `/operator/activities` | Operator-managed activities CRUD |
 | `/operator/tour-packages` | Operator-managed tour packages CRUD |
 | `/operator/voucher-codes` | Operator promo / voucher code management |
@@ -366,7 +370,7 @@ functions/src/
 | `/super-admin/revenue` | Revenue reports |
 | `/super-admin/vouchers` | Voucher code oversight (code + entity sub-pages) |
 | `/super-admin/reviews` | Review management (mockup) |
-| `/super-admin/settings` | Platform settings |
+| `/super-admin/settings` | Profile, photo, and password |
 
 ### Auth
 
@@ -388,7 +392,7 @@ functions/src/
 
 ```
 Landing → Locations → Municipality View → Tour Package Detail
-       → Guest Info Form → Payment → Confirmation
+       → Guest Info Form → Payment (upload receipt → success + booking reference on same page)
 ```
 
 ---
@@ -398,13 +402,17 @@ Landing → Locations → Municipality View → Tour Package Detail
 - **Hero slideshow** — Auto-rotating background images on the landing page
 - **Searchable location dropdown** — "Where" field filters Cebu locations with thumbnails
 - **Floating chatbot** — Context-aware assistant on the Tour Package Detail page
-- **GCash QR code** — Real scannable QR code generated via `react-qr-code`
+- **Approved guest reviews** — Firestore-backed reviews on locations catalog, activity detail, and tour package detail (`reviews-service`, `GuestReviewCard`)
+- **Availability hints** — Same-day capacity counts on activities and tour-packages grids (`getDayCapacity`)
+- **Dynamic location catalog** — Activity/package counts per municipality merged from Firestore (`guest-location-list`)
+- **Operator analytics export** — Download dashboard metrics as CSV (`csvExport` on operator analytics)
+- **Multiple payment methods** — GCash/Maya (with QR when configured), BDO, BPI; operator-specific account details from Firestore
 - **File upload** — Drag & drop or browse for payment screenshot upload
 - **Sticky booking sidebar** — Date picker, traveler count, and Book Now on package detail
 - **Fixed bottom navigation** — Go Back / Next buttons on booking flow pages
 - **Role-based auth** — Firebase Auth with `UserRole` guard (guest / operator / super-admin)
 - **Operator booking calendar** — Week-view calendar + booking request list
-- **Analytics dashboards** — Sectioned bar, line, and pie charts via Recharts for operators and super-admin; dynamic Y-axis scaling; per-card skeleton loaders; sticky filter sidebar
+- **Analytics dashboards** — Sectioned bar, line, and pie charts via Recharts for operators and super-admin; CSV export on operator analytics; dynamic Y-axis scaling; per-card skeleton loaders; sticky filter sidebar
 - **Super-admin analytics filters** — Filter platform analytics by operator, date range, age, gender, and nationality
 - **Voucher / promo codes** — Manage promo codes and affiliated entities; super-admin oversight via dedicated sub-pages
 - **Loading states** — Per-page `loading.tsx` files for all super-admin routes; skeleton loaders on analytics cards
