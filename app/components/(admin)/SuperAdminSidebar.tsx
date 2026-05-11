@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleUserRound,
+  LayoutTemplate,
   Menu,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
   { label: 'Revenue\nReports', href: '/super-admin/revenue', icon: FileText },
   { label: 'Voucher\nCodes', href: '/super-admin/vouchers', icon: TicketPercent },
   { label: 'Reviews', href: '/super-admin/reviews', icon: MessageSquare },
+  { label: 'Homepage', href: '/super-admin/homepage', icon: LayoutTemplate },
 ];
 
 interface SuperAdminSidebarProps {

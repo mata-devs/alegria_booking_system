@@ -1,8 +1,9 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { Camera, Check, Loader2, TriangleAlert, User } from 'lucide-react';
+import { ArrowUpRight, Camera, Check, LayoutTemplate, Loader2, TriangleAlert, User } from 'lucide-react';
 import {
   EmailAuthProvider,
   reauthenticateWithCredential,
@@ -13,6 +14,11 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import { firebaseAuth, firebaseDb, firebaseStorage } from '@/app/lib/firebase';
 import { useAuth } from '@/app/context/AuthContext';
+import {
+  setHomepageCmsEnabled,
+  subscribeHomepageCms,
+  type HomepageCms,
+} from '@/app/lib/homepage-cms';
 
 type Status =
   | { type: 'idle' }
@@ -39,6 +45,10 @@ export default function SuperAdminSettingsPage() {
   const [profileStatus, setProfileStatus] = useState<Status>({ type: 'idle' });
   const [passwordStatus, setPasswordStatus] = useState<Status>({ type: 'idle' });
 
+  const [homepageCms, setHomepageCms] = useState<HomepageCms | null>(null);
+  const [homepageCmsBusy, setHomepageCmsBusy] = useState(false);
+  const [homepageCmsStatus, setHomepageCmsStatus] = useState<Status>({ type: 'idle' });
+
   useEffect(() => {
     if (authState.status !== 'authenticated') return;
     setProfile({
@@ -49,6 +59,39 @@ export default function SuperAdminSettingsPage() {
     const current = authState.user.photoURL;
     if (current) setPhotoPreview(current);
   }, [authState]);
+
+  useEffect(() => {
+    if (authState.status !== 'authenticated') return;
+    const unsub = subscribeHomepageCms(
+      (cms) => setHomepageCms(cms),
+      (err) => {
+        console.error('homepage_cms listener:', err);
+        setHomepageCmsStatus({ type: 'error', msg: 'Could not load Homepage CMS state.' });
+      },
+    );
+    return () => unsub();
+  }, [authState.status]);
+
+  const onToggleHomepageCms = async () => {
+    if (authState.status !== 'authenticated' || !homepageCms || homepageCmsBusy) return;
+    const next = !homepageCms.enabled;
+    setHomepageCmsBusy(true);
+    setHomepageCmsStatus({ type: 'saving' });
+    try {
+      await setHomepageCmsEnabled(next, authState.user.uid);
+      setHomepageCmsStatus({
+        type: 'success',
+        msg: next ? 'Homepage CMS enabled.' : 'Homepage CMS disabled.',
+      });
+    } catch (err) {
+      setHomepageCmsStatus({
+        type: 'error',
+        msg: err instanceof Error ? err.message : 'Failed to update Homepage CMS.',
+      });
+    } finally {
+      setHomepageCmsBusy(false);
+    }
+  };
 
   const onPickPhoto = () => fileRef.current?.click();
 
@@ -150,7 +193,8 @@ export default function SuperAdminSettingsPage() {
       </header>
 
       <div className="px-6 py-6 md:px-8 md:py-8">
-        <div className="mx-auto grid max-w-6xl grid-cols-1 gap-5 lg:grid-cols-2">
+        <div className="mx-auto grid max-w-6xl grid-cols-1 gap-5">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <form
             onSubmit={onSaveProfile}
             className="rounded-lg border border-gray-200 bg-white shadow-sm"
@@ -322,6 +366,60 @@ export default function SuperAdminSettingsPage() {
               </button>
             </div>
           </form>
+        </div>
+
+        <section className="rounded-lg border border-gray-200 bg-white shadow-sm">
+          <div className="border-b border-gray-200 px-6 py-4">
+            <h2 className="text-base font-semibold text-gray-900">Homepage CMS</h2>
+            <p className="mt-0.5 text-xs text-gray-500">
+              Master switch for the guest homepage municipality ticker and hero content.
+            </p>
+          </div>
+
+          <div className="px-6 py-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#558B2F]/10 text-[#558B2F]">
+                  <LayoutTemplate className="h-5 w-5" strokeWidth={2} />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Enable Homepage CMS</p>
+                  <p className="mt-0.5 text-xs text-gray-500">
+                    When disabled, the guest homepage falls back to the default hero slides
+                    instead of the CMS-curated municipality ticker.
+                  </p>
+                  <Link
+                    href="/super-admin/homepage"
+                    className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#558B2F] hover:underline"
+                  >
+                    Manage homepage content
+                    <ArrowUpRight className="h-3 w-3" strokeWidth={2.5} />
+                  </Link>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                role="switch"
+                aria-checked={homepageCms?.enabled ?? false}
+                disabled={!homepageCms || homepageCmsBusy || loading}
+                onClick={onToggleHomepageCms}
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                  homepageCms?.enabled ? 'bg-[#558B2F]' : 'bg-gray-300'
+                }`}
+              >
+                <span className="sr-only">Toggle Homepage CMS</span>
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                    homepageCms?.enabled ? 'translate-x-5' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
+          <StatusLine status={homepageCmsStatus} />
+        </section>
         </div>
       </div>
     </div>

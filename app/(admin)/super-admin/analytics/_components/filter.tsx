@@ -156,7 +156,7 @@ export default function SuperAdminFilters({
         <h3 className={SECTION_LABEL}>Time Range</h3>
 
         <div className="mt-2 relative">
-          <label className={FIELD_LABEL}>From</label>
+          <label htmlFor="from-date" className={FIELD_LABEL}>From</label>
           <button
             type="button"
             onClick={() => openPicker(fromRef)}
@@ -166,6 +166,7 @@ export default function SuperAdminFilters({
             <Calendar className="h-4 w-4 text-gray-400" strokeWidth={2} />
           </button>
           <input
+            id="from-date"
             ref={fromRef}
             type="date"
             value={fromDate}
@@ -176,7 +177,7 @@ export default function SuperAdminFilters({
         </div>
 
         <div className="mt-3 relative">
-          <label className={FIELD_LABEL}>To</label>
+          <label htmlFor="to-date" className={FIELD_LABEL}>To</label>
           <button
             type="button"
             onClick={() => openPicker(toRef)}
@@ -186,6 +187,7 @@ export default function SuperAdminFilters({
             <Calendar className="h-4 w-4 text-gray-400" strokeWidth={2} />
           </button>
           <input
+            id="to-date"
             ref={toRef}
             type="date"
             value={toDate}

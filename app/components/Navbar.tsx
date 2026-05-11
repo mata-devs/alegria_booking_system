@@ -23,38 +23,49 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="bg-white shadow-sm sticky top-0 z-50">
-      <div className="w-full px-6 sm:px-10 lg:px-16 flex items-center justify-between h-20">
-        <Link href="/" className="flex items-center" onClick={handleNavClick}>
-          <span className="text-green-500 text-2xl" style={{ fontFamily: "'Potta One', cursive" }}>VisitCebu</span>
-        </Link>
+    <nav className="sticky top-0 z-50 bg-white shadow-sm">
+      <div className="relative">
+        <div className="flex h-20 w-full items-center justify-between px-6 sm:px-10 lg:px-16">
+          <Link href="/" className="flex items-center" onClick={handleNavClick}>
+            <span className="text-2xl text-green-500" style={{ fontFamily: "'Potta One', cursive" }}>VisitCebu</span>
+          </Link>
 
-        <div className="hidden md:flex items-center gap-10">
-          <Link href="/" className={linkClass('/')}>Home</Link>
-          <Link href="/activities" className={linkClass('/activities')}>Activities</Link>
-          <Link href="/locations" className={linkClass('/locations')}>Locations</Link>
-          <Link href="/tour-packages" className={linkClass('/tour-packages')}>Tour Packages</Link>
+          <div className="hidden items-center gap-10 md:flex">
+            <Link href="/" className={linkClass('/')}>Home</Link>
+            <Link href="/activities" className={linkClass('/activities')}>Activities</Link>
+            <Link href="/locations" className={linkClass('/locations')}>Locations</Link>
+            <Link href="/tour-packages" className={linkClass('/tour-packages')}>Tour Packages</Link>
+          </div>
+
+          <button
+            className="flex h-10 w-10 flex-col items-center justify-center gap-1.5 rounded-lg transition-colors hover:bg-gray-50 md:hidden"
+            onClick={() => setMenuOpen((o) => !o)}
+            aria-label="Toggle menu"
+            aria-expanded={menuOpen}
+          >
+            <span className={`block h-0.5 w-6 bg-gray-700 transition-all duration-300 ${menuOpen ? 'rotate-45 translate-y-2' : ''}`} />
+            <span className={`block h-0.5 w-6 bg-gray-700 transition-all duration-300 ${menuOpen ? 'opacity-0' : ''}`} />
+            <span className={`block h-0.5 w-6 bg-gray-700 transition-all duration-300 ${menuOpen ? '-rotate-45 -translate-y-2' : ''}`} />
+          </button>
         </div>
 
-        <button
-          className="md:hidden flex flex-col justify-center items-center w-10 h-10 gap-1.5 rounded-lg hover:bg-gray-50 transition-colors"
-          onClick={() => setMenuOpen((o) => !o)}
-          aria-label="Toggle menu"
-        >
-          <span className={`block h-0.5 w-6 bg-gray-700 transition-all duration-300 ${menuOpen ? 'rotate-45 translate-y-2' : ''}`} />
-          <span className={`block h-0.5 w-6 bg-gray-700 transition-all duration-300 ${menuOpen ? 'opacity-0' : ''}`} />
-          <span className={`block h-0.5 w-6 bg-gray-700 transition-all duration-300 ${menuOpen ? '-rotate-45 -translate-y-2' : ''}`} />
-        </button>
+        {menuOpen && (
+          <>
+            <button
+              type="button"
+              aria-label="Close menu"
+              onClick={() => setMenuOpen(false)}
+              className="fixed inset-0 top-20 z-40 cursor-default bg-black/20 md:hidden"
+            />
+            <div className="absolute inset-x-0 top-full z-50 space-y-1 border-t border-gray-100 bg-white px-4 py-3 shadow-lg md:hidden">
+              <Link href="/" className={mobileLinkClass('/')} onClick={handleNavClick}>Home</Link>
+              <Link href="/activities" className={mobileLinkClass('/activities')} onClick={handleNavClick}>Activities</Link>
+              <Link href="/locations" className={mobileLinkClass('/locations')} onClick={handleNavClick}>Locations</Link>
+              <Link href="/tour-packages" className={mobileLinkClass('/tour-packages')} onClick={handleNavClick}>Tour Packages</Link>
+            </div>
+          </>
+        )}
       </div>
-
-      {menuOpen && (
-        <div className="md:hidden border-t border-gray-100 bg-white px-4 py-3 space-y-1">
-          <Link href="/" className={mobileLinkClass('/')} onClick={handleNavClick}>Home</Link>
-          <Link href="/activities" className={mobileLinkClass('/activities')} onClick={handleNavClick}>Activities</Link>
-          <Link href="/locations" className={mobileLinkClass('/locations')} onClick={handleNavClick}>Locations</Link>
-          <Link href="/tour-packages" className={mobileLinkClass('/tour-packages')} onClick={handleNavClick}>Tour Packages</Link>
-        </div>
-      )}
     </nav>
   )
 }

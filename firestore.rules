@@ -161,6 +161,14 @@ service cloud.firestore {
       allow read, delete: if true;
     }
 
+    // ── ADDED 2026-05-11 ───────────────────────────────────────────
+    // Homepage CMS singleton (TASK-53). Public read so the guest landing page can
+    // SSR the doc + client editor can subscribe. Super admins are the only writers.
+    match /homepage_cms/{docId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+
     // ── Bookings ──────────────────────────────────────────────────
     match /bookings/{bookingId} {
       // Operators can read/update their own bookings (operatorUid must match uid)

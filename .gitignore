@@ -73,6 +73,8 @@ CLAUDE.original.md
 functions/.env
 graphify-out
 functions/lib
+.scannerwork
+.sonarrc
 
 
 
