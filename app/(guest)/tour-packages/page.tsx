@@ -132,6 +132,7 @@ function TourPackagesContent() {
             src="https://picsum.photos/seed/cebu-packages/1400/500"
             alt="Tour Packages"
             fill
+            sizes="100vw"
             className="object-cover"
           />
         </div>

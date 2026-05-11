@@ -27,7 +27,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body>
+      {/*
+        suppressHydrationWarning on <body> avoids false-positive hydration
+        errors from browser extensions (ColorZilla, Grammarly, LastPass, Dark
+        Reader, etc.) that mutate body attributes before React hydrates.
+        It only suppresses warnings for THIS element's own attributes — child
+        component hydration is still strictly checked.
+      */}
+      <body suppressHydrationWarning>
         <BookingProvider>{children}</BookingProvider>
       </body>
     </html>

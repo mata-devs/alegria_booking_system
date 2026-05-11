@@ -191,6 +191,7 @@ export default function MunicipalityView() {
             src={heroImage}
             alt={municipalityName}
             fill
+            sizes="100vw"
             className="object-cover"
             priority
           />

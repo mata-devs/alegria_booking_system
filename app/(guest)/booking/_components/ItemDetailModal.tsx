@@ -114,6 +114,7 @@ export function ItemDetailModal({ itemId, sourceType, onClose }: ItemDetailModal
                                 src={images[imgIndex]}
                                 alt={name}
                                 fill
+                                sizes="(max-width: 768px) 100vw, 640px"
                                 className="object-cover"
                                 unoptimized
                             />

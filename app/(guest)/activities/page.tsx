@@ -132,6 +132,7 @@ function ActivitiesContent() {
             src="https://picsum.photos/seed/cebu-activities/1400/500"
             alt="Activities in Cebu"
             fill
+            sizes="100vw"
             className="object-cover"
           />
         </div>

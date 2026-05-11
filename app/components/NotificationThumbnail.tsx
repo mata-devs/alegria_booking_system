@@ -36,6 +36,7 @@ export default function NotificationThumbnail({
             src={imageUrl!}
             alt=""
             fill
+            sizes={`${px}px`}
             className="object-cover object-center"
             onError={() => setImgError(true)}
           />

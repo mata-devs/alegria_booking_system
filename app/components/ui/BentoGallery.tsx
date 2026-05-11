@@ -29,7 +29,13 @@ export function Lightbox({ images, idx, onClose, onChange }: {
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center" onClick={onClose}>
       <div className="relative w-full h-full flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
         <div className="relative w-full max-w-5xl mx-4" style={{ height: '80vh' }}>
-          <Image src={images[idx]} alt={`Image ${idx + 1}`} fill className="object-contain" />
+          <Image
+            src={images[idx]}
+            alt={`Image ${idx + 1}`}
+            fill
+            sizes="(max-width: 1024px) 100vw, 1024px"
+            className="object-contain"
+          />
         </div>
         {idx > 0 && (
           <button
@@ -109,6 +115,7 @@ export function BentoGallery({ images, alt, onImageClick }: {
                 src={src}
                 alt={`${alt} ${i + 1}`}
                 fill
+                sizes="(max-width: 1024px) 50vw, 480px"
                 className="object-cover group-hover:scale-105 transition-transform duration-500"
                 priority={i === 0}
               />
@@ -135,7 +142,14 @@ export function BentoGallery({ images, alt, onImageClick }: {
             className="relative shrink-0 rounded-2xl overflow-hidden focus:outline-none"
             style={{ width: '82vw', height: 220 }}
           >
-            <Image src={src} alt={`${alt} ${i + 1}`} fill className="object-cover" priority={i === 0} />
+            <Image
+              src={src}
+              alt={`${alt} ${i + 1}`}
+              fill
+              sizes="82vw"
+              className="object-cover"
+              priority={i === 0}
+            />
             <div className="absolute bottom-2 right-2 bg-black/50 text-white text-xs px-2 py-0.5 rounded-full tabular-nums">
               {i + 1} / {images.length}
             </div>

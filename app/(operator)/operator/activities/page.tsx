@@ -263,7 +263,13 @@ function ViewDetailsModal({ activity, onClose, onEdit }: { activity: OperatorAct
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl overflow-y-auto max-h-[90vh]">
         <div className="relative h-56 bg-gray-100 rounded-t-2xl overflow-hidden">
-          <Image src={images[imgIdx]} alt={`${activity.activityName} ${imgIdx + 1}`} fill className="object-cover" />
+          <Image
+            src={images[imgIdx]}
+            alt={`${activity.activityName} ${imgIdx + 1}`}
+            fill
+            sizes="(max-width: 768px) 100vw, 512px"
+            className="object-cover"
+          />
           {images.length > 1 && (
             <>
               <button onClick={() => setImgIdx((i) => (i - 1 + images.length) % images.length)} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full p-1.5 transition-colors">
@@ -291,7 +297,7 @@ function ViewDetailsModal({ activity, onClose, onEdit }: { activity: OperatorAct
           <div className="flex gap-2 px-5 pt-3 overflow-x-auto">
             {images.map((src, i) => (
               <button key={i} onClick={() => setImgIdx(i)} className={`relative w-14 h-14 shrink-0 rounded-lg overflow-hidden border-2 transition-colors ${i === imgIdx ? 'border-green-500' : 'border-transparent'}`}>
-                <Image src={src} alt={`thumb ${i + 1}`} fill className="object-cover" />
+                <Image src={src} alt={`thumb ${i + 1}`} fill sizes="56px" className="object-cover" />
               </button>
             ))}
           </div>
@@ -534,7 +540,7 @@ function EditActivityModal({ activity, onClose, operatorId }: { activity: Operat
             <div className="grid grid-cols-5 gap-2 mb-2">
               {existingImages.map((src, idx) => (
                 <div key={`ex-${idx}`} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200">
-                  <Image src={src} alt={`image ${idx + 1}`} fill className="object-cover" />
+                  <Image src={src} alt={`image ${idx + 1}`} fill sizes="96px" className="object-cover" />
                   <button type="button" onClick={() => removeExisting(idx)}
                     className="absolute top-0.5 right-0.5 bg-black/50 text-white rounded-full p-0.5 hover:bg-black/70">
                     <X className="w-3 h-3" />
@@ -543,7 +549,7 @@ function EditActivityModal({ activity, onClose, operatorId }: { activity: Operat
               ))}
               {newPreviews.map((src, idx) => (
                 <div key={`new-${idx}`} className="relative aspect-square rounded-lg overflow-hidden border border-green-300">
-                  <Image src={src} alt={`new ${idx + 1}`} fill className="object-cover" />
+                  <Image src={src} alt={`new ${idx + 1}`} fill sizes="96px" className="object-cover" />
                   <button type="button" onClick={() => removeNew(idx)}
                     className="absolute top-0.5 right-0.5 bg-black/50 text-white rounded-full p-0.5 hover:bg-black/70">
                     <X className="w-3 h-3" />
@@ -731,7 +737,7 @@ function AddActivityModal({ onClose, operatorId }: { onClose: () => void; operat
             <div className="grid grid-cols-5 gap-2 mb-2">
               {imagePreviews.map((src, idx) => (
                 <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200">
-                  <Image src={src} alt={`preview ${idx + 1}`} fill className="object-cover" />
+                  <Image src={src} alt={`preview ${idx + 1}`} fill sizes="96px" className="object-cover" />
                   <button type="button" onClick={() => removeImage(idx)} className="absolute top-0.5 right-0.5 bg-black/50 text-white rounded-full p-0.5 hover:bg-black/70">
                     <X className="w-3 h-3" />
                   </button>

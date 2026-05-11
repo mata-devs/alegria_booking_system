@@ -140,6 +140,7 @@ export default function PackageCard({
         src={image}
         alt={title}
         fill
+        sizes={wide ? '(max-width: 768px) 100vw, 480px' : '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 280px'}
         className={`object-cover ${isInteractive ? 'group-hover:scale-105 transition-transform duration-500' : ''}`}
       />
 

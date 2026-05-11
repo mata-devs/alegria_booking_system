@@ -109,7 +109,13 @@ export default function SearchBar({
             className="w-full flex items-center gap-3 px-4 py-3 hover:bg-green-50 transition-colors text-left"
           >
             <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0">
-              <Image src={`https://picsum.photos/seed/${encodeURIComponent(loc.name)}/80/80`} alt={loc.name} fill className="object-cover" />
+              <Image
+                src={`https://picsum.photos/seed/${encodeURIComponent(loc.name)}/80/80`}
+                alt={loc.name}
+                fill
+                sizes="40px"
+                className="object-cover"
+              />
             </div>
             <div>
               <p className="text-sm font-medium text-gray-800">{loc.name}</p>

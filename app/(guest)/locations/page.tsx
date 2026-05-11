@@ -81,6 +81,7 @@ export default function LocationsPage() {
             src="https://picsum.photos/seed/cebu-locations-hero/1400/500"
             alt="Explore Cebu"
             fill
+            sizes="100vw"
             className="object-cover"
             priority
           />
@@ -135,7 +136,13 @@ export default function LocationsPage() {
                 className="relative rounded-2xl overflow-hidden cursor-pointer group h-48"
                 onClick={() => router.push(`/locations/${loc.id}`)}
               >
-                <Image src={loc.image} alt={loc.name} fill className="object-cover group-hover:scale-105 transition-transform duration-300" />
+                <Image
+                  src={loc.image}
+                  alt={loc.name}
+                  fill
+                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 280px"
+                  className="object-cover group-hover:scale-105 transition-transform duration-300"
+                />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-3">
                   <h3 className="text-white font-bold text-sm">{loc.name}</h3>
