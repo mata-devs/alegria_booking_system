@@ -100,7 +100,7 @@ export default function SearchBar({
   }, [])
 
   const suggestionDropdown = (
-    <div className="absolute top-full left-0 right-0 bg-white border border-gray-100 rounded-2xl shadow-xl z-50 mt-2 overflow-y-auto" style={{ maxHeight: '232px' }}>
+    <div className="absolute top-full left-0 right-0 bg-white border border-gray-100 rounded-2xl shadow-xl z-50 mt-2 overflow-y-auto max-h-[232px]">
       {suggestions.length > 0 ? (
         suggestions.map((loc) => (
           <button
@@ -169,8 +169,7 @@ export default function SearchBar({
           <div className="flex flex-col min-w-0 w-full">
             <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">When</span>
             <input type="date" id="when-desktop" name="when" autoComplete="off" aria-label="Travel date" value={when} onChange={(e) => setWhen(e.target.value)}
-              className="outline-none text-sm font-medium text-gray-800 w-full bg-transparent [color-scheme:light]"
-              style={{ colorScheme: 'light' }} />
+              className="outline-none text-sm font-medium text-gray-800 w-full bg-transparent [color-scheme:light]" />
           </div>
         </div>
         <div className="w-px my-4 bg-gray-200 shrink-0" />
@@ -240,8 +239,7 @@ export default function SearchBar({
           <div className="flex flex-col flex-1">
             <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">When</span>
             <input type="date" id="when-mobile" name="when" autoComplete="off" aria-label="Travel date" value={when} onChange={(e) => setWhen(e.target.value)}
-              className="outline-none text-sm font-medium text-gray-800 bg-transparent mt-0.5 w-full [color-scheme:light]"
-              style={{ colorScheme: 'light' }} />
+              className="outline-none text-sm font-medium text-gray-800 bg-transparent mt-0.5 w-full [color-scheme:light]" />
           </div>
         </div>
         <div className="flex items-center gap-3 px-4 py-3 border-t border-gray-100">

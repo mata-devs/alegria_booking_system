@@ -12,7 +12,7 @@ import { firebaseDb } from '@/app/lib/firebase'
 import {
   countByActivityLocation,
   countByPackageLocation,
-  mergeGuestLocations,
+  allCebuMunicipalitiesAsLocations,
 } from '@/app/lib/guest-location-list'
 import { getAllApprovedReviewsForCatalog, type CatalogReview } from '@/app/lib/reviews-service'
 import type { Location } from '@/app/types'
@@ -37,7 +37,7 @@ export default function LocationsPage() {
         ])
         const activityByMuni = countByActivityLocation(actSnap)
         const packageByMuni = countByPackageLocation(pkgSnap)
-        setLocations(mergeGuestLocations(activityByMuni, packageByMuni))
+        setLocations(allCebuMunicipalitiesAsLocations(activityByMuni, packageByMuni))
       } catch (e) {
         console.error('Failed to load locations list:', e)
         setLocations([])
@@ -76,7 +76,7 @@ export default function LocationsPage() {
   return (
     <div className="min-h-screen flex flex-col bg-[#f0fdf4]">
       <section className="relative overflow-hidden">
-        <div className="relative w-full" style={{ height: 'clamp(240px, 45vw, 420px)' }}>
+        <div className="relative w-full h-[clamp(180px,25vw,280px)]">
           <Image
             src="https://picsum.photos/seed/cebu-locations-hero/1400/500"
             alt="Explore Cebu"
@@ -127,13 +127,13 @@ export default function LocationsPage() {
             <div className="col-span-full h-48 flex items-center justify-center text-sm text-gray-500">Loading locations…</div>
           ) : visible.length === 0 ? (
             <div className="col-span-full h-48 flex items-center justify-center text-sm text-gray-500 text-center px-4">
-              No locations yet. Add at least one active activity or tour package in a municipality.
+              No locations found.
             </div>
           ) : (
             visible.map((loc) => (
               <div
                 key={loc.id}
-                className="relative rounded-2xl overflow-hidden cursor-pointer group h-48"
+                className="relative rounded-2xl overflow-hidden cursor-pointer group h-36"
                 onClick={() => router.push(`/locations/${loc.id}`)}
               >
                 <Image

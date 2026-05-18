@@ -63,10 +63,9 @@ function Stars({ rating }: { rating: number }) {
             </svg>
             {(full || half) && (
               <svg
-                className="w-3 h-3 text-yellow-400 absolute inset-0"
+                className={`w-3 h-3 text-yellow-400 absolute inset-0${half ? ' [clip-path:inset(0_50%_0_0)]' : ''}`}
                 fill="currentColor"
                 viewBox="0 0 20 20"
-                style={half ? { clipPath: 'inset(0 50% 0 0)' } : undefined}
               >
                 <path d={STAR_PATH} />
               </svg>
@@ -147,8 +146,7 @@ export default function PackageCard({
       {/* Gradient overlay — image clear top ~40%, transitions to near-black at bottom
           Adjust the rgba stop values to control gradient strength */}
       <div
-        className="absolute inset-0"
-        style={{ background: 'linear-gradient(to bottom, transparent 35%, rgba(0,0,0,0.55) 60%, rgba(0,0,0,0.93) 100%)' }}
+        className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent_35%,rgba(0,0,0,0.55)_60%,rgba(0,0,0,0.93)_100%)]"
       />
 
       {/* Top-left tag */}
@@ -239,6 +237,7 @@ export default function PackageCard({
         {/* CTA button — py-2 text-sm mobile, py-3 text-base sm+. Adjust here */}
         {ctaLabel && (
           <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation()
               onCta?.()

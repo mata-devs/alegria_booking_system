@@ -106,8 +106,7 @@ function FallbackHero({
           fill
           priority={i === 0}
           sizes="100vw"
-          className="scale-105 object-cover transition-opacity duration-1000"
-          style={{ opacity: i === currentSlide ? 1 : 0 }}
+          className={`scale-105 object-cover transition-opacity duration-1000 ${i === currentSlide ? 'opacity-100' : 'opacity-0'}`}
         />
       ))}
       <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/20" />

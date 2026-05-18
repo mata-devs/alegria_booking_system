@@ -28,8 +28,8 @@ import type { HomepageCmsHero, TickerItem } from '@/app/lib/homepage-cms'
  */
 
 const LINE_HEIGHT_PX = 58
-const VISIBLE_ROWS = 7 // 3 above + active + 3 below
-const COPIES = 5 // odd number; we start in the middle copy and snap back from the next-to-last
+const VISIBLE_ROWS = 7
+const COPIES = 5
 const MIDDLE_COPY_INDEX = Math.floor(COPIES / 2) // = 2
 const OFFSET = Math.floor(VISIBLE_ROWS / 2) // = 3
 
@@ -48,7 +48,7 @@ type Props = {
 
 export default function MunicipalityTicker({
   items,
-  intervalMs = 2500,
+  intervalMs = 1800,
   hero,
   children,
 }: Props) {
@@ -68,7 +68,7 @@ export default function MunicipalityTicker({
     const el = ulRef.current
     if (!el) return
     el.style.transform = `translateY(${-(position - OFFSET) * LINE_HEIGHT_PX}px)`
-    el.style.transition = reducedMotion || !animEnabled ? 'none' : 'transform 700ms ease-in-out'
+    el.style.transition = reducedMotion || !animEnabled ? 'none' : 'transform 480ms ease-in-out'
   }, [position, reducedMotion, animEnabled])
 
   const loopedItems = useMemo(
@@ -114,7 +114,7 @@ export default function MunicipalityTicker({
   const active = items[activeSourceIndex]
 
   return (
-    <section className="relative min-h-[860px] sm:h-[85vh] sm:min-h-[600px]">
+    <section className="relative min-h-[680px] md:h-[85vh] md:min-h-[600px]">
       {items.map((it, i) => (
         <Image
           key={it.municipalitySlug}
@@ -123,8 +123,7 @@ export default function MunicipalityTicker({
           fill
           priority={i === 0}
           sizes="100vw"
-          className="object-cover transition-opacity duration-700 ease-out"
-          style={{ opacity: i === activeSourceIndex ? 1 : 0 }}
+          className={`object-cover transition-opacity duration-700 ease-out ${i === activeSourceIndex ? 'opacity-100' : 'opacity-0'}`}
         />
       ))}
       <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/45 to-black/30" />
@@ -138,7 +137,7 @@ export default function MunicipalityTicker({
       )}
 
       <div className="absolute inset-0 flex flex-col justify-start sm:justify-center">
-        <div className="mx-auto w-full max-w-5xl px-5 pb-0 pt-12 sm:pb-12 sm:pt-8 sm:px-8 lg:px-8 lg:pb-16">
+        <div className="mx-auto w-full max-w-5xl px-5 pb-4 pt-10 md:px-8 md:pb-12 md:pt-8 lg:px-10 lg:pb-16">
           {/*
             Responsive hero grid via grid-template-areas:
               < sm  →  copy   copy         (hero text spans both columns)
@@ -151,13 +150,12 @@ export default function MunicipalityTicker({
             className="
               grid grid-cols-1 items-center gap-6
               [grid-template-areas:'copy''ticker''button']
-              sm:gap-8 sm:[grid-template-areas:none]
+              md:grid-cols-2 md:gap-x-8 md:gap-y-6
+              md:[grid-template-areas:'copy_ticker''button_button']
               lg:gap-x-12 lg:gap-y-8
-              lg:[grid-template-areas:'copy_ticker''button_button']
-              lg:[grid-template-columns:1fr_1fr]
             "
           >
-            <div className="max-w-2xl text-left [grid-area:copy] sm:[grid-area:auto] lg:pl-10 lg:[grid-area:copy]">
+            <div className="max-w-2xl text-left [grid-area:copy] lg:pl-10">
               <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-green-300 drop-shadow sm:mb-4 sm:text-sm">
                 {hero.eyebrow}
               </p>
@@ -174,7 +172,7 @@ export default function MunicipalityTicker({
             </div>
 
             <div
-              className="relative mx-auto h-[290px] w-full max-w-full sm:h-[406px] sm:max-w-[500px] [grid-area:ticker] sm:[grid-area:auto] lg:mx-0 lg:[grid-area:ticker]"
+              className="relative mx-auto h-[260px] w-full max-w-full [grid-area:ticker] md:mx-0 md:h-[406px] md:max-w-[500px]"
               role="region"
               aria-roledescription="ticker"
               aria-live="polite"
@@ -226,7 +224,7 @@ export default function MunicipalityTicker({
             </div>
 
             {children && (
-              <div className="flex w-full [grid-area:button] sm:[grid-area:auto] sm:justify-self-stretch lg:[grid-area:button]">
+              <div className="flex w-full [grid-area:button] md:justify-self-stretch">
                 {children}
               </div>
             )}

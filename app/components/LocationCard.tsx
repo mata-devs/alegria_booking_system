@@ -7,14 +7,15 @@ import type { Location } from '../types'
 
 interface Props {
   location: Location
+  className?: string
 }
 
-export default function LocationCard({ location }: Props) {
+export default function LocationCard({ location, className = '' }: Props) {
   const router = useRouter()
 
   return (
     <div
-      className="relative rounded-2xl overflow-hidden cursor-pointer group h-72 w-full"
+      className={`relative rounded-2xl overflow-hidden cursor-pointer group h-72 w-full ${className}`}
       onClick={() => router.push(`/locations/${location.id}`)}
     >
       <Image

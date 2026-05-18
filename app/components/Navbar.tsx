@@ -40,6 +40,7 @@ export default function Navbar() {
             <Link href="/activities" className={linkClass('/activities')}>Activities</Link>
             <Link href="/locations" className={linkClass('/locations')}>Locations</Link>
             <Link href="/tour-packages" className={linkClass('/tour-packages')}>Tour Packages</Link>
+            <Link href="/operators" className={linkClass('/operators')}>Operators</Link>
           </div>
 
           <button
@@ -67,6 +68,7 @@ export default function Navbar() {
               <Link href="/activities" className={mobileLinkClass('/activities')} onClick={handleNavClick}>Activities</Link>
               <Link href="/locations" className={mobileLinkClass('/locations')} onClick={handleNavClick}>Locations</Link>
               <Link href="/tour-packages" className={mobileLinkClass('/tour-packages')} onClick={handleNavClick}>Tour Packages</Link>
+              <Link href="/operators" className={mobileLinkClass('/operators')} onClick={handleNavClick}>Operators</Link>
             </div>
           </>
         )}

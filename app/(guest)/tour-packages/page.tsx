@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useEffect, useRef, Suspense } from 'react'
+import { useState, useEffect, useRef, Suspense, useMemo } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import Footer from '@/app/components/Footer'
 import SearchBar from '@/app/components/SearchBar'
 import PackageCard from '@/app/components/ui/PackageCard'
-import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore'
+import { collection, query, where, getDocs, limit } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
 import { CategoryFilterCollapsible } from '@/app/components/CategoryFilterCollapsible'
 import { ACTIVITY_TAGS } from '@/app/lib/activity-tags'
@@ -70,24 +70,21 @@ function TourPackagesContent() {
   }, [queryKey])
 
   useEffect(() => {
-    const q = query(
+    getDocs(query(
       collection(firebaseDb, 'tourPackages'),
       where('status', '==', 'active'),
-    )
-    const unsub = onSnapshot(q, (snap) => {
+    )).then((snap) => {
       setPackages(snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirestorePackage)))
       setLoading(false)
-    })
+    }).catch(() => setLoading(false))
 
     async function fetchActivities() {
       try {
-        const snap = await getDocs(query(collection(firebaseDb, 'activities'), where('status', '==', 'active')))
-        setPopularActivities(snap.docs.slice(0, 7).map((d) => ({ id: d.id, ...d.data() } as typeof popularActivities[0])))
+        const snap = await getDocs(query(collection(firebaseDb, 'activities'), where('status', '==', 'active'), limit(7)))
+        setPopularActivities(snap.docs.map((d) => ({ id: d.id, ...d.data() } as typeof popularActivities[0])))
       } catch { /* ignore */ }
     }
     fetchActivities()
-
-    return unsub
   }, [])
 
   useEffect(() => {
@@ -105,7 +102,7 @@ function TourPackagesContent() {
       })
   }, [packages, searchDate])
 
-  const filtered = packages.filter((p) => {
+  const filtered = useMemo(() => packages.filter((p) => {
     const matchesTag = !activeFilter || p.packageTag === activeFilter
     const term = searchWhere.trim().toLowerCase()
     const matchesSearch = !term ||
@@ -120,14 +117,14 @@ function TourPackagesContent() {
     const effectiveCapacity = slotsAvailable ?? fallbackCapacity
     const matchesAvailability = !searchDate || effectiveCapacity >= requestedTravelers
     return matchesTag && matchesSearch && matchesAvailability
-  })
+  }), [packages, activeFilter, searchWhere, searchDate, searchTravelers, dayCapacity])
 
   const visible = filtered.slice(0, visibleCount)
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f0fdf4]">
       <section className="relative overflow-hidden">
-        <div className="w-full" style={{ height: 'clamp(240px, 45vw, 420px)', position: 'relative' }}>
+        <div className="relative w-full h-[clamp(180px,25vw,280px)]">
           <Image
             src="https://picsum.photos/seed/cebu-packages/1400/500"
             alt="Tour Packages"
@@ -291,11 +288,10 @@ function TourPackagesContent() {
             </button>
             <div
               ref={carouselRef}
-              className="flex gap-4 overflow-x-auto scrollbar-hide pb-2"
-              style={{ scrollSnapType: 'x mandatory' }}
+              className="flex gap-4 overflow-x-auto scrollbar-hide pb-2 snap-x snap-mandatory"
             >
               {popularActivities.map((act) => (
-                <div key={act.id} className="shrink-0 w-44 sm:w-52" style={{ scrollSnapAlign: 'start' }}>
+                <div key={act.id} className="shrink-0 w-44 sm:w-52 snap-start">
                   <PackageCard
                     image={act.activityImages?.[0] ?? ''}
                     title={act.activityName}
@@ -308,7 +304,7 @@ function TourPackagesContent() {
                   />
                 </div>
               ))}
-              <div className="shrink-0 w-44 sm:w-52" style={{ scrollSnapAlign: 'start' }}>
+              <div className="shrink-0 w-44 sm:w-52 snap-start">
                 <Link href="/activities" className="block h-full">
                   <div className="relative rounded-2xl overflow-hidden aspect-[3/4] bg-green-500 flex flex-col items-center justify-center gap-3 group hover:bg-green-600 transition-colors">
                     <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">

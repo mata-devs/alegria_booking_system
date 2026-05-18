@@ -457,7 +457,7 @@ export default function OperatorsManagementPage() {
                   Showing {(operatorPage - 1) * ROWS_PER_PAGE + 1}–{Math.min(operatorPage * ROWS_PER_PAGE, filtered.length)} of {filtered.length}
                 </p>
                 <div className="flex items-center gap-1">
-                  <button onClick={() => setOperatorPage((p) => Math.max(1, p - 1))} disabled={operatorPage === 1} className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 disabled:opacity-30 transition-colors">
+                  <button aria-label="Previous page" onClick={() => setOperatorPage((p) => Math.max(1, p - 1))} disabled={operatorPage === 1} className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 disabled:opacity-30 transition-colors">
                     <ChevronLeft size={16} />
                   </button>
                   {Array.from({ length: operatorTotalPages }, (_, i) => i + 1).map((page) => (
@@ -465,7 +465,7 @@ export default function OperatorsManagementPage() {
                       {page}
                     </button>
                   ))}
-                  <button onClick={() => setOperatorPage((p) => Math.min(operatorTotalPages, p + 1))} disabled={operatorPage === operatorTotalPages} className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 disabled:opacity-30 transition-colors">
+                  <button aria-label="Next page" onClick={() => setOperatorPage((p) => Math.min(operatorTotalPages, p + 1))} disabled={operatorPage === operatorTotalPages} className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 disabled:opacity-30 transition-colors">
                     <ChevronRight size={16} />
                   </button>
                 </div>
@@ -479,7 +479,7 @@ export default function OperatorsManagementPage() {
               <div className="flex items-center justify-between">
                 <span />
                 <p className="text-xs text-gray-500">Operator ID: {selectedOperator.operatorId}</p>
-                <button onClick={() => setSelectedId(null)} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors">
+                <button aria-label="Close operator detail" onClick={() => setSelectedId(null)} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors">
                   <X size={16} />
                 </button>
               </div>
@@ -620,11 +620,11 @@ export default function OperatorsManagementPage() {
                     Showing {(requestPage - 1) * ROWS_PER_PAGE + 1}–{Math.min(requestPage * ROWS_PER_PAGE, filteredRequests.length)} of {filteredRequests.length}
                   </p>
                   <div className="flex items-center gap-1">
-                    <button onClick={() => setRequestPage((p) => Math.max(1, p - 1))} disabled={requestPage === 1} className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 disabled:opacity-30 transition-colors"><ChevronLeft size={16} /></button>
+                    <button aria-label="Previous page" onClick={() => setRequestPage((p) => Math.max(1, p - 1))} disabled={requestPage === 1} className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 disabled:opacity-30 transition-colors"><ChevronLeft size={16} /></button>
                     {Array.from({ length: requestTotalPages }, (_, i) => i + 1).map((page) => (
                       <button key={page} onClick={() => setRequestPage(page)} className={`h-7 min-w-7 rounded-md px-2 text-xs font-medium transition-colors ${requestPage === page ? 'bg-[#558B2F] text-white' : 'text-gray-600 hover:bg-gray-100'}`}>{page}</button>
                     ))}
-                    <button onClick={() => setRequestPage((p) => Math.min(requestTotalPages, p + 1))} disabled={requestPage === requestTotalPages} className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 disabled:opacity-30 transition-colors"><ChevronRight size={16} /></button>
+                    <button aria-label="Next page" onClick={() => setRequestPage((p) => Math.min(requestTotalPages, p + 1))} disabled={requestPage === requestTotalPages} className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 disabled:opacity-30 transition-colors"><ChevronRight size={16} /></button>
                   </div>
                 </div>
               )}
@@ -715,7 +715,7 @@ export default function OperatorsManagementPage() {
           {selectedRequest && (
             <div className="w-full lg:w-[22rem] shrink-0 rounded-lg border border-gray-200 bg-white p-5">
               <div className="mb-3 flex justify-end">
-                <button onClick={() => setSelectedRequestId(null)} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"><X size={16} /></button>
+                <button aria-label="Close request detail" onClick={() => setSelectedRequestId(null)} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"><X size={16} /></button>
               </div>
               <div className="flex gap-4">
                 <div className="h-28 w-28 shrink-0 overflow-hidden rounded-md bg-lime-100">

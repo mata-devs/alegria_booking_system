@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense, useMemo } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import Footer from '@/app/components/Footer'
@@ -10,7 +10,7 @@ import PackageCard from '@/app/components/ui/PackageCard'
 import { useSearchParams } from 'next/navigation'
 import { parseGuestListingSearchParams } from '@/app/lib/searchSchema'
 import { getDayCapacity } from '@/app/lib/getDayCapacity'
-import { collection, query, where, getDocs } from 'firebase/firestore'
+import { collection, query, where, getDocs, limit } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
 import { CategoryFilterCollapsible } from '@/app/components/CategoryFilterCollapsible'
 import { ACTIVITY_TAGS } from '@/app/lib/activity-tags'
@@ -87,8 +87,8 @@ function ActivitiesContent() {
 
     async function fetchPopularPackages() {
       try {
-        const snap = await getDocs(query(collection(firebaseDb, 'tourPackages'), where('status', '==', 'active')))
-        setPopularPackages(snap.docs.slice(0, 2).map((d) => ({ id: d.id, ...d.data() } as typeof popularPackages[0])))
+        const snap = await getDocs(query(collection(firebaseDb, 'tourPackages'), where('status', '==', 'active'), limit(2)))
+        setPopularPackages(snap.docs.map((d) => ({ id: d.id, ...d.data() } as typeof popularPackages[0])))
       } catch { /* ignore */ }
     }
     fetchPopularPackages()
@@ -111,7 +111,7 @@ function ActivitiesContent() {
       })
   }, [activities, searchDate])
 
-  const filtered = activities.filter((a) => {
+  const filtered = useMemo(() => activities.filter((a) => {
     const matchesTag = !activeFilter || a.category === activeFilter
     const matchesLocation = !searchLocation || a.location.toLowerCase().includes(searchLocation.toLowerCase())
     const requestedTravelers = Math.max(1, Number.parseInt(searchTravelers || '1', 10) || 1)
@@ -120,14 +120,14 @@ function ActivitiesContent() {
     const effectiveCapacity = slotsAvailable ?? fallbackCapacity
     const matchesAvailability = !searchDate || effectiveCapacity >= requestedTravelers
     return matchesTag && matchesLocation && matchesAvailability
-  })
+  }), [activities, activeFilter, searchLocation, searchDate, searchTravelers, dayCapacity])
 
   const visible = filtered.slice(0, visibleCount)
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f0fdf4]">
       <section className="relative overflow-hidden">
-        <div className="w-full" style={{ height: 'clamp(240px, 45vw, 420px)', position: 'relative' }}>
+        <div className="relative w-full h-[clamp(180px,25vw,280px)]">
           <Image
             src="https://picsum.photos/seed/cebu-activities/1400/500"
             alt="Activities in Cebu"

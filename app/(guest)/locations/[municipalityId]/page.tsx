@@ -186,7 +186,7 @@ export default function MunicipalityView() {
   return (
     <div className="min-h-screen flex flex-col bg-[#f0fdf4]">
       <section className="relative overflow-hidden">
-        <div className="relative w-full" style={{ height: 'clamp(300px, 55vw, 780px)' }}>
+        <div className="relative w-full h-[50vh] min-h-[220px]">
           <Image
             src={heroImage}
             alt={municipalityName}
@@ -196,7 +196,7 @@ export default function MunicipalityView() {
             priority
           />
         </div>
-        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/50" />
         <div className="absolute top-0 left-0 px-8 md:px-16 pt-5">
           <nav className="text-white/80 text-sm">
             <Link href="/" className="hover:text-white transition-colors">Home</Link>
@@ -205,6 +205,12 @@ export default function MunicipalityView() {
             <span className="mx-2">›</span>
             <span className="text-white font-medium">{municipalityName}</span>
           </nav>
+        </div>
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
+          <h1 className="text-white font-extrabold text-4xl sm:text-5xl md:text-6xl drop-shadow-lg tracking-wide">
+            {municipalityName}
+          </h1>
+          <p className="text-white/80 text-sm sm:text-base mt-2">Cebu, Philippines</p>
         </div>
       </section>
 

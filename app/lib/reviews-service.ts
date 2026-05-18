@@ -14,6 +14,8 @@ export interface ApprovedReview {
 export interface CatalogReview extends ApprovedReview {
   itemTitle: string;
   sourceType: 'activity' | 'tourPackage';
+  /** Firestore document ID of the reviewed activity or tour package. */
+  sourceId: string;
 }
 
 export async function getApprovedReviewsForItem(
@@ -55,6 +57,10 @@ export async function getAllApprovedReviewsForCatalog(): Promise<CatalogReview[]
     const itemTitle =
       loc ||
       (sourceType === 'tourPackage' ? 'Tour package' : 'Activity');
+    const sourceId =
+      sourceType === 'tourPackage'
+        ? String(data.tourPackageId ?? '')
+        : String(data.activityId ?? '');
     return {
       id: d.id,
       reviewerName: data.reviewerName ?? 'Anonymous',
@@ -64,6 +70,7 @@ export async function getAllApprovedReviewsForCatalog(): Promise<CatalogReview[]
       createdAt: data.createdAt?.toDate?.() ?? null,
       itemTitle,
       sourceType,
+      sourceId,
     };
   });
   rows.sort((a, b) => {
