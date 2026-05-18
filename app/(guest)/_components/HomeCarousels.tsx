@@ -45,7 +45,7 @@ export default function HomeCarousels() {
     async function fetchAll() {
       try {
         const [actSnap, pkgSnap] = await Promise.all([
-          getDocs(query(collection(firebaseDb, 'activities'), firestoreWhere('status', '==', 'active'), limit(30))),
+          getDocs(query(collection(firebaseDb, 'activities'), firestoreWhere('status', '==', 'active'), limit(12))),
           getDocs(query(collection(firebaseDb, 'tourPackages'), firestoreWhere('status', '==', 'active'), limit(8))),
         ])
 
@@ -85,10 +85,17 @@ export default function HomeCarousels() {
   const locationCountMap = useMemo(() => {
     const m = new Map<string, number>()
     for (const loc of locations) {
-      m.set(loc.name.toLowerCase(), loc.activityCount + loc.packageCount)
+      m.set(loc.name.toLowerCase(), loc.activityCount + (loc.packageCount ?? 0))
     }
     return m
   }, [locations])
+
+  const activitySubtitles = useMemo(() => {
+    return activities.map((act) => {
+      const count = locationCountMap.get(act.location.toLowerCase()) ?? 0
+      return count > 0 ? `${count} Tours and Activities` : act.category || act.location
+    })
+  }, [activities, locationCountMap])
 
   return (
     <main className="flex-1">
@@ -149,7 +156,7 @@ export default function HomeCarousels() {
         {activities.length > 0 ? (
           <>
             <div className="grid grid-cols-1 gap-1 sm:grid-cols-2 lg:grid-cols-3">
-              {activities.map((act) => (
+              {activities.map((act, idx) => (
                 <Link
                   key={act.firestoreId}
                   href={`/activities/${act.firestoreId}`}
@@ -162,16 +169,12 @@ export default function HomeCarousels() {
                       fill
                       sizes="72px"
                       className="object-cover"
+                      loading="lazy"
                     />
                   </div>
                   <div className="min-w-0">
                     <p className="truncate font-bold text-gray-900">{act.title}</p>
-                    <p className="mt-0.5 text-sm text-gray-400">
-                      {(() => {
-                        const count = locationCountMap.get(act.location.toLowerCase()) ?? 0
-                        return count > 0 ? `${count} Tours and Activities` : act.category || act.location
-                      })()}
-                    </p>
+                    <p className="mt-0.5 text-sm text-gray-400">{activitySubtitles[idx]}</p>
                   </div>
                 </Link>
               ))}
@@ -338,7 +341,20 @@ const MOCK_OPERATORS = [
 
 function OperatorsMarquee() {
   const trackRef = useRef<HTMLDivElement>(null)
+  const sectionRef = useRef<HTMLElement>(null)
   const pausedRef = useRef(false)
+  const visibleRef = useRef(false)
+
+  useEffect(() => {
+    const section = sectionRef.current
+    if (!section) return
+    const observer = new IntersectionObserver(
+      ([entry]) => { visibleRef.current = entry.isIntersecting },
+      { threshold: 0.1 },
+    )
+    observer.observe(section)
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     const el = trackRef.current
@@ -346,7 +362,7 @@ function OperatorsMarquee() {
     let pos = 0
     let frame: number
     const tick = () => {
-      if (!pausedRef.current) {
+      if (!pausedRef.current && visibleRef.current) {
         pos += 0.5
         const half = el.scrollWidth / 2
         if (pos >= half) pos = 0
@@ -361,7 +377,7 @@ function OperatorsMarquee() {
   const doubled = [...MOCK_OPERATORS, ...MOCK_OPERATORS]
 
   return (
-    <section className="py-8 pb-12 sm:pb-16 overflow-hidden">
+    <section ref={sectionRef} className="py-8 pb-12 sm:pb-16 overflow-hidden">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mb-6 text-center">
         <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">Our Tour Operator Partners</h2>
       </div>
@@ -383,6 +399,7 @@ function OperatorsMarquee() {
                   fill
                   sizes="56px"
                   className="object-cover"
+                  loading="lazy"
                 />
               </div>
               <div className="min-w-0">

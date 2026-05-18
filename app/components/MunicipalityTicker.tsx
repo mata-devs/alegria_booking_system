@@ -63,6 +63,10 @@ export default function MunicipalityTicker({
   const [position, setPosition] = useState(initialPosition)
   const [animEnabled, setAnimEnabled] = useState(true)
   const ulRef = useRef<HTMLUListElement>(null)
+  // Only load background images progressively: start with index 0 + 1, add more as ticker advances.
+  const [loadedImgIndices, setLoadedImgIndices] = useState<Set<number>>(
+    () => new Set(N > 1 ? [0, 1] : [0]),
+  )
 
   useEffect(() => {
     const el = ulRef.current
@@ -108,24 +112,40 @@ export default function MunicipalityTicker({
     setPosition((p) => p - N)
   }
 
+  const activeSourceIndex = useLoop ? ((position % N) + N) % N : 0
+
+  // Preload current + next background image whenever the active slot changes.
+  useEffect(() => {
+    if (N === 0) return
+    const next = (activeSourceIndex + 1) % N
+    setLoadedImgIndices((prev) => {
+      if (prev.has(activeSourceIndex) && prev.has(next)) return prev
+      const s = new Set(prev)
+      s.add(activeSourceIndex)
+      s.add(next)
+      return s
+    })
+  }, [activeSourceIndex, N])
+
   if (N === 0) return null
 
-  const activeSourceIndex = useLoop ? ((position % N) + N) % N : 0
   const active = items[activeSourceIndex]
 
   return (
-    <section className="relative min-h-[680px] md:h-[85vh] md:min-h-[600px]">
-      {items.map((it, i) => (
-        <Image
-          key={it.municipalitySlug}
-          src={it.bestPictureUrl}
-          alt={i === activeSourceIndex ? it.displayName : ''}
-          fill
-          priority={i === 0}
-          sizes="100vw"
-          className={`object-cover transition-opacity duration-700 ease-out ${i === activeSourceIndex ? 'opacity-100' : 'opacity-0'}`}
-        />
-      ))}
+    <section className="relative min-h-[860px] sm:h-[85vh] sm:min-h-[600px]">
+      {items.map((it, i) =>
+        loadedImgIndices.has(i) ? (
+          <Image
+            key={it.municipalitySlug}
+            src={it.bestPictureUrl}
+            alt={i === activeSourceIndex ? it.displayName : ''}
+            fill
+            priority={i === 0}
+            sizes="100vw"
+            className={`object-cover transition-opacity duration-700 ease-out ${i === activeSourceIndex ? 'opacity-100' : 'opacity-0'}`}
+          />
+        ) : null,
+      )}
       <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/45 to-black/30" />
       <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-transparent to-black/45" />
 
