@@ -95,6 +95,8 @@ function GuestBookingContent() {
     const [guests, setGuests] = useState<AdditionalGuest[]>(() => getInitialGuests(requestedGuestCount));
     const [appliedPromo, setAppliedPromo] = useState<string>(searchParams.get("promoCode") || "");
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("Gcash / Maya");
+    const [adultCount, setAdultCount] = useState(1);
+    const [childCount, setChildCount] = useState(0);
     const guestCount = guests.length + 1;
 
     useEffect(() => { setIsMounted(true); }, []);
@@ -138,8 +140,14 @@ function GuestBookingContent() {
         try { window.sessionStorage.setItem("guestFormGuests", JSON.stringify(guests)); } catch { /* ignore */ }
     }, [guests]);
 
-    const handleGuestCountChange = (nextCount: number) => {
-        setGuests((prev) => syncGuestsToCount(prev, nextCount));
+    const handleAdultCountChange = (count: number) => {
+        setAdultCount(count);
+        setGuests((prev) => syncGuestsToCount(prev, count + childCount));
+    };
+
+    const handleChildCountChange = (count: number) => {
+        setChildCount(count);
+        setGuests((prev) => syncGuestsToCount(prev, adultCount + count));
     };
 
     const handleSubmit = async () => {
@@ -217,9 +225,11 @@ function GuestBookingContent() {
         bookingDate,
         selectedActivityId,
         activityName,
-        guestCount,
+        adultCount,
+        childCount,
         showPaymentMethods: true,
-        onGuestCountChange: handleGuestCountChange,
+        onAdultCountChange: handleAdultCountChange,
+        onChildCountChange: handleChildCountChange,
         paymentMethod,
         onPaymentMethodChange: setPaymentMethod,
         onContinue: handleSubmit,
