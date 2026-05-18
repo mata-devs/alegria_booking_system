@@ -55,6 +55,7 @@ function ActivityDetailInner() {
   const [bookingDrawerOpen, setBookingDrawerOpen] = useState(false)
   const [reviews, setReviews] = useState<ApprovedReview[]>([])
   const [reviewsVisible, setReviewsVisible] = useState(5)
+  const [operatorName, setOperatorName] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -80,6 +81,17 @@ function ActivityDetailInner() {
     if (!activityId) return
     getApprovedReviewsForItem(activityId, 'activity').then(setReviews).catch(console.error)
   }, [activityId])
+
+  useEffect(() => {
+    if (!activity?.operatorId) return
+    getDoc(doc(firebaseDb, 'users', activity.operatorId))
+      .then((snap) => {
+        if (!snap.exists()) return
+        const d = snap.data()
+        setOperatorName(d.companyName || `${d.firstName ?? ''} ${d.lastName ?? ''}`.trim() || null)
+      })
+      .catch(() => {})
+  }, [activity?.operatorId])
 
   const minGuests = Math.max(1, activity?.minimumNumberOfPeople ?? 1)
   const maxGuests = activity?.maximumNumberOfPeople ? Math.max(activity.maximumNumberOfPeople, minGuests) : 30
@@ -152,10 +164,25 @@ function ActivityDetailInner() {
               <span>•</span>
               <span className="bg-green-100 text-green-700 text-xs font-semibold px-2.5 py-0.5 rounded-full">{activity.activityTag}</span>
             </div>
-            <div className="flex items-center gap-2 mb-6">
+            <div className="flex items-center gap-2 mb-3">
               <StarRating rating={activity.activityRating} />
               <span className="text-sm font-semibold text-gray-700">{activity.activityRating.toFixed(1)}</span>
             </div>
+
+            {operatorName && activity.operatorId && (
+              <Link
+                href={`/operators/${activity.operatorId}`}
+                className="inline-flex items-center gap-1.5 text-sm text-green-600 font-medium hover:underline mb-6"
+              >
+                <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                </svg>
+                {operatorName}
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            )}
 
             <section className="mb-8">
               <h2 className="text-base font-bold text-gray-900 mb-3">About this activity</h2>
@@ -203,14 +230,13 @@ function ActivityDetailInner() {
               </div>
 
               <div className="mb-4">
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Date</label>
+                <label htmlFor="activity-date-desktop" className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Date</label>
                 <div className="flex items-center border border-gray-200 rounded-xl px-4 py-3 gap-3 bg-gray-50">
                   <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
-                  <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
-                    className="outline-none text-sm text-gray-700 flex-1 bg-transparent [color-scheme:light]"
-                    style={{ colorScheme: 'light' }} />
+                  <input id="activity-date-desktop" type="date" value={date} onChange={(e) => setDate(e.target.value)}
+                    className="outline-none text-sm text-gray-700 flex-1 bg-transparent [color-scheme:light]" />
                 </div>
               </div>
 
@@ -288,14 +314,13 @@ function ActivityDetailInner() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Date</label>
+              <label htmlFor="activity-date-mobile" className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Date</label>
               <div className="flex items-center border border-gray-200 rounded-xl px-4 py-3 gap-3 bg-gray-50">
                 <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
-                  className="outline-none text-sm text-gray-700 flex-1 bg-transparent [color-scheme:light]"
-                  style={{ colorScheme: 'light' }} />
+                <input id="activity-date-mobile" type="date" value={date} onChange={(e) => setDate(e.target.value)}
+                  className="outline-none text-sm text-gray-700 flex-1 bg-transparent [color-scheme:light]" />
               </div>
             </div>
 

@@ -16,6 +16,8 @@ interface GuestOperator {
   profileImage: string | null
   avgRating: number
   ratedCount: number
+  activityCount: number
+  isVerified: boolean
 }
 
 function MiniStars({ rating }: { rating: number }) {
@@ -34,6 +36,7 @@ export default function OperatorsPage() {
   const [operators, setOperators] = useState<GuestOperator[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [sort, setSort] = useState<'name' | 'rating' | 'activities'>('name')
   const router = useRouter()
 
   useEffect(() => {
@@ -44,13 +47,16 @@ export default function OperatorsPage() {
           getDocs(query(collection(firebaseDb, 'activities'), where('status', '==', 'active'))),
         ])
 
-        // Build per-operator rating map from activity ratings
+        // Build per-operator rating map and activity count from activity docs
         const ratingMap = new Map<string, { sum: number; count: number }>()
+        const activityCountMap = new Map<string, number>()
         for (const d of actSnap.docs) {
           const data = d.data()
           const opId = data.operatorId as string | undefined
+          if (!opId) continue
+          activityCountMap.set(opId, (activityCountMap.get(opId) ?? 0) + 1)
           const rating = data.activityRating as number | undefined
-          if (!opId || !rating || rating <= 0) continue
+          if (!rating || rating <= 0) continue
           const entry = ratingMap.get(opId) ?? { sum: 0, count: 0 }
           entry.sum += rating
           entry.count += 1
@@ -74,9 +80,10 @@ export default function OperatorsPage() {
                 : null,
             avgRating: rEntry ? rEntry.sum / rEntry.count : 0,
             ratedCount: rEntry?.count ?? 0,
+            activityCount: activityCountMap.get(d.id) ?? 0,
+            isVerified: Boolean(data.applicationApproveDate),
           }
         })
-        list.sort((a, b) => a.companyName.localeCompare(b.companyName))
         setOperators(list)
       } catch (e) {
         console.error('Failed to load operators:', e)
@@ -88,10 +95,12 @@ export default function OperatorsPage() {
     load()
   }, [])
 
-  const filtered = useMemo(
-    () => operators.filter((op) => op.companyName.toLowerCase().includes(search.toLowerCase())),
-    [operators, search],
-  )
+  const filtered = useMemo(() => {
+    const base = operators.filter((op) => op.companyName.toLowerCase().includes(search.toLowerCase()))
+    if (sort === 'rating') return [...base].sort((a, b) => b.avgRating - a.avgRating || a.companyName.localeCompare(b.companyName))
+    if (sort === 'activities') return [...base].sort((a, b) => b.activityCount - a.activityCount || a.companyName.localeCompare(b.companyName))
+    return [...base].sort((a, b) => a.companyName.localeCompare(b.companyName))
+  }, [operators, search, sort])
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f0fdf4]">
@@ -125,7 +134,7 @@ export default function OperatorsPage() {
       </section>
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10 pb-16">
-        <div className="flex items-center bg-white rounded-full shadow-md border border-gray-100 px-6 py-4 mb-10 max-w-2xl mx-auto">
+        <div className="flex items-center bg-white rounded-full shadow-md border border-gray-100 px-6 py-4 mb-4 max-w-2xl mx-auto">
           <svg className="w-5 h-5 text-gray-400 mr-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
@@ -136,6 +145,19 @@ export default function OperatorsPage() {
             onChange={(e) => setSearch(e.target.value)}
             className="outline-none text-sm text-gray-700 placeholder-gray-400 flex-1 bg-transparent"
           />
+        </div>
+        <div className="flex items-center justify-between max-w-2xl mx-auto mb-8">
+          <p className="text-sm text-gray-400">{filtered.length} operator{filtered.length !== 1 ? 's' : ''}</p>
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as typeof sort)}
+            aria-label="Sort operators"
+            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 outline-none focus:border-green-400 cursor-pointer"
+          >
+            <option value="name">Sort: A–Z</option>
+            <option value="rating">Sort: Top Rated</option>
+            <option value="activities">Sort: Most Active</option>
+          </select>
         </div>
 
         {loading ? (
@@ -162,9 +184,19 @@ export default function OperatorsPage() {
                   />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="font-bold text-gray-900 text-sm leading-tight truncate group-hover:text-green-600 transition-colors">
-                    {op.companyName}
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="font-bold text-gray-900 text-sm leading-tight truncate group-hover:text-green-600 transition-colors">
+                      {op.companyName}
+                    </p>
+                    {op.isVerified && (
+                      <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-green-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                        <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Verified
+                      </span>
+                    )}
+                  </div>
                   {op.avgRating > 0 ? (
                     <div className="flex items-center gap-1.5 mt-1">
                       <MiniStars rating={op.avgRating} />
@@ -174,11 +206,8 @@ export default function OperatorsPage() {
                   ) : (
                     <p className="text-xs text-gray-400 mt-1">No ratings yet</p>
                   )}
-                  <p className="text-xs text-green-600 font-medium mt-1 flex items-center gap-1">
-                    <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                    </svg>
-                    Cebu, Philippines
+                  <p className="text-xs text-gray-400 mt-1">
+                    {op.activityCount > 0 ? `${op.activityCount} ${op.activityCount === 1 ? 'activity' : 'activities'}` : 'No activities yet'}
                   </p>
                 </div>
                 <svg className="w-4 h-4 text-gray-300 shrink-0 group-hover:text-green-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -22,6 +22,7 @@ interface OperatorInfo {
   phoneNumber: string
   mobileNumber: string
   email: string | null
+  memberSince: string | null
 }
 
 interface FirestorePackageRow {
@@ -104,6 +105,15 @@ export default function OperatorProfilePage() {
         if (!opSnap.exists()) { setNotFound(true); return }
 
         const data = opSnap.data()
+        const rawDate = data.applicationApproveDate ?? data.createdAt
+        let memberSince: string | null = null
+        try {
+          if (rawDate) {
+            const d = rawDate.toDate ? rawDate.toDate() : new Date(rawDate)
+            memberSince = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+          }
+        } catch { /* ignore */ }
+
         setOperator({
           uid: opSnap.id,
           companyName:
@@ -118,6 +128,7 @@ export default function OperatorProfilePage() {
           phoneNumber: data.phoneNumber ?? '',
           mobileNumber: data.mobileNumber ?? '',
           email: data.email ?? null,
+          memberSince,
         })
 
         const actList: Activity[] = actSnap.docs.map((d, idx) => {
@@ -287,6 +298,41 @@ export default function OperatorProfilePage() {
                 ))}
               </div>
             )}
+
+            {(operator.phoneNumber || operator.mobileNumber || operator.email) && (
+              <div className="flex flex-wrap gap-x-5 gap-y-1.5 mt-4">
+                {(operator.phoneNumber || operator.mobileNumber) && (
+                  <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                    <svg className="w-3.5 h-3.5 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                    </svg>
+                    {operator.phoneNumber || operator.mobileNumber}
+                  </span>
+                )}
+                {operator.email && (
+                  <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                    <svg className="w-3.5 h-3.5 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    {operator.email}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {operator.memberSince && (
+              <p className="text-xs text-gray-400 mt-2">Member since {operator.memberSince}</p>
+            )}
+
+            <Link
+              href="/activities"
+              className="mt-4 inline-flex items-center gap-2 rounded-full bg-green-500 px-5 py-2 text-sm font-semibold text-white hover:bg-green-600 transition-colors"
+            >
+              Book an Activity
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
           </div>
 
           {/* Stats column */}
@@ -382,7 +428,7 @@ export default function OperatorProfilePage() {
         )}
 
         {/* Reviews */}
-        {reviews.length > 0 && (
+        {reviews.length > 0 ? (
           <section>
             <h2 className="text-xl font-bold text-green-600 mb-2 text-center">Guest Reviews</h2>
             <p className="text-sm text-gray-500 text-center mb-8">
@@ -394,7 +440,12 @@ export default function OperatorProfilePage() {
               ))}
             </div>
           </section>
-        )}
+        ) : (activities.length > 0 || packages.length > 0) ? (
+          <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
+            <h2 className="text-base font-semibold text-gray-700 mb-2">Guest Reviews</h2>
+            <p className="text-sm text-gray-400">No reviews yet — be one of the first to explore and share your experience!</p>
+          </section>
+        ) : null}
       </main>
 
       <Footer />
