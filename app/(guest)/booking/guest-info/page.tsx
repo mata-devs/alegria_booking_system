@@ -32,9 +32,10 @@ interface AdditionalGuest {
     age: string;
     gender: string;
     nationality: string;
+    guestType: "adult" | "child";
 }
 
-const createEmptyGuest = (): AdditionalGuest => ({ name: "", age: "", gender: "", nationality: "PH" });
+const createEmptyGuest = (): AdditionalGuest => ({ name: "", age: "", gender: "", nationality: "PH", guestType: "adult" });
 
 const normalizeGuestCount = (count: number) => {
     if (Number.isNaN(count) || count < 1) return 1;

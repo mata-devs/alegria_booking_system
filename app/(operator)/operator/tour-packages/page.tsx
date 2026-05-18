@@ -67,6 +67,9 @@ interface OperatorPackage {
   packageName: string;
   packageDescription: string;
   pricePerPerson: number;
+  priceAdult?: number;
+  priceChild?: number;
+  childAgeMax?: number;
   minimumNumberOfPeople: number;
   maximumNumberOfPeople: number;
   packageLocation: string;

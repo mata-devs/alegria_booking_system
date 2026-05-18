@@ -31,6 +31,7 @@ interface Guest {
   age: number;
   gender: "Male" | "Female" | "Prefer not to say";
   nationality: string;
+  guestType: "adult" | "child";
 }
 
 export interface CreateBookingInput {
@@ -39,6 +40,8 @@ export interface CreateBookingInput {
   sourceType?: "activity" | "tourPackage";
   representative: Representative;
   guests: Guest[];
+  adultCount?: number;
+  childCount?: number;
   tourOperatorUid?: string;
   promoCode?: string;
   specialRequests?: string;
