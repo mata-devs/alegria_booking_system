@@ -3,16 +3,17 @@
   "private": true,
   "version": "0.0.0",
   "scripts": {
-    "dev": "next dev --turbopack -H 0.0.0.0 -p 3001",
+    "dev": "next dev --turbopack -H 0.0.0.0 -p 3000",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "scan:sonar": "sonar-scanner",
-    "scan": "trivy fs --scanners vuln,secret,misconfig .",
-    "scan:vuln": "trivy fs --scanners vuln .",
-    "scan:secrets": "trivy fs --scanners secret ."
+    "scan:sonar": "sonar",
+    "scan": "trivy fs --scanners vuln,secret,misconfig,license --severity HIGH,CRITICAL .",
+    "scan:vuln": "trivy fs --scanners vuln --severity HIGH,CRITICAL .",
+    "scan:secrets": "trivy fs --scanners secret .",
+    "scan:license": "trivy fs --scanners license ."
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -40,15 +41,17 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.5",
+    "@next/eslint-plugin-next": "^15.5.18",
     "@playwright/test": "^1.59.1",
     "@types/node": "^20",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.1",
     "autoprefixer": "^10.4.20",
-    "eslint": "9.26.0",
-    "eslint-config-next": "^15.1.0",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^15.5.18",
     "postcss": "^8.4.49",
-    "sonar-scanner": "^3.1.0",
+    "@sonar/scan": "^4.3.6",
     "tailwindcss": "^3.4.17",
     "typescript": "^5"
   }
