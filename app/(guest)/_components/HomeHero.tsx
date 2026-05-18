@@ -58,23 +58,7 @@ export default function HomeHero({ cms }: Props) {
           intervalMs={cms?.ticker.intervalMs}
           hero={hero}
         >
-          <div className="hidden w-full sm:block">
-            <SearchBar />
-          </div>
-          <button
-            onClick={() => setSearchDrawerOpen(true)}
-            className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-white/40 bg-white/20 px-3 py-2.5 text-xs font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/30 sm:hidden"
-          >
-            <svg className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
-            <span className="truncate">Where in Cebu?</span>
-          </button>
+          <SearchBar className="w-full" />
         </MunicipalityTicker>
       ) : (
         <FallbackHero hero={hero} openMobileDrawer={() => setSearchDrawerOpen(true)} />
@@ -127,7 +111,7 @@ function FallbackHero({
         />
       ))}
       <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/20" />
-      <div className="absolute inset-0 flex flex-col items-center justify-center px-5 pb-10 text-center sm:px-8 sm:pb-16">
+      <div className="absolute inset-0 flex flex-col items-center justify-center px-5 pb-10 text-center sm:px-8 lg:px-16 sm:pb-16">
         <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-green-300 drop-shadow sm:mb-4 sm:text-sm">
           {hero.eyebrow}
         </p>

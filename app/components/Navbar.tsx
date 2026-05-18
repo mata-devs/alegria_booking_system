@@ -1,12 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false)
   const pathname = usePathname()
+  const menuButtonRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    menuButtonRef.current?.setAttribute('aria-expanded', menuOpen ? 'true' : 'false')
+  }, [menuOpen])
 
   const handleNavClick = () => setMenuOpen(false)
 
@@ -27,7 +32,7 @@ export default function Navbar() {
       <div className="relative">
         <div className="flex h-20 w-full items-center justify-between px-6 sm:px-10 lg:px-16">
           <Link href="/" className="flex items-center" onClick={handleNavClick}>
-            <span className="text-2xl text-green-500" style={{ fontFamily: "'Potta One', cursive" }}>VisitCebu</span>
+            <span className="text-2xl text-green-500 [font-family:'Potta_One',cursive]">VisitCebu</span>
           </Link>
 
           <div className="hidden items-center gap-10 md:flex">
@@ -38,10 +43,10 @@ export default function Navbar() {
           </div>
 
           <button
+            ref={menuButtonRef}
             className="flex h-10 w-10 flex-col items-center justify-center gap-1.5 rounded-lg transition-colors hover:bg-gray-50 md:hidden"
             onClick={() => setMenuOpen((o) => !o)}
             aria-label="Toggle menu"
-            aria-expanded={menuOpen}
           >
             <span className={`block h-0.5 w-6 bg-gray-700 transition-all duration-300 ${menuOpen ? 'rotate-45 translate-y-2' : ''}`} />
             <span className={`block h-0.5 w-6 bg-gray-700 transition-all duration-300 ${menuOpen ? 'opacity-0' : ''}`} />

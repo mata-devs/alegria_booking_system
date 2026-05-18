@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Play } from 'lucide-react'
 import type { HomepageCmsHero, TickerItem } from '@/app/lib/homepage-cms'
 
@@ -31,6 +31,12 @@ const LINE_HEIGHT_PX = 58
 const VISIBLE_ROWS = 7 // 3 above + active + 3 below
 const COPIES = 5 // odd number; we start in the middle copy and snap back from the next-to-last
 const MIDDLE_COPY_INDEX = Math.floor(COPIES / 2) // = 2
+const OFFSET = Math.floor(VISIBLE_ROWS / 2) // = 3
+
+const OPACITY_CLASSES = ['opacity-100', 'opacity-[0.54]', 'opacity-[0.36]', 'opacity-[0.18]', 'opacity-[0.16]']
+function tickerOpacityClass(distance: number) {
+  return OPACITY_CLASSES[Math.min(distance, OPACITY_CLASSES.length - 1)]
+}
 
 type Props = {
   items: TickerItem[]
@@ -56,6 +62,14 @@ export default function MunicipalityTicker({
 
   const [position, setPosition] = useState(initialPosition)
   const [animEnabled, setAnimEnabled] = useState(true)
+  const ulRef = useRef<HTMLUListElement>(null)
+
+  useEffect(() => {
+    const el = ulRef.current
+    if (!el) return
+    el.style.transform = `translateY(${-(position - OFFSET) * LINE_HEIGHT_PX}px)`
+    el.style.transition = reducedMotion || !animEnabled ? 'none' : 'transform 700ms ease-in-out'
+  }, [position, reducedMotion, animEnabled])
 
   const loopedItems = useMemo(
     () => (useLoop ? Array.from({ length: COPIES }, () => items).flat() : items),
@@ -96,12 +110,11 @@ export default function MunicipalityTicker({
 
   if (N === 0) return null
 
-  const offset = Math.floor(VISIBLE_ROWS / 2)
   const activeSourceIndex = useLoop ? ((position % N) + N) % N : 0
   const active = items[activeSourceIndex]
 
   return (
-    <section className="relative h-[85vh] min-h-[600px]">
+    <section className="relative min-h-[860px] sm:h-[85vh] sm:min-h-[600px]">
       {items.map((it, i) => (
         <Image
           key={it.municipalitySlug}
@@ -124,8 +137,8 @@ export default function MunicipalityTicker({
         />
       )}
 
-      <div className="absolute inset-0 flex flex-col justify-center">
-        <div className="mx-auto w-full max-w-7xl px-5 pb-12 pt-8 sm:px-8 lg:pb-16">
+      <div className="absolute inset-0 flex flex-col justify-start sm:justify-center">
+        <div className="mx-auto w-full max-w-5xl px-5 pb-0 pt-12 sm:pb-12 sm:pt-8 sm:px-8 lg:px-8 lg:pb-16">
           {/*
             Responsive hero grid via grid-template-areas:
               < sm  →  copy   copy         (hero text spans both columns)
@@ -136,36 +149,33 @@ export default function MunicipalityTicker({
           */}
           <div
             className="
-              grid items-center gap-4
-              [grid-template-areas:'copy_copy''button_ticker']
-              [grid-template-columns:minmax(0,1fr)_minmax(140px,1fr)]
-              sm:grid-cols-1 sm:gap-8 sm:[grid-template-areas:none]
+              grid grid-cols-1 items-center gap-6
+              [grid-template-areas:'copy''ticker''button']
+              sm:gap-8 sm:[grid-template-areas:none]
               lg:gap-x-12 lg:gap-y-8
               lg:[grid-template-areas:'copy_ticker''button_button']
-              lg:[grid-template-columns:minmax(0,1fr)_minmax(340px,500px)]
+              lg:[grid-template-columns:1fr_1fr]
             "
           >
-            <div className="max-w-2xl text-left [grid-area:copy] sm:[grid-area:auto] lg:[grid-area:copy]">
+            <div className="max-w-2xl text-left [grid-area:copy] sm:[grid-area:auto] lg:pl-10 lg:[grid-area:copy]">
               <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-green-300 drop-shadow sm:mb-4 sm:text-sm">
                 {hero.eyebrow}
               </p>
-              <h1 className="whitespace-pre-line text-3xl font-extrabold leading-[1.02] tracking-tight text-white drop-shadow-2xl sm:text-5xl md:text-6xl lg:text-7xl lg:leading-[0.98]">
+              <h1 className="whitespace-pre-line text-4xl font-extrabold leading-[1.02] tracking-tight text-white drop-shadow-2xl sm:text-5xl md:text-6xl lg:text-7xl lg:leading-[0.98]">
                 {hero.headline}
               </h1>
-              <p className="mt-3 max-w-xl text-xs leading-relaxed text-white/85 sm:mt-5 sm:text-base md:text-lg">
+              <p className="mt-8 max-w-xl text-xs leading-relaxed text-white/85 sm:mt-10 sm:text-base md:text-lg">
                 {hero.subhead}
               </p>
 
-              {active?.caption && (
-                <p className="mt-2 text-[11px] font-medium text-green-300/90 drop-shadow sm:mt-3 sm:text-sm">
-                  {active.caption}
-                </p>
-              )}
+              <p className="mt-2 min-h-[1em] text-[11px] font-medium text-green-300/90 drop-shadow sm:mt-3 sm:text-sm">
+                {active?.caption}
+              </p>
             </div>
 
             <div
-              className="relative mx-auto w-full max-w-[500px] [grid-area:ticker] sm:[grid-area:auto] lg:mx-0 lg:[grid-area:ticker]"
-              style={{ height: VISIBLE_ROWS * LINE_HEIGHT_PX }}
+              className="relative mx-auto h-[290px] w-full max-w-full sm:h-[406px] sm:max-w-[500px] [grid-area:ticker] sm:[grid-area:auto] lg:mx-0 lg:[grid-area:ticker]"
+              role="region"
               aria-roledescription="ticker"
               aria-live="polite"
               onMouseEnter={() => setPaused(true)}
@@ -174,41 +184,36 @@ export default function MunicipalityTicker({
               onBlur={() => setPaused(false)}
             >
               <div
-                className="pointer-events-none absolute left-0 top-1/2 z-20 -translate-y-1/2 text-green-400 drop-shadow-lg"
+                className="pointer-events-none absolute left-10 top-1/2 z-20 -translate-y-1/2 text-green-400 drop-shadow-lg"
                 aria-hidden
               >
                 <Play className="h-3.5 w-3.5 fill-current sm:h-5 sm:w-5" strokeWidth={0} />
               </div>
 
               <div className="absolute inset-0 overflow-hidden">
+                <div className="relative h-full -translate-y-[58px] sm:translate-y-0">
                 <ul
-                  className="absolute inset-x-0"
+                  ref={ulRef}
+                  className="absolute inset-x-0 will-change-transform"
                   onTransitionEnd={onTransitionEnd}
-                  style={{
-                    transform: `translateY(${-(position - offset) * LINE_HEIGHT_PX}px)`,
-                    transition:
-                      reducedMotion || !animEnabled ? 'none' : 'transform 700ms ease-in-out',
-                    willChange: 'transform',
-                  }}
                 >
                   {loopedItems.map((it, loopIndex) => {
                     const distance = Math.abs(loopIndex - position)
                     const isActive = loopIndex === position
-                    const opacity = isActive ? 1 : Math.max(0.16, 0.72 - distance * 0.18)
                     return (
                       <li
                         key={`${it.municipalitySlug}-${loopIndex}`}
-                        style={{ height: LINE_HEIGHT_PX, opacity }}
+                        className={`h-[58px] ${tickerOpacityClass(distance)}`}
                       >
                         <Link
                           href={`/locations/${it.municipalitySlug}`}
                           tabIndex={isActive ? 0 : -1}
                           aria-current={isActive ? 'true' : undefined}
-                          className={`flex h-full w-full items-center pl-6 pr-2 text-left font-extrabold tracking-tight transition-colors focus-visible:outline-none sm:pl-10 ${
+                          className={`flex h-full w-full items-center pl-16 pr-2 text-left font-extrabold tracking-tight transition-colors focus-visible:outline-none sm:pl-16 ${
                             isActive ? 'text-white' : 'text-white/70 hover:text-white'
                           }`}
                         >
-                          <span className="truncate text-lg drop-shadow sm:text-3xl lg:text-4xl">
+                          <span className="truncate text-2xl drop-shadow sm:text-3xl lg:text-4xl">
                             {it.displayName}
                           </span>
                         </Link>
@@ -216,11 +221,12 @@ export default function MunicipalityTicker({
                     )
                   })}
                 </ul>
+                </div>
               </div>
             </div>
 
             {children && (
-              <div className="flex w-full max-w-5xl justify-self-start [grid-area:button] sm:[grid-area:auto] sm:justify-self-stretch lg:[grid-area:button]">
+              <div className="flex w-full [grid-area:button] sm:[grid-area:auto] sm:justify-self-stretch lg:[grid-area:button]">
                 {children}
               </div>
             )}
@@ -244,7 +250,7 @@ function ImageAttribution({ text, href }: { text: string; href?: string }) {
   // (search button on the left, floating notification widget on the right).
   // sm+ (desktop unchanged): bottom-right of the hero image.
   return (
-    <div className="pointer-events-none absolute right-3 top-3 z-30 sm:bottom-4 sm:right-4 sm:top-auto">
+    <div className="pointer-events-none absolute bottom-2 right-3 z-30 sm:bottom-4 sm:right-4">
       {href ? (
         <a
           href={href}
