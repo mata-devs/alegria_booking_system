@@ -50,6 +50,7 @@ export type HomepageCms = {
   enabled: boolean
   hero: HomepageCmsHero
   ticker: HomepageCmsTicker
+  locations: HomepageCmsLocations
   updatedAt: number | null
   updatedBy: string | null
 }
@@ -83,8 +84,22 @@ export const DEFAULT_HOMEPAGE_CMS: HomepageCms = {
   enabled: false,
   hero: DEFAULT_HOMEPAGE_HERO,
   ticker: { intervalMs: DEFAULT_TICKER_INTERVAL_MS, items: DEFAULT_TICKER_ITEMS },
+  locations: { items: [] },
   updatedAt: null,
   updatedBy: null,
+}
+
+export type LocationsCmsItem = {
+  municipalitySlug: string
+  displayName: string
+  imageUrl: string
+  description?: string
+  order: number
+  published: boolean
+}
+
+export type HomepageCmsLocations = {
+  items: LocationsCmsItem[]
 }
 
 function toMillisSafe(value: unknown): number | null {
@@ -126,6 +141,23 @@ function parseTickerItem(raw: unknown, fallbackOrder: number): TickerItem | null
   }
 }
 
+function parseLocationItem(raw: unknown, fallbackOrder: number): LocationsCmsItem | null {
+  if (!raw || typeof raw !== 'object') return null
+  const r = raw as Record<string, unknown>
+  const slug = typeof r.municipalitySlug === 'string' ? r.municipalitySlug : null
+  const name = typeof r.displayName === 'string' ? r.displayName : null
+  const url = typeof r.imageUrl === 'string' ? r.imageUrl : null
+  if (!slug || !name || !url) return null
+  return {
+    municipalitySlug: slug,
+    displayName: name,
+    imageUrl: url,
+    description: typeof r.description === 'string' ? r.description : undefined,
+    order: typeof r.order === 'number' ? r.order : fallbackOrder,
+    published: typeof r.published === 'boolean' ? r.published : true,
+  }
+}
+
 /** Normalize a raw Firestore snapshot (client or admin SDK) into the app shape. */
 export function parseHomepageCms(raw: DocumentData | null | undefined): HomepageCms {
   if (!raw) return DEFAULT_HOMEPAGE_CMS
@@ -133,12 +165,21 @@ export function parseHomepageCms(raw: DocumentData | null | undefined): Homepage
   const ticker = (raw.ticker && typeof raw.ticker === 'object' ? raw.ticker : {}) as Partial<HomepageCmsTicker> & {
     items?: unknown
   }
-  const items = Array.isArray(ticker.items)
+  const tickerItems = Array.isArray(ticker.items)
     ? ticker.items
         .map((it, idx) => parseTickerItem(it, idx))
         .filter((it): it is TickerItem => it !== null)
         .sort((a, b) => a.order - b.order)
     : DEFAULT_TICKER_ITEMS
+  const locations = (raw.locations && typeof raw.locations === 'object' ? raw.locations : {}) as Partial<HomepageCmsLocations> & {
+    items?: unknown
+  }
+  const locationItems = Array.isArray(locations.items)
+    ? locations.items
+        .map((it, idx) => parseLocationItem(it, idx))
+        .filter((it): it is LocationsCmsItem => it !== null)
+        .sort((a, b) => a.order - b.order)
+    : []
   return {
     enabled: typeof raw.enabled === 'boolean' ? raw.enabled : false,
     hero: {
@@ -151,7 +192,10 @@ export function parseHomepageCms(raw: DocumentData | null | undefined): Homepage
         typeof ticker.intervalMs === 'number' && ticker.intervalMs >= 1000
           ? ticker.intervalMs
           : DEFAULT_TICKER_INTERVAL_MS,
-      items,
+      items: tickerItems,
+    },
+    locations: {
+      items: locationItems,
     },
     updatedAt: toMillisSafe(raw.updatedAt),
     updatedBy: typeof raw.updatedBy === 'string' ? raw.updatedBy : null,
@@ -185,6 +229,7 @@ type SaveInput = Partial<{
   enabled: boolean
   hero: HomepageCmsHero
   ticker: HomepageCmsTicker
+  locations: HomepageCmsLocations
 }>
 
 /**
@@ -205,6 +250,18 @@ function tickerItemForFirestore(item: TickerItem): DocumentData {
   return out
 }
 
+function locationItemForFirestore(item: LocationsCmsItem): DocumentData {
+  const out: DocumentData = {
+    municipalitySlug: item.municipalitySlug,
+    displayName: item.displayName,
+    imageUrl: item.imageUrl,
+    order: item.order,
+    published: item.published,
+  }
+  if (item.description) out.description = item.description
+  return out
+}
+
 /** Merge-write the homepage CMS doc. `uid` is the super_admin performing the save. */
 export async function saveHomepageCms(partial: SaveInput, uid: string): Promise<void> {
   const payload: DocumentData = {
@@ -217,6 +274,11 @@ export async function saveHomepageCms(partial: SaveInput, uid: string): Promise<
     payload.ticker = {
       intervalMs: partial.ticker.intervalMs,
       items: partial.ticker.items.map(tickerItemForFirestore),
+    }
+  }
+  if (partial.locations) {
+    payload.locations = {
+      items: partial.locations.items.map(locationItemForFirestore),
     }
   }
   await setDoc(homepageCmsDocRef(), payload, { merge: true })
@@ -304,4 +366,21 @@ export async function uploadTickerImage(
   })
   const url = await getDownloadURL(ref)
   return { ok: true, url }
+}
+
+export const uploadLocationImage = uploadTickerImage
+
+export function buildCountsByMunicipalitySlug(
+  activityByMuni: Map<string, number>,
+  packageByMuni: Map<string, number>,
+): Map<string, { activityCount: number; packageCount: number }> {
+  const result = new Map<string, { activityCount: number; packageCount: number }>()
+  const allSlugs = new Set([...activityByMuni.keys(), ...packageByMuni.keys()])
+  for (const slug of allSlugs) {
+    result.set(slug, {
+      activityCount: activityByMuni.get(slug) ?? 0,
+      packageCount: packageByMuni.get(slug) ?? 0,
+    })
+  }
+  return result
 }
