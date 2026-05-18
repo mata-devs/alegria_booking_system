@@ -27,11 +27,66 @@ import type { HomepageCmsHero, TickerItem } from '@/app/lib/homepage-cms'
  *  - Truly continuous — no snap-back from last item to first.
  */
 
-const LINE_HEIGHT_PX = 58
+const NEWS_ITEMS = [
+  { text: 'SIRAO GARDEN — CELOSIA IN FULL BLOOM', live: true },
+  { text: 'WHALE-SHARK SEASON · OSLOB' },
+  { text: '22°C IN THE HIGHLANDS TODAY' },
+  { text: '1,284 TRAVELERS BOOKED THIS WEEK', live: true },
+  { text: 'MALAPASCUA — THRESHER SHARK DIVING SEASON' },
+  { text: 'CANYONEERING SEASON NOW OPEN · BADIAN' },
+  { text: 'BANTAYAN ISLAND FERRY — DAILY DEPARTURES' },
+  { text: 'KAWASAN FALLS TREK — OPEN YEAR ROUND' },
+]
+
+function NewsTickerStrip() {
+  const trackRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = trackRef.current
+    if (!el) return
+    let pos = 0
+    let frame: number
+    const tick = () => {
+      pos += 0.4
+      const half = el.scrollWidth / 2
+      if (pos >= half) pos = 0
+      el.style.transform = `translateX(-${pos}px)`
+      frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
+  }, [])
+
+  const doubled = [...NEWS_ITEMS, ...NEWS_ITEMS]
+
+  return (
+    <div className="absolute bottom-0 left-0 right-0 z-20 overflow-hidden border-t border-white/10 bg-black/55 backdrop-blur-sm py-2.5">
+      <div ref={trackRef} className="flex w-max items-center gap-8 px-4">
+        {doubled.map((item, i) => (
+          <div key={i} className="flex shrink-0 items-center gap-2.5">
+            {item.live && (
+              <span className="flex items-center gap-1 rounded-full bg-green-500 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
+                LIVE
+              </span>
+            )}
+            <span className="text-[11px] font-semibold uppercase tracking-widest text-white/75">
+              {item.text}
+            </span>
+            <span className="text-white/25">·</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+const LINE_HEIGHT_PX = 50
 const VISIBLE_ROWS = 7
 const COPIES = 5
 const MIDDLE_COPY_INDEX = Math.floor(COPIES / 2) // = 2
-const OFFSET = Math.floor(VISIBLE_ROWS / 2) // = 3
+const OFFSET_DESKTOP = 3 // active item centered in 7 visible rows
+const OFFSET_MOBILE  = 2 // active item centered in 5 visible rows
 
 const OPACITY_CLASSES = ['opacity-100', 'opacity-[0.54]', 'opacity-[0.36]', 'opacity-[0.18]', 'opacity-[0.16]']
 function tickerOpacityClass(distance: number) {
@@ -54,6 +109,8 @@ export default function MunicipalityTicker({
 }: Props) {
   const [paused, setPaused] = useState(false)
   const reducedMotion = usePrefersReducedMotion()
+  const isMobile = useIsMobile()
+  const offset = isMobile ? OFFSET_MOBILE : OFFSET_DESKTOP
 
   const N = items.length
   const useLoop = N >= 2
@@ -71,9 +128,17 @@ export default function MunicipalityTicker({
   useEffect(() => {
     const el = ulRef.current
     if (!el) return
-    el.style.transform = `translateY(${-(position - OFFSET) * LINE_HEIGHT_PX}px)`
+    el.style.transform = `translateY(${-(position - offset) * LINE_HEIGHT_PX}px)`
     el.style.transition = reducedMotion || !animEnabled ? 'none' : 'transform 480ms ease-in-out'
-  }, [position, reducedMotion, animEnabled])
+  }, [position, reducedMotion, animEnabled, offset])
+
+  // When breakpoint flips (resize), snap without animating so the jump is invisible.
+  const prevOffsetRef = useRef(offset)
+  useEffect(() => {
+    if (prevOffsetRef.current === offset) return
+    prevOffsetRef.current = offset
+    setAnimEnabled(false)
+  }, [offset])
 
   const loopedItems = useMemo(
     () => (useLoop ? Array.from({ length: COPIES }, () => items).flat() : items),
@@ -132,7 +197,7 @@ export default function MunicipalityTicker({
   const active = items[activeSourceIndex]
 
   return (
-    <section className="relative min-h-[860px] sm:h-[85vh] sm:min-h-[600px]">
+    <section className="relative min-h-[900px] sm:h-[85vh] sm:min-h-[640px]">
       {items.map((it, i) =>
         loadedImgIndices.has(i) ? (
           <Image
@@ -192,7 +257,7 @@ export default function MunicipalityTicker({
             </div>
 
             <div
-              className="relative mx-auto h-[260px] w-full max-w-full [grid-area:ticker] md:mx-0 md:h-[406px] md:max-w-[500px]"
+              className="relative mx-auto h-[250px] w-full max-w-full [grid-area:ticker] md:mx-0 md:h-[350px] md:max-w-[500px]"
               role="region"
               aria-roledescription="ticker"
               aria-live="polite"
@@ -202,14 +267,14 @@ export default function MunicipalityTicker({
               onBlur={() => setPaused(false)}
             >
               <div
-                className="pointer-events-none absolute left-10 top-1/2 z-20 -translate-y-1/2 text-green-400 drop-shadow-lg"
+                className="pointer-events-none absolute left-10 top-[100px] md:top-[150px] z-20 flex h-[50px] items-center text-green-400 drop-shadow-lg"
                 aria-hidden
               >
                 <Play className="h-3.5 w-3.5 fill-current sm:h-5 sm:w-5" strokeWidth={0} />
               </div>
 
               <div className="absolute inset-0 overflow-hidden">
-                <div className="relative h-full -translate-y-[58px] sm:translate-y-0">
+                <div className="relative h-full">
                 <ul
                   ref={ulRef}
                   className="absolute inset-x-0 will-change-transform"
@@ -221,7 +286,7 @@ export default function MunicipalityTicker({
                     return (
                       <li
                         key={`${it.municipalitySlug}-${loopIndex}`}
-                        className={`h-[58px] ${tickerOpacityClass(distance)}`}
+                        className={`h-[50px] ${tickerOpacityClass(distance)}`}
                       >
                         <Link
                           href={`/locations/${it.municipalitySlug}`}
@@ -231,7 +296,7 @@ export default function MunicipalityTicker({
                             isActive ? 'text-white' : 'text-white/70 hover:text-white'
                           }`}
                         >
-                          <span className="truncate text-2xl drop-shadow sm:text-3xl lg:text-4xl">
+                          <span className={`drop-shadow text-2xl sm:text-3xl lg:text-4xl transition-transform duration-300 ease-out origin-left ${isActive ? 'scale-[1.18]' : 'scale-100'}`}>
                             {it.displayName}
                           </span>
                         </Link>
@@ -251,6 +316,8 @@ export default function MunicipalityTicker({
           </div>
         </div>
       </div>
+
+      <NewsTickerStrip />
     </section>
   )
 }
@@ -268,7 +335,7 @@ function ImageAttribution({ text, href }: { text: string; href?: string }) {
   // (search button on the left, floating notification widget on the right).
   // sm+ (desktop unchanged): bottom-right of the hero image.
   return (
-    <div className="pointer-events-none absolute bottom-2 right-3 z-30 sm:bottom-4 sm:right-4">
+    <div className="pointer-events-none absolute top-3 right-3 z-30 sm:top-4 sm:right-4">
       {href ? (
         <a
           href={href}
@@ -286,6 +353,19 @@ function ImageAttribution({ text, href }: { text: string; href?: string }) {
       )}
     </div>
   )
+}
+
+function useIsMobile(): boolean {
+  const [mobile, setMobile] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const mq = window.matchMedia('(max-width: 767px)')
+    setMobile(mq.matches)
+    const handler = (e: MediaQueryListEvent) => setMobile(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+  return mobile
 }
 
 function usePrefersReducedMotion(): boolean {

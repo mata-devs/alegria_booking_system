@@ -33,20 +33,27 @@ interface FSPackage {
   slug: string
 }
 
-
+interface MarqueeOperator {
+  uid: string
+  companyName: string
+  profileImage: string | null
+  activityTag: string
+}
 
 export default function HomeCarousels() {
   const [locations, setLocations] = useState<Location[]>([])
   const [locationsReady, setLocationsReady] = useState(false)
   const [activities, setActivities] = useState<Activity[]>([])
   const [packages, setPackages] = useState<FSPackage[]>([])
+  const [marqueeOperators, setMarqueeOperators] = useState<MarqueeOperator[]>([])
 
   useEffect(() => {
     async function fetchAll() {
       try {
-        const [actSnap, pkgSnap] = await Promise.all([
-          getDocs(query(collection(firebaseDb, 'activities'), firestoreWhere('status', '==', 'active'), limit(12))),
+        const [actSnap, pkgSnap, opSnap] = await Promise.all([
+          getDocs(query(collection(firebaseDb, 'activities'), firestoreWhere('status', '==', 'active'), limit(15))),
           getDocs(query(collection(firebaseDb, 'tourPackages'), firestoreWhere('status', '==', 'active'), limit(8))),
+          getDocs(query(collection(firebaseDb, 'users'), firestoreWhere('role', '==', 'operator'), firestoreWhere('status', '==', 'active'), limit(20))),
         ])
 
         const mappedActivities: Activity[] = actSnap.docs.map((d, idx) => {
@@ -65,6 +72,22 @@ export default function HomeCarousels() {
           }
         })
         setActivities(mappedActivities)
+
+        const operatorTagMap = new Map<string, string>()
+        for (const d of actSnap.docs) {
+          const opId = d.data().operatorId as string | undefined
+          const tag = d.data().activityTag as string | undefined
+          if (opId && tag && !operatorTagMap.has(opId)) operatorTagMap.set(opId, tag)
+        }
+        setMarqueeOperators(opSnap.docs.map((d) => {
+          const data = d.data()
+          return {
+            uid: d.id,
+            companyName: data.companyName || `${data.firstName ?? ''} ${data.lastName ?? ''}`.trim() || 'Tour Operator',
+            profileImage: typeof data.profileImage === 'string' && data.profileImage.startsWith('http') ? data.profileImage : null,
+            activityTag: operatorTagMap.get(d.id) ?? 'Tour Operator',
+          }
+        }))
 
         const activityByMuni = countByActivityLocation(actSnap)
         const packageByMuni = countByPackageLocation(pkgSnap)
@@ -155,26 +178,26 @@ export default function HomeCarousels() {
         <h2 className="mb-8 text-center text-2xl font-bold text-gray-900 sm:text-3xl">Top Activities</h2>
         {activities.length > 0 ? (
           <>
-            <div className="grid grid-cols-1 gap-1 sm:grid-cols-2 lg:grid-cols-3">
-              {activities.map((act, idx) => (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 lg:gap-3">
+              {activities.slice(0, 15).map((act, idx) => (
                 <Link
                   key={act.firestoreId}
                   href={`/activities/${act.firestoreId}`}
-                  className="flex items-center gap-4 rounded-2xl p-3 transition-colors hover:bg-gray-50"
+                  className="flex items-center gap-5 rounded-2xl p-4 transition-colors hover:bg-gray-50"
                 >
-                  <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-xl">
+                  <div className="relative h-[120px] w-[120px] shrink-0 overflow-hidden rounded-2xl">
                     <Image
-                      src={act.image || `https://picsum.photos/seed/${act.firestoreId}/80/80`}
+                      src={act.image || `https://picsum.photos/seed/${act.firestoreId}/200/200`}
                       alt={act.title}
                       fill
-                      sizes="72px"
+                      sizes="120px"
                       className="object-cover"
                       loading="lazy"
                     />
                   </div>
                   <div className="min-w-0">
-                    <p className="truncate font-bold text-gray-900">{act.title}</p>
-                    <p className="mt-0.5 text-sm text-gray-400">{activitySubtitles[idx]}</p>
+                    <p className="truncate text-lg font-bold text-gray-900">{act.title}</p>
+                    <p className="mt-1 text-sm text-gray-400">{activitySubtitles[idx]}</p>
                   </div>
                 </Link>
               ))}
@@ -234,7 +257,7 @@ export default function HomeCarousels() {
         )}
       </section>
 
-      <OperatorsMarquee />
+      <OperatorsMarquee operators={marqueeOperators} />
 
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 pb-12 sm:pb-16">
         <h2 className="mb-6 text-center text-2xl font-bold text-gray-900 sm:text-3xl">Offers for you</h2>
@@ -326,20 +349,7 @@ export default function HomeCarousels() {
   )
 }
 
-const MOCK_OPERATORS = [
-  { name: 'Alegria Eco Tours', type: 'Nature & Adventure' },
-  { name: 'Cebu Island Hoppers', type: 'Island Tours' },
-  { name: 'Moalboal Dive Center', type: 'Diving & Snorkeling' },
-  { name: 'Oslob Whale Shark Tours', type: 'Wildlife Experience' },
-  { name: 'Bantayan Sea Adventures', type: 'Beach & Water Sports' },
-  { name: 'Malapascua Divers', type: 'Diving' },
-  { name: 'Cebu Highland Trekkers', type: 'Hiking & Trekking' },
-  { name: 'Mactan Water Sports', type: 'Water Sports' },
-  { name: 'SouthCebu Zipline Co.', type: 'Adventure' },
-  { name: 'Camotes Island Tours', type: 'Island Tours' },
-]
-
-function OperatorsMarquee() {
+function OperatorsMarquee({ operators }: { operators: MarqueeOperator[] }) {
   const trackRef = useRef<HTMLDivElement>(null)
   const sectionRef = useRef<HTMLElement>(null)
   const pausedRef = useRef(false)
@@ -354,7 +364,7 @@ function OperatorsMarquee() {
     )
     observer.observe(section)
     return () => observer.disconnect()
-  }, [])
+  }, [operators.length])
 
   useEffect(() => {
     const el = trackRef.current
@@ -372,9 +382,11 @@ function OperatorsMarquee() {
     }
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [])
+  }, [operators.length])
 
-  const doubled = [...MOCK_OPERATORS, ...MOCK_OPERATORS]
+  if (operators.length === 0) return null
+
+  const doubled = [...operators, ...operators]
 
   return (
     <section ref={sectionRef} className="py-8 pb-12 sm:pb-16 overflow-hidden">
@@ -388,25 +400,26 @@ function OperatorsMarquee() {
       >
         <div ref={trackRef} className="flex gap-6 w-max px-4">
           {doubled.map((op, i) => (
-            <div
-              key={i}
-              className="flex shrink-0 items-center gap-3 w-[200px] sm:w-[220px] cursor-pointer"
+            <Link
+              href={`/operators/${op.uid}`}
+              key={`${op.uid}-${i}`}
+              className="flex shrink-0 items-center gap-3 w-[200px] sm:w-[220px] group"
             >
               <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl">
                 <Image
-                  src={`https://picsum.photos/seed/${encodeURIComponent(op.name)}/80/80`}
-                  alt={op.name}
+                  src={op.profileImage ?? `https://picsum.photos/seed/${encodeURIComponent(op.companyName)}/80/80`}
+                  alt={op.companyName}
                   fill
                   sizes="56px"
-                  className="object-cover"
+                  className="object-cover group-hover:scale-105 transition-transform duration-300"
                   loading="lazy"
                 />
               </div>
               <div className="min-w-0">
-                <p className="truncate font-bold text-gray-900 text-sm">{op.name}</p>
-                <p className="mt-0.5 text-xs text-gray-400">{op.type}</p>
+                <p className="truncate font-bold text-gray-900 text-sm group-hover:text-green-600 transition-colors">{op.companyName}</p>
+                <p className="mt-0.5 text-xs text-gray-400">{op.activityTag}</p>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </div>
