@@ -1,0 +1,27 @@
+import { onDocumentUpdated } from "firebase-functions/v2/firestore";
+import * as logger from "firebase-functions/logger";
+import { auth } from "../shared/firebase";
+
+export const syncOperatorAuthStatus = onDocumentUpdated(
+  { document: "users/{userId}", region: "us-central1" },
+  async (event) => {
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+
+    if (!before || !after) return;
+    if (before.status === after.status) return;
+    if (after.role !== "operator") return;
+
+    const userId = event.params.userId;
+    const disabled = after.status === "suspended";
+
+    try {
+      await auth.updateUser(userId, { disabled });
+      logger.info(
+        `Auth account ${userId} ${disabled ? "disabled" : "enabled"} (status: ${after.status})`
+      );
+    } catch (err) {
+      logger.error(`Failed to update auth for ${userId}:`, err);
+    }
+  }
+);

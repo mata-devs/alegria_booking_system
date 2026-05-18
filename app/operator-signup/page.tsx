@@ -1,15 +1,16 @@
 'use client';
 
 import { Suspense, useState, useEffect, useRef, type ChangeEvent, type FormEvent } from 'react';
-import { collection, addDoc, serverTimestamp, doc, getDoc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, getDoc, deleteDoc, query, where, getDocs } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { firebaseDb, firebaseStorage } from '@/lib/firebase';
+import { firebaseDb, firebaseStorage } from '@/app/lib/firebase';
 import { Upload, X, FileImage, ArrowLeft, ShieldX } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
 interface FormData {
   name: string;
+  companyName: string;
   phoneNumber: string;
   mobileNumber: string;
   email: string;
@@ -42,6 +43,7 @@ function OperatorSignUpContent() {
 
   const [form, setForm] = useState<FormData>({
     name: '',
+    companyName: '',
     phoneNumber: '',
     mobileNumber: '',
     email: '',
@@ -53,11 +55,12 @@ function OperatorSignUpContent() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emailTakenError, setEmailTakenError] = useState<string | null>(null);
+  const [checkingEmail, setCheckingEmail] = useState(false);
 
   const photoInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Validate token on mount
   useEffect(() => {
     async function validateToken() {
       const token = searchParams.get('token');
@@ -81,6 +84,45 @@ function OperatorSignUpContent() {
 
   function handleInput(e: ChangeEvent<HTMLInputElement>) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    if (e.target.name === 'email') setEmailTakenError(null);
+  }
+
+  async function checkEmailAvailable(email: string): Promise<boolean> {
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed) return true;
+    setCheckingEmail(true);
+    try {
+      const [reqSnap, userSnap] = await Promise.all([
+        getDocs(query(
+          collection(firebaseDb, 'operator_signup_requests'),
+          where('email', '==', trimmed),
+        )),
+        getDocs(query(
+          collection(firebaseDb, 'users'),
+          where('email', '==', trimmed),
+        )),
+      ]);
+
+      const hasActiveRequest = reqSnap.docs.some((d) => {
+        const s = d.data().status;
+        return s === 'pending' || s === 'approved';
+      });
+
+      if (hasActiveRequest) {
+        setEmailTakenError('An application with this email already exists.');
+        return false;
+      }
+      if (!userSnap.empty) {
+        setEmailTakenError('An account with this email already exists.');
+        return false;
+      }
+      setEmailTakenError(null);
+      return true;
+    } catch {
+      return true;
+    } finally {
+      setCheckingEmail(false);
+    }
   }
 
   function handlePhotoChange(e: ChangeEvent<HTMLInputElement>) {
@@ -140,8 +182,8 @@ function OperatorSignUpContent() {
     e.preventDefault();
     setError(null);
 
-    if (!form.name.trim() || !form.email.trim()) {
-      setError('Name and email are required.');
+    if (!form.name.trim() || !form.companyName.trim() || !form.email.trim()) {
+      setError('Name, company name, and email are required.');
       return;
     }
 
@@ -155,13 +197,14 @@ function OperatorSignUpContent() {
       return;
     }
 
+    const emailAvailable = await checkEmailAvailable(form.email);
+    if (!emailAvailable) return;
+
     setSubmitting(true);
 
     try {
-      // Generate a temporary ID for storage paths
       const tempId = crypto.randomUUID();
 
-      // Upload photo
       let photoUrl: string | null = null;
       if (photo) {
         const photoRef = ref(
@@ -172,7 +215,6 @@ function OperatorSignUpContent() {
         photoUrl = await getDownloadURL(photoRef);
       }
 
-      // Upload documents
       const uploadedDocs: { name: string; url: string }[] = [];
       for (const doc of documents) {
         const docRef = ref(
@@ -184,10 +226,10 @@ function OperatorSignUpContent() {
         uploadedDocs.push({ name: doc.name, url });
       }
 
-      // Save to Firestore
       await addDoc(collection(firebaseDb, 'operator_signup_requests'), {
         applicantId: `I${tempId.replace(/-/g, '').slice(0, 5).toUpperCase()}`,
         name: form.name,
+        companyName: form.companyName,
         email: form.email,
         phoneNumber: form.phoneNumber,
         mobileNumber: form.mobileNumber,
@@ -199,7 +241,7 @@ function OperatorSignUpContent() {
         reviewedAt: null,
       });
 
-      // Invalidate the signup link so it can't be reused
+      // Invalidate token so link can't be reused
       await deleteDoc(doc(firebaseDb, 'app_config', 'operator_signup_link'));
 
       setSubmitted(true);
@@ -210,7 +252,7 @@ function OperatorSignUpContent() {
       setSubmitting(false);
     }
   }
-// TODO: add time limit
+
   if (tokenValid === null) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
@@ -279,9 +321,7 @@ function OperatorSignUpContent() {
           Operator Sign Up Form
         </h1>
 
-        {/* Photo + fields */}
         <div className="mt-8 flex gap-6">
-          {/* Photo upload */}
           <div className="relative h-28 w-28 shrink-0">
             <button
               type="button"
@@ -312,13 +352,21 @@ function OperatorSignUpContent() {
             onChange={handlePhotoChange}
           />
 
-          {/* Form fields */}
           <div className="flex-1 space-y-3">
             <div>
               <label className="text-xs font-semibold text-gray-700">Name</label>
               <input
                 name="name"
                 value={form.name}
+                onChange={handleInput}
+                className="mt-0.5 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-[#558B2F] focus:outline-none focus:ring-1 focus:ring-[#558B2F]"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-700">Company / Agency Name</label>
+              <input
+                name="companyName"
+                value={form.companyName}
                 onChange={handleInput}
                 className="mt-0.5 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-[#558B2F] focus:outline-none focus:ring-1 focus:ring-[#558B2F]"
               />
@@ -348,8 +396,15 @@ function OperatorSignUpContent() {
                 type="email"
                 value={form.email}
                 onChange={handleInput}
-                className="mt-0.5 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-[#558B2F] focus:outline-none focus:ring-1 focus:ring-[#558B2F]"
+                onBlur={() => { if (form.email.trim()) checkEmailAvailable(form.email); }}
+                className={`mt-0.5 w-full rounded-md border px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 ${emailTakenError ? 'border-red-400 focus:border-red-400 focus:ring-red-200' : 'border-gray-300 focus:border-[#558B2F] focus:ring-[#558B2F]'}`}
               />
+              {checkingEmail && (
+                <p className="mt-0.5 text-xs text-gray-400">Checking…</p>
+              )}
+              {emailTakenError && (
+                <p className="mt-0.5 text-xs text-red-500">{emailTakenError}</p>
+              )}
             </div>
             <div>
               <label className="text-xs font-semibold text-gray-700">Address</label>
@@ -364,7 +419,6 @@ function OperatorSignUpContent() {
           </div>
         </div>
 
-        {/* Required documents section */}
         <div className="mt-8">
           <h2 className="text-lg font-bold text-gray-900">Required Documents</h2>
           <p className="mt-2 text-sm text-gray-500">
@@ -381,9 +435,7 @@ function OperatorSignUpContent() {
           </ul>
         </div>
 
-        {/* File upload area */}
         <div className="mt-6 flex gap-4">
-          {/* Drop zone */}
           <div
             onDrop={handleFileDrop}
             onDragOver={(e) => e.preventDefault()}
@@ -408,7 +460,6 @@ function OperatorSignUpContent() {
             />
           </div>
 
-          {/* Uploaded files list */}
           <div className="flex-1 rounded-xl border border-gray-200 divide-y divide-gray-100">
             {documents.length === 0 ? (
               <p className="px-4 py-6 text-center text-xs text-gray-400">
@@ -437,12 +488,10 @@ function OperatorSignUpContent() {
           </div>
         </div>
 
-        {/* Error message */}
         {error && (
           <p className="mt-4 text-center text-sm text-red-500">{error}</p>
         )}
 
-        {/* Submit button */}
         <div className="mt-8 flex justify-center">
           <button
             type="submit"

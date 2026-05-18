@@ -1,51 +1,42 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono, Poppins } from "next/font/google";
-import "./globals.css";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
-
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+import type { Metadata } from 'next'
+import { Poppins } from 'next/font/google'
+import './globals.css'
+import { BookingProvider } from './context/BookingContext'
 
 const poppins = Poppins({
   subsets: ['latin'],
-  weight: ['400', '600', '700'], // Choose only what you need to keep bundle size small
-  variable: '--font-poppins',    // Optional: for use with Tailwind or CSS variables
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-poppins',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
-  title: "Alegria Booking System",
-  description: "Alegria Booking System",
-};
+  title: 'VisitCebu',
+  description: 'Your Gateway to Tropical Adventure in Cebu, Philippines',
+}
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-
-  // const pathname = usePathname();
-
-  // const showNavbar = ["/", "/booking"];
-
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} ${poppins.variable} antialiased`}
-      >
-        {/* {showNavbar.includes(pathname) && <Navbar />} */}
-        <Navbar />
-        {children}
-        <Footer />
+    <html lang="en" className={poppins.variable}>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Potta+One&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      {/*
+        suppressHydrationWarning on <body> avoids false-positive hydration
+        errors from browser extensions (ColorZilla, Grammarly, LastPass, Dark
+        Reader, etc.) that mutate body attributes before React hydrates.
+        It only suppresses warnings for THIS element's own attributes — child
+        component hydration is still strictly checked.
+      */}
+      <body suppressHydrationWarning>
+        <BookingProvider>{children}</BookingProvider>
       </body>
     </html>
-  );
+  )
 }

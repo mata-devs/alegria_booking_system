@@ -1,0 +1,152 @@
+'use client';
+
+import React, { useMemo, useState } from 'react';
+import BookingRequestsPanel from '@/app/(operator)/operator/bookings/list';
+import BookingDetailsCard, { type Booking } from '@/app/(operator)/operator/bookings/details';
+import FilterModal, {
+  createEmptyFilters,
+  type BookingFilters,
+  type Status,
+} from '@/app/(operator)/operator/bookings/modalfilter';
+import { useOperatorBookings } from '@/app/hooks/useOperatorBookings';
+import { useAuth } from '@/app/context/AuthContext';
+import { firestoreToBooking } from '@/app/lib/firestoreToBooking';
+
+export default function Page() {
+  const { authState } = useAuth();
+  const operatorUid = authState.status === 'authenticated' ? authState.user.uid : undefined;
+  const { bookings: firestoreBookings, loading, error } = useOperatorBookings(operatorUid);
+
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [filtersDraft, setFiltersDraft] = useState<BookingFilters>(createEmptyFilters());
+  const [filtersApplied, setFiltersApplied] = useState<BookingFilters>(createEmptyFilters());
+  const bookingsById = useMemo<Record<string, Booking>>(() => {
+    const record: Record<string, Booking> = {};
+
+    for (const doc of firestoreBookings) {
+      // History shows only completed / cancelled bookings
+      if (doc.status !== 'completed' && doc.status !== 'cancelled') continue;
+
+      const booking = firestoreToBooking(doc);
+      record[booking.id] = booking;
+    }
+
+    return record;
+  }, [firestoreBookings]);
+  const bookings = useMemo(() => Object.values(bookingsById), [bookingsById]);
+  const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
+  const selectedBooking = selectedId ? bookingsById[selectedId] : undefined;
+  const [searchBy, setSearchBy] = useState<'Representative' | 'Booking ID'>('Representative');
+  const [query, setQuery] = useState('');
+
+  const filteredBookings = useMemo(() => {
+    const q = query.trim().toLowerCase();
+
+    const toDateOnly = (s?: string) => {
+      if (!s) return null;
+      const d = new Date(s);
+      return Number.isNaN(d.getTime()) ? null : d;
+    };
+
+    const schedFrom = toDateOnly(filtersApplied.scheduleFrom);
+    const schedTo = toDateOnly(filtersApplied.scheduleTo);
+    const reqFrom = toDateOnly(filtersApplied.requestFrom);
+    const reqTo = toDateOnly(filtersApplied.requestTo);
+
+    return bookings.filter((b) => {
+      // ---- SEARCH ----
+      const matchesSearch =
+          !q ||
+          (searchBy === 'Representative'
+              ? (b.representative?.name ?? '').toLowerCase().includes(q)
+              : (b.bookingIdLabel ?? b.id).toLowerCase().includes(q));
+
+      if (!matchesSearch) return false;
+
+      // ---- STATUS (Reserved/Processing/Paid only) ----
+      if (filtersApplied.status.size > 0) {
+        if (!filtersApplied.status.has(b.status as Status)) return false;
+      }
+
+      // ---- GUESTS (exact match) ----
+      if (filtersApplied.guests.trim() !== '') {
+        const g = Number(filtersApplied.guests);
+        if (!Number.isNaN(g) && b.payment.qty !== g) return false;
+      }
+
+      // ---- SCHEDULE range (scheduleLabel like "Jan 6, 2026") ----
+      const sched = toDateOnly(b.scheduleLabel);
+      if (schedFrom && sched && sched < schedFrom) return false;
+      if (schedTo && sched && sched > schedTo) return false;
+
+      // ---- REQUEST DATE range (requestDate like "12/5/25") ----
+      const req = toDateOnly(b.requestDate);
+      if (reqFrom && req && req < reqFrom) return false;
+      if (reqTo && req && req > reqTo) return false;
+
+      return true;
+    });
+  }, [bookings, query, searchBy, filtersApplied]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-3rem)]">
+        <div className="text-sm text-gray-500">Loading booking history…</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-3rem)]">
+        <div className="text-sm text-red-500">Failed to load booking history: {error}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col lg:flex-row lg:items-stretch gap-4 lg:h-[calc(100vh-3rem)]">
+      <div className="flex-1 min-w-0 min-h-0">
+        <BookingRequestsPanel
+          bookings={filteredBookings}
+          selectedId={selectedId}
+          onSelect={(id: string) => setSelectedId(id)}
+          searchBy={searchBy}
+          setSearchBy={setSearchBy}
+          query={query}
+          setQuery={setQuery}
+          onOpenFilters={() => setIsFilterOpen(true)}
+          title="Booking History"
+        />
+      </div>
+
+      <div className="hidden lg:flex w-96 shrink-0 flex-col gap-4 overflow-y-auto">
+        <BookingDetailsCard
+          booking={selectedBooking}
+          onClose={selectedBooking ? () => setSelectedId(undefined) : undefined}
+        />
+      </div>
+
+      {selectedBooking && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setSelectedId(undefined)} />
+          <div className="absolute inset-y-0 right-0 w-full max-w-sm bg-white shadow-xl overflow-y-auto">
+            <BookingDetailsCard booking={selectedBooking} onClose={() => setSelectedId(undefined)} />
+          </div>
+        </div>
+      )}
+
+      <FilterModal
+        open={isFilterOpen}
+        onClose={() => setIsFilterOpen(false)}
+        filters={filtersDraft}
+        setFilters={setFiltersDraft}
+        onClear={() => setFiltersDraft(createEmptyFilters())}
+        onApply={() => {
+          setFiltersApplied(filtersDraft);
+          setIsFilterOpen(false);
+        }}
+      />
+    </div>
+  );
+}
