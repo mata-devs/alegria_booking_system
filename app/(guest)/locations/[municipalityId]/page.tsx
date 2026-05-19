@@ -196,7 +196,6 @@ export default function MunicipalityView() {
     [packages, activeFilter],
   )
 
-  const heroImage = cmsHeroImage ?? `https://picsum.photos/seed/${encodeURIComponent(municipalityId)}-map/1400/480`
   const hasAny =
     filteredActivities.length > 0 || filteredPackages.length > 0
   const hasAnyUnfiltered = activities.length > 0 || packages.length > 0
@@ -205,14 +204,18 @@ export default function MunicipalityView() {
     <div className="min-h-screen flex flex-col bg-white">
       <section className="relative overflow-hidden">
         <div className="relative w-full h-[50vh] min-h-[220px]">
-          <Image
-            src={heroImage}
-            alt={municipalityName}
-            fill
-            sizes="100vw"
-            className="object-cover"
-            priority
-          />
+          {cmsHeroImage ? (
+            <Image
+              src={cmsHeroImage}
+              alt={municipalityName}
+              fill
+              sizes="100vw"
+              className="object-cover"
+              priority
+            />
+          ) : (
+            <div className="absolute inset-0 bg-green-900" />
+          )}
         </div>
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/50" />
         <div className="absolute top-0 left-0 px-8 md:px-16 pt-5">
@@ -232,7 +235,7 @@ export default function MunicipalityView() {
         </div>
       </section>
 
-      <div className="relative z-10 -mt-8 px-4 sm:px-6 md:px-16 mb-4">
+      <div className="relative z-30 -mt-8 px-4 sm:px-6 md:px-16 mb-4">
         <SearchBar defaultWhere={municipalityName} className="max-w-4xl mx-auto" />
       </div>
 

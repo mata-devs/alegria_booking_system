@@ -1,10 +1,36 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 import { collection, getDocs, query, where as firestoreWhere } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
+import { getHomepageCmsClient } from '@/app/lib/homepage-cms'
+import {
+  countByActivityLocation,
+  countByPackageLocation,
+  mergeGuestLocations,
+} from '@/app/lib/guest-location-list'
+
+type LocationSuggestion = {
+  name: string
+  slug: string
+  activityCount: number
+  packageCount: number
+  imageUrl?: string
+}
+
+function formatOfferSubtitle(loc: LocationSuggestion): string {
+  const parts: string[] = []
+  if (loc.activityCount > 0) {
+    parts.push(`${loc.activityCount} ${loc.activityCount === 1 ? 'activity' : 'activities'}`)
+  }
+  if (loc.packageCount > 0) {
+    parts.push(`${loc.packageCount} ${loc.packageCount === 1 ? 'package' : 'packages'}`)
+  }
+  const offers = parts.length > 0 ? parts.join(' · ') : 'No offers yet'
+  return `${offers} · Cebu, Philippines`
+}
 
 interface Props {
   className?: string
@@ -25,7 +51,7 @@ export default function SearchBar({
   const [when, setWhen] = useState(defaultWhen)
   const [travelers, setTravelers] = useState(defaultTravelers)
   const [showSuggestions, setShowSuggestions] = useState(false)
-  const [locationData, setLocationData] = useState<{ name: string; count: number }[]>([])
+  const [locationData, setLocationData] = useState<LocationSuggestion[]>([])
   const desktopWhereRef = useRef<HTMLDivElement>(null)
   const mobileWrapperRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
@@ -33,15 +59,35 @@ export default function SearchBar({
   useEffect(() => {
     async function fetchLocations() {
       try {
-        const snap = await getDocs(query(collection(firebaseDb, 'activities'), firestoreWhere('status', '==', 'active')))
-        const counts: Record<string, number> = {}
-        snap.docs.forEach((d) => {
-          const loc = d.data().activityLocation as string
-          if (loc) counts[loc] = (counts[loc] ?? 0) + 1
-        })
+        const [actSnap, pkgSnap, cms] = await Promise.all([
+          getDocs(query(collection(firebaseDb, 'activities'), firestoreWhere('status', '==', 'active'))),
+          getDocs(query(collection(firebaseDb, 'tourPackages'), firestoreWhere('status', '==', 'active'))),
+          getHomepageCmsClient(),
+        ])
+        const activityByMuni = countByActivityLocation(actSnap)
+        const packageByMuni = countByPackageLocation(pkgSnap)
+        const live = mergeGuestLocations(activityByMuni, packageByMuni)
+
+        const cmsImageBySlug = new Map(
+          cms.locations.items
+            .filter((i) => i.published && i.imageUrl.trim())
+            .map((i) => [i.municipalitySlug, i.imageUrl] as const),
+        )
+        const cmsImageByName = new Map(
+          cms.locations.items
+            .filter((i) => i.published && i.imageUrl.trim())
+            .map((i) => [i.displayName, i.imageUrl] as const),
+        )
+
         setLocationData(
-          Object.entries(counts)
-            .map(([name, count]) => ({ name, count }))
+          live
+            .map((loc) => ({
+              name: loc.name,
+              slug: loc.id,
+              activityCount: loc.activityCount,
+              packageCount: loc.packageCount ?? 0,
+              imageUrl: cmsImageBySlug.get(loc.id) ?? cmsImageByName.get(loc.name),
+            }))
             .sort((a, b) => a.name.localeCompare(b.name)),
         )
       } catch {
@@ -100,26 +146,35 @@ export default function SearchBar({
   }, [])
 
   const suggestionDropdown = (
-    <div className="absolute top-full left-0 right-0 bg-white border border-gray-100 rounded-2xl shadow-xl z-50 mt-2 overflow-y-auto max-h-[232px]">
+    <div className="absolute top-full left-0 right-0 z-[100] mt-2 max-h-[232px] overflow-y-auto rounded-2xl border border-gray-100 bg-white shadow-xl">
       {suggestions.length > 0 ? (
         suggestions.map((loc) => (
           <button
-            key={loc.name}
+            key={loc.slug}
             onMouseDown={(e) => { e.preventDefault(); selectLocation(loc.name) }}
             className="w-full flex items-center gap-3 px-4 py-3 hover:bg-green-50 transition-colors text-left"
           >
-            <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0">
-              <Image
-                src={`https://picsum.photos/seed/${encodeURIComponent(loc.name)}/80/80`}
-                alt={loc.name}
-                fill
-                sizes="40px"
-                className="object-cover"
-              />
+            <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-green-100">
+              {loc.imageUrl ? (
+                <Image
+                  src={loc.imageUrl}
+                  alt={loc.name}
+                  fill
+                  sizes="40px"
+                  className="object-cover"
+                  unoptimized
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center">
+                  <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              )}
             </div>
             <div>
               <p className="text-sm font-medium text-gray-800">{loc.name}</p>
-              <p className="text-xs text-gray-400">{loc.count} {loc.count === 1 ? 'activity' : 'activities'} · Cebu, Philippines</p>
+              <p className="text-xs text-gray-400">{formatOfferSubtitle(loc)}</p>
             </div>
           </button>
         ))
@@ -130,10 +185,10 @@ export default function SearchBar({
   )
 
   return (
-    <div className={`${className}`}>
+    <div className={`relative z-50 isolate ${className}`}>
       {/* Desktop */}
-      <div className="hidden sm:flex bg-white rounded-full shadow-2xl items-stretch overflow-visible relative">
-        <div ref={desktopWhereRef} className="relative flex-1 min-w-0">
+      <div className="relative hidden sm:flex items-stretch overflow-visible rounded-full bg-white shadow-2xl">
+        <div ref={desktopWhereRef} className={`relative flex-1 min-w-0 ${showSuggestions ? 'z-[60]' : ''}`}>
           <div className="flex items-center gap-3 px-6 py-4">
             <div className="bg-green-50 rounded-full p-2 shrink-0">
               <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -204,7 +259,7 @@ export default function SearchBar({
 
       {/* Mobile */}
       <div ref={mobileWrapperRef} className="sm:hidden bg-white rounded-2xl shadow-2xl overflow-visible">
-        <div className="relative">
+        <div className={`relative ${showSuggestions ? 'z-[60]' : ''}`}>
           <div className="flex items-center gap-3 px-4 py-3">
             <div className="bg-green-50 rounded-full p-2 shrink-0">
               <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
