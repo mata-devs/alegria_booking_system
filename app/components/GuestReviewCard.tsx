@@ -1,6 +1,6 @@
 'use client'
 
-import { CircleFlag } from 'react-circle-flags'
+import { DynamicFlag } from '@sankyu/react-circle-flags'
 import type { ApprovedReview } from '@/app/lib/reviews-service'
 
 function formatReviewDate(d: Date | null): string {
@@ -50,7 +50,7 @@ export function GuestReviewCard({ review, itemTitle }: GuestReviewCardProps) {
           <div className="flex flex-wrap items-center gap-1.5">
             <p className="font-semibold text-gray-900">{review.reviewerName}</p>
             {review.reviewerCountry ? (
-              <CircleFlag countryCode={review.reviewerCountry.toLowerCase()} className="w-4 h-4 shrink-0" />
+              <DynamicFlag code={review.reviewerCountry.toLowerCase()} className="w-4 h-4 shrink-0" />
             ) : null}
           </div>
           {dateStr ? (
