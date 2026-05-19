@@ -14,6 +14,7 @@ import {
   countByPackageLocation,
   allCebuMunicipalitiesAsLocations,
 } from '@/app/lib/guest-location-list'
+import { getHomepageCmsClient } from '@/app/lib/homepage-cms'
 import { getAllApprovedReviewsForCatalog, type CatalogReview } from '@/app/lib/reviews-service'
 import type { Location } from '@/app/types'
 
@@ -31,13 +32,31 @@ export default function LocationsPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [actSnap, pkgSnap] = await Promise.all([
+        const [actSnap, pkgSnap, cms] = await Promise.all([
           getDocs(query(collection(firebaseDb, 'activities'), firestoreWhere('status', '==', 'active'))),
           getDocs(query(collection(firebaseDb, 'tourPackages'), firestoreWhere('status', '==', 'active'))),
+          getHomepageCmsClient(),
         ])
         const activityByMuni = countByActivityLocation(actSnap)
         const packageByMuni = countByPackageLocation(pkgSnap)
-        setLocations(allCebuMunicipalitiesAsLocations(activityByMuni, packageByMuni))
+
+        const publishedCmsItems = cms.locations.items
+          .filter((item) => item.published)
+          .sort((a, b) => a.order - b.order)
+
+        if (publishedCmsItems.length > 0) {
+          setLocations(
+            publishedCmsItems.map((item) => ({
+              id: item.municipalitySlug,
+              name: item.displayName,
+              image: item.imageUrl,
+              activityCount: activityByMuni.get(item.displayName) ?? 0,
+              packageCount: packageByMuni.get(item.displayName) ?? 0,
+            })),
+          )
+        } else {
+          setLocations(allCebuMunicipalitiesAsLocations(activityByMuni, packageByMuni))
+        }
       } catch (e) {
         console.error('Failed to load locations list:', e)
         setLocations([])
@@ -90,7 +109,7 @@ export default function LocationsPage() {
         <div className="absolute top-0 left-0 px-8 md:px-16 pt-5">
           <nav className="text-white/80 text-sm">
             <Link href="/" className="hover:text-white transition-colors">Home</Link>
-            <span className="mx-2">â€º</span>
+            <span className="mx-2">›</span>
             <span className="text-white font-medium">Cebu Locations</span>
           </nav>
         </div>
@@ -124,7 +143,7 @@ export default function LocationsPage() {
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5 mb-8">
           {listLoading ? (
-            <div className="col-span-full h-48 flex items-center justify-center text-sm text-gray-500">Loading locationsâ€¦</div>
+            <div className="col-span-full h-48 flex items-center justify-center text-sm text-gray-500">Loading locations…</div>
           ) : visible.length === 0 ? (
             <div className="col-span-full h-48 flex items-center justify-center text-sm text-gray-500 text-center px-4">
               No locations found.
@@ -182,9 +201,9 @@ export default function LocationsPage() {
             Reviews from guests across activities and tour packages (published reviews only).
           </p>
           {reviewsLoading ? (
-            <div className="text-sm text-gray-500 py-16 text-center">Loading reviewsâ€¦</div>
+            <div className="text-sm text-gray-500 py-16 text-center">Loading reviews…</div>
           ) : reviews.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-12 italic">No reviews yet â€” be one of the first to book and leave feedback!</p>
+            <p className="text-sm text-gray-400 text-center py-12 italic">No reviews yet – be one of the first to book and leave feedback!</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {reviews.map((r) => (

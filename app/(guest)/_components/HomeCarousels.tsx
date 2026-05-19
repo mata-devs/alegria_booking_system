@@ -183,7 +183,7 @@ export default function HomeCarousels() {
       <section className="mx-auto max-w-7xl px-6 py-8 sm:py-12 lg:px-8">
         <h2 className="mb-8 text-center text-2xl font-bold text-gray-900 sm:text-3xl">Top Locations</h2>
         {!locationsReady ? (
-          <div className="flex h-72 items-center justify-center text-sm text-gray-400">Loading locationsâ€¦</div>
+          <div className="flex h-72 items-center justify-center text-sm text-gray-400">Loading locations…</div>
         ) : locations.length > 0 ? (
           <>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 sm:gap-4">
@@ -243,7 +243,7 @@ export default function HomeCarousels() {
             </div>
           </>
         ) : (
-          <div className="flex h-48 items-center justify-center text-sm text-gray-400">Loading activitiesâ€¦</div>
+          <div className="flex h-48 items-center justify-center text-sm text-gray-400">Loading activities…</div>
         )}
       </section>
 
@@ -281,7 +281,7 @@ export default function HomeCarousels() {
             </div>
           </>
         ) : (
-          <div className="flex h-48 items-center justify-center text-sm text-gray-400">Loading packagesâ€¦</div>
+          <div className="flex h-48 items-center justify-center text-sm text-gray-400">Loading packages…</div>
         )}
       </section>
 
