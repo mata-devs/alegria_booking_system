@@ -61,6 +61,9 @@ interface OperatorActivity {
   activityName: string;
   activityDetails: string;
   pricePerGuest: number;
+  priceAdult?: number;
+  priceChild?: number;
+  childAgeMax?: number;
   minimumNumberOfPeople: number;
   maximumNumberOfPeople: number;
   activityLocation: string;
@@ -349,6 +352,9 @@ interface EditFormState {
   activityName: string;
   activityDetails: string;
   pricePerGuest: string;
+  priceAdult: string;
+  priceChild: string;
+  childAgeMax: string;
   minimumNumberOfPeople: string;
   maximumNumberOfPeople: string;
   activityLocation: string;
@@ -363,6 +369,9 @@ function EditActivityModal({ activity, onClose, operatorId }: { activity: Operat
     activityName: activity.activityName,
     activityDetails: activity.activityDetails,
     pricePerGuest: String(activity.pricePerGuest),
+    priceAdult: String(activity.priceAdult ?? ''),
+    priceChild: String(activity.priceChild ?? ''),
+    childAgeMax: String(activity.childAgeMax ?? ''),
     minimumNumberOfPeople: String(activity.minimumNumberOfPeople ?? 1),
     maximumNumberOfPeople: String(activity.maximumNumberOfPeople ?? 30),
     activityLocation: activity.activityLocation,
@@ -438,6 +447,9 @@ function EditActivityModal({ activity, onClose, operatorId }: { activity: Operat
         activityName: form.activityName.trim(),
         activityDetails: form.activityDetails.trim(),
         pricePerGuest: parseFloat(form.pricePerGuest),
+        priceAdult: form.priceAdult ? parseFloat(form.priceAdult) : undefined,
+        priceChild: form.priceChild ? parseFloat(form.priceChild) : undefined,
+        childAgeMax: form.childAgeMax ? Number(form.childAgeMax) : undefined,
         minimumNumberOfPeople: Number(form.minimumNumberOfPeople),
         maximumNumberOfPeople: Number(form.maximumNumberOfPeople),
         activityLocation: form.activityLocation.trim(),
@@ -501,10 +513,29 @@ function EditActivityModal({ activity, onClose, operatorId }: { activity: Operat
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Price per Guest (₱)</label>
+            <label className="block text-xs font-semibold text-gray-600 mb-1">Price per Guest (₱) — Flat Rate</label>
             <input type="number" min="0" value={form.pricePerGuest} onChange={(e) => field('pricePerGuest', e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
             {errors.pricePerGuest && <p className="text-red-500 text-xs mt-1">{errors.pricePerGuest}</p>}
+            <p className="text-xs text-gray-400 mt-1">Or set separate adult/child prices below (optional)</p>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Adult Price (₱)</label>
+              <input type="number" min="0" value={form.priceAdult} onChange={(e) => field('priceAdult', e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="Optional" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Child Price (₱)</label>
+              <input type="number" min="0" value={form.priceChild} onChange={(e) => field('priceChild', e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="Optional" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Child Age Max</label>
+              <input type="number" min="0" value={form.childAgeMax} onChange={(e) => field('childAgeMax', e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="e.g. 12" />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -588,13 +619,16 @@ interface AddFormState {
   activityName: string;
   activityDetails: string;
   pricePerGuest: string;
+  priceAdult: string;
+  priceChild: string;
+  childAgeMax: string;
   minimumNumberOfPeople: string;
   maximumNumberOfPeople: string;
   activityLocation: string;
   activityTag: ActivityTag | '';
 }
 
-const EMPTY_FORM: AddFormState = { activityName: '', activityDetails: '', pricePerGuest: '', minimumNumberOfPeople: '1', maximumNumberOfPeople: '30', activityLocation: '', activityTag: '' };
+const EMPTY_FORM: AddFormState = { activityName: '', activityDetails: '', pricePerGuest: '', priceAdult: '', priceChild: '', childAgeMax: '', minimumNumberOfPeople: '1', maximumNumberOfPeople: '30', activityLocation: '', activityTag: '' };
 
 function AddActivityModal({ onClose, operatorId }: { onClose: () => void; operatorId: string }) {
   const [form, setForm] = useState<AddFormState>(EMPTY_FORM);
@@ -661,6 +695,9 @@ function AddActivityModal({ onClose, operatorId }: { onClose: () => void; operat
         activityName: form.activityName.trim(),
         activityDetails: form.activityDetails.trim(),
         pricePerGuest: parseFloat(form.pricePerGuest),
+        priceAdult: form.priceAdult ? parseFloat(form.priceAdult) : undefined,
+        priceChild: form.priceChild ? parseFloat(form.priceChild) : undefined,
+        childAgeMax: form.childAgeMax ? Number(form.childAgeMax) : undefined,
         minimumNumberOfPeople: Number(form.minimumNumberOfPeople),
         maximumNumberOfPeople: Number(form.maximumNumberOfPeople),
         activityLocation: form.activityLocation.trim(),
@@ -703,11 +740,31 @@ function AddActivityModal({ onClose, operatorId }: { onClose: () => void; operat
             {errors.activityDetails && <p className="text-red-500 text-xs mt-1">{errors.activityDetails}</p>}
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Price per Guest (₱)</label>
+            <label className="block text-xs font-semibold text-gray-600 mb-1">Price per Guest (₱) — Flat Rate</label>
             <input type="number" min="0" value={form.pricePerGuest} onChange={(e) => field('pricePerGuest', e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="e.g. 1500" />
             {errors.pricePerGuest && <p className="text-red-500 text-xs mt-1">{errors.pricePerGuest}</p>}
+            <p className="text-xs text-gray-400 mt-1">Or set separate adult/child prices below (optional)</p>
           </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Adult Price (₱)</label>
+              <input type="number" min="0" value={form.priceAdult} onChange={(e) => field('priceAdult', e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="Optional" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Child Price (₱)</label>
+              <input type="number" min="0" value={form.priceChild} onChange={(e) => field('priceChild', e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="Optional" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Child Age Max</label>
+              <input type="number" min="0" value={form.childAgeMax} onChange={(e) => field('childAgeMax', e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="e.g. 12" />
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Min Guests</label>

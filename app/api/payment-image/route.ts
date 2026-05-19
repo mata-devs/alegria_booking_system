@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     if (!urlParam) return badRequest("Missing url parameter.");
     if (!isAllowedFirebaseStorageUrl(urlParam)) return badRequest("URL not allowed.");
 
-    const filename = filenameParam?.trim() || "payment-instructions";
+    const filename = (filenameParam?.trim() || "payment-instructions").replace(/[^\w\-. ]/g, "_");
 
     let upstream: Response;
     try {

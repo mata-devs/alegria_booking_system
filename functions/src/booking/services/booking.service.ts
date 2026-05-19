@@ -31,6 +31,7 @@ interface Guest {
   age: number;
   gender: "Male" | "Female" | "Prefer not to say";
   nationality: string;
+  guestType: "adult" | "child";
 }
 
 export interface CreateBookingInput {
@@ -39,6 +40,8 @@ export interface CreateBookingInput {
   sourceType?: "activity" | "tourPackage";
   representative: Representative;
   guests: Guest[];
+  adultCount?: number;
+  childCount?: number;
   tourOperatorUid?: string;
   promoCode?: string;
   specialRequests?: string;
@@ -227,8 +230,23 @@ async function uploadReceiptImage(bookingId: string, receiptDataUrl: string): Pr
   return { receiptUrl: signedUrl, filePath };
 }
 
-function calculatePricing(numberOfGuests: number, pricePerGuest: number, discount = 0) {
-  const baseAmount = numberOfGuests * pricePerGuest;
+function calculatePricing(
+  numberOfGuests: number,
+  pricePerGuest: number,
+  discount = 0,
+  adultCount?: number,
+  childCount?: number,
+  priceAdult?: number,
+  priceChild?: number,
+) {
+  const useAdultChildPricing =
+    priceAdult !== undefined && priceChild !== undefined &&
+    adultCount !== undefined && childCount !== undefined;
+
+  const baseAmount = useAdultChildPricing
+    ? adultCount! * priceAdult! + childCount! * priceChild!
+    : numberOfGuests * pricePerGuest;
+
   const serviceCharge = (baseAmount * SERVICE_CHARGE_PERCENTAGE) / 100;
   const subtotal = baseAmount + serviceCharge;
   const discountAmount = discount > 0 ? (subtotal * discount) / 100 : 0;
@@ -236,6 +254,8 @@ function calculatePricing(numberOfGuests: number, pricePerGuest: number, discoun
 
   return {
     pricePerGuest,
+    priceAdult: priceAdult ?? null,
+    priceChild: priceChild ?? null,
     baseAmount,
     serviceCharge,
     subtotal,
@@ -311,27 +331,33 @@ export async function createBooking(data: CreateBookingInput) {
   const isTourPackage = data.sourceType === "tourPackage";
 
   let pricePerGuest: number;
+  let priceAdult: number | undefined;
+  let priceChild: number | undefined;
   let sourceOperatorId: string | undefined;
   let sourceDisplayName: string | undefined;
   let maxSlotsForSource: number;
 
   if (isTourPackage) {
     const tourPkg = (await getTourPackage(data.activityId)) as
-      | (Record<string, unknown> & { pricePerPerson?: number; operatorId?: string; status?: string; packageName?: string; maximumNumberOfPeople?: number })
+      | (Record<string, unknown> & { pricePerPerson?: number; priceAdult?: number; priceChild?: number; operatorId?: string; status?: string; packageName?: string; maximumNumberOfPeople?: number })
       | null;
     if (!tourPkg) throw new Error("Tour package not found");
     if (tourPkg.status !== "active") throw new Error("Tour package is not active");
     pricePerGuest = Number(tourPkg.pricePerPerson) || 0;
+    priceAdult = typeof tourPkg.priceAdult === "number" ? tourPkg.priceAdult : undefined;
+    priceChild = typeof tourPkg.priceChild === "number" ? tourPkg.priceChild : undefined;
     sourceOperatorId = typeof tourPkg.operatorId === "string" ? tourPkg.operatorId : undefined;
     sourceDisplayName = typeof tourPkg.packageName === "string" ? tourPkg.packageName : undefined;
     maxSlotsForSource = Number(tourPkg.maximumNumberOfPeople) || MAX_PERSONS_PER_SLOT;
   } else {
     const activity = (await getActivity(data.activityId)) as
-      | (Record<string, unknown> & { maxSlots?: number; pricePerGuest?: number; status?: string; activityName?: string; operatorId?: string })
+      | (Record<string, unknown> & { maxSlots?: number; pricePerGuest?: number; priceAdult?: number; priceChild?: number; status?: string; activityName?: string; operatorId?: string })
       | null;
     if (!activity) throw new Error("Activity not found");
     if (activity.status !== "active") throw new Error("Activity is not active");
     pricePerGuest = Number(activity.pricePerGuest) || 0;
+    priceAdult = typeof activity.priceAdult === "number" ? activity.priceAdult : undefined;
+    priceChild = typeof activity.priceChild === "number" ? activity.priceChild : undefined;
     sourceOperatorId = typeof activity.operatorId === "string" ? activity.operatorId : undefined;
     sourceDisplayName = typeof activity.activityName === "string" ? activity.activityName : undefined;
     maxSlotsForSource = Number(activity.maxSlots) || MAX_PERSONS_PER_SLOT;
@@ -353,7 +379,15 @@ export async function createBooking(data: CreateBookingInput) {
     throw new Error("Invalid or expired promo code");
   }
 
-  const pricing = calculatePricing(numberOfGuests, pricePerGuest, promoData?.discount ?? 0);
+  const pricing = calculatePricing(
+    numberOfGuests,
+    pricePerGuest,
+    promoData?.discount ?? 0,
+    data.adultCount,
+    data.childCount,
+    priceAdult,
+    priceChild,
+  );
 
   const operatorUid = sourceOperatorId;
   const assignmentType = promoData?.operatorUid ? "voucher" : "source-owner";
@@ -423,6 +457,8 @@ export async function createBooking(data: CreateBookingInput) {
           tourDate: tourDateTs,
           status: "reserved",
           numberOfGuests,
+          adultCount: data.adultCount ?? null,
+          childCount: data.childCount ?? null,
           operatorUid,
           assignmentType,
           paymentMethod: data.paymentMethod,

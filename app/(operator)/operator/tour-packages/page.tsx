@@ -67,6 +67,9 @@ interface OperatorPackage {
   packageName: string;
   packageDescription: string;
   pricePerPerson: number;
+  priceAdult?: number;
+  priceChild?: number;
+  childAgeMax?: number;
   minimumNumberOfPeople: number;
   maximumNumberOfPeople: number;
   packageLocation: string;
@@ -521,6 +524,9 @@ interface AddFormState {
   packageName: string;
   packageDescription: string;
   pricePerPerson: string;
+  priceAdult: string;
+  priceChild: string;
+  childAgeMax: string;
   minimumNumberOfPeople: string;
   maximumNumberOfPeople: string;
   packageLocation: string;
@@ -535,6 +541,9 @@ const EMPTY_FORM: AddFormState = {
   packageName: '',
   packageDescription: '',
   pricePerPerson: '',
+  priceAdult: '',
+  priceChild: '',
+  childAgeMax: '',
   minimumNumberOfPeople: '1',
   maximumNumberOfPeople: '10',
   packageLocation: '',
@@ -616,6 +625,9 @@ function AddPackageModal({ onClose, operatorId }: { onClose: () => void; operato
         packageName: form.packageName.trim(),
         packageDescription: form.packageDescription.trim(),
         pricePerPerson: parseFloat(form.pricePerPerson),
+        priceAdult: form.priceAdult ? parseFloat(form.priceAdult) : undefined,
+        priceChild: form.priceChild ? parseFloat(form.priceChild) : undefined,
+        childAgeMax: form.childAgeMax ? Number(form.childAgeMax) : undefined,
         minimumNumberOfPeople: Number(form.minimumNumberOfPeople),
         maximumNumberOfPeople: Number(form.maximumNumberOfPeople),
         packageLocation: form.packageLocation,
@@ -667,11 +679,12 @@ function AddPackageModal({ onClose, operatorId }: { onClose: () => void; operato
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Price per Person (₱)</label>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Price per Person (₱) — Flat Rate</label>
               <input type="number" min="0" value={form.pricePerPerson} onChange={(e) => field('pricePerPerson', e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
                 placeholder="e.g. 4500" />
               {errors.pricePerPerson && <p className="text-red-500 text-xs mt-1">{errors.pricePerPerson}</p>}
+              <p className="text-xs text-gray-400 mt-1">Or set separate adult/child prices below (optional)</p>
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Duration</label>
@@ -679,6 +692,23 @@ function AddPackageModal({ onClose, operatorId }: { onClose: () => void; operato
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
                 placeholder="e.g. 2 Days / 1 Night" />
               {errors.duration && <p className="text-red-500 text-xs mt-1">{errors.duration}</p>}
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Adult Price (₱)</label>
+              <input type="number" min="0" value={form.priceAdult} onChange={(e) => field('priceAdult', e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="Optional" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Child Price (₱)</label>
+              <input type="number" min="0" value={form.priceChild} onChange={(e) => field('priceChild', e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="Optional" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Child Age Max</label>
+              <input type="number" min="0" value={form.childAgeMax} onChange={(e) => field('childAgeMax', e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="e.g. 12" />
             </div>
           </div>
           <div>
@@ -768,6 +798,9 @@ interface EditFormState {
   packageName: string;
   packageDescription: string;
   pricePerPerson: string;
+  priceAdult: string;
+  priceChild: string;
+  childAgeMax: string;
   minimumNumberOfPeople: string;
   maximumNumberOfPeople: string;
   packageLocation: string;
@@ -786,6 +819,9 @@ function EditPackageModal({ pkg, onClose, onDelete, operatorId }: { pkg: Operato
     packageName: pkg.packageName,
     packageDescription: pkg.packageDescription,
     pricePerPerson: String(pkg.pricePerPerson),
+    priceAdult: pkg.priceAdult != null ? String(pkg.priceAdult) : '',
+    priceChild: pkg.priceChild != null ? String(pkg.priceChild) : '',
+    childAgeMax: pkg.childAgeMax != null ? String(pkg.childAgeMax) : '',
     minimumNumberOfPeople: String(pkg.minimumNumberOfPeople ?? 1),
     maximumNumberOfPeople: String(pkg.maximumNumberOfPeople ?? 10),
     packageLocation: pkg.packageLocation,
@@ -865,6 +901,9 @@ function EditPackageModal({ pkg, onClose, onDelete, operatorId }: { pkg: Operato
         packageName: form.packageName.trim(),
         packageDescription: form.packageDescription.trim(),
         pricePerPerson: parseFloat(form.pricePerPerson),
+        priceAdult: form.priceAdult ? parseFloat(form.priceAdult) : undefined,
+        priceChild: form.priceChild ? parseFloat(form.priceChild) : undefined,
+        childAgeMax: form.childAgeMax ? Number(form.childAgeMax) : undefined,
         minimumNumberOfPeople: Number(form.minimumNumberOfPeople),
         maximumNumberOfPeople: Number(form.maximumNumberOfPeople),
         packageLocation: form.packageLocation,
@@ -929,16 +968,34 @@ function EditPackageModal({ pkg, onClose, onDelete, operatorId }: { pkg: Operato
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Price per Person (₱)</label>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Price per Person (₱) — Flat Rate</label>
               <input type="number" min="0" value={form.pricePerPerson} onChange={(e) => field('pricePerPerson', e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
               {errors.pricePerPerson && <p className="text-red-500 text-xs mt-1">{errors.pricePerPerson}</p>}
+              <p className="text-xs text-gray-400 mt-1">Or set separate adult/child prices below (optional)</p>
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Duration</label>
               <input type="text" value={form.duration} onChange={(e) => field('duration', e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
               {errors.duration && <p className="text-red-500 text-xs mt-1">{errors.duration}</p>}
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Adult Price (₱)</label>
+              <input type="number" min="0" value={form.priceAdult} onChange={(e) => field('priceAdult', e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="Optional" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Child Price (₱)</label>
+              <input type="number" min="0" value={form.priceChild} onChange={(e) => field('priceChild', e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="Optional" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Child Age Max</label>
+              <input type="number" min="0" value={form.childAgeMax} onChange={(e) => field('childAgeMax', e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="e.g. 12" />
             </div>
           </div>
           <div>

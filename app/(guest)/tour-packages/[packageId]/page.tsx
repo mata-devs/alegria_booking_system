@@ -583,20 +583,18 @@ function TourPackageDetailInner() {
 
                 {/* Filter tabs */}
                 <div className="flex items-center gap-2 mb-6 overflow-x-auto scrollbar-hide pb-1">
-                  {(['all', '5', '4', '3', 'photos', 'solo', 'family'] as const).map((f) => (
+                  {(['all', '5', '4', '3'] as const).map((f) => (
                     <button
                       key={f}
                       type="button"
-                      onClick={() => setReviewFilter(f === 'photos' || f === 'solo' || f === 'family' ? 'all' : f)}
+                      onClick={() => setReviewFilter(f)}
                       className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-semibold border transition-colors capitalize ${
-                        reviewFilter === f || (f !== 'all' && f !== '5' && f !== '4' && f !== '3' && reviewFilter === 'all' && f === 'all')
-                          ? f === 'all' && reviewFilter === 'all' ? 'bg-gray-900 text-white border-gray-900'
-                          : reviewFilter === f ? 'bg-gray-900 text-white border-gray-900'
-                          : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                        reviewFilter === f
+                          ? 'bg-gray-900 text-white border-gray-900'
                           : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
                       }`}
                     >
-                      {f === 'all' ? 'All' : f === '5' ? '5★' : f === '4' ? '4★' : f === '3' ? '3★' : f.charAt(0).toUpperCase() + f.slice(1)}
+                      {f === 'all' ? 'All' : `${f}★`}
                     </button>
                   ))}
                 </div>
