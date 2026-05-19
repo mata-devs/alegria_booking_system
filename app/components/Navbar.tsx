@@ -143,10 +143,10 @@ export default function Navbar() {
 
           <div className="hidden items-center gap-10 md:flex">
             <Link href="/" className={linkClass('/', true)}>Home</Link>
-            <Link href="/activities" className={linkClass('/activities')}>Activities</Link>
             <Link href="/locations" className={linkClass('/locations')}>Locations</Link>
+            <Link href="/activities" className={linkClass('/activities')}>Activities</Link>
             <Link href="/tour-packages" className={linkClass('/tour-packages')}>Tour Packages</Link>
-            <Link href="/operators" className={linkClass('/operators')}>Operators</Link>
+            <Link href="/accommodations" className={linkClass('/accommodations')}>Accommodations</Link>
           </div>
 
           <div className="hidden md:flex items-center">
@@ -176,10 +176,10 @@ export default function Navbar() {
             />
             <div className="absolute inset-x-0 top-full z-50 space-y-1 border-t border-white/10 bg-black px-4 py-3 shadow-xl md:hidden">
               <Link href="/" className={mobileLinkClass('/', true)} onClick={handleNavClick}>Home</Link>
-              <Link href="/activities" className={mobileLinkClass('/activities')} onClick={handleNavClick}>Activities</Link>
               <Link href="/locations" className={mobileLinkClass('/locations')} onClick={handleNavClick}>Locations</Link>
+              <Link href="/activities" className={mobileLinkClass('/activities')} onClick={handleNavClick}>Activities</Link>
               <Link href="/tour-packages" className={mobileLinkClass('/tour-packages')} onClick={handleNavClick}>Tour Packages</Link>
-              <Link href="/operators" className={mobileLinkClass('/operators')} onClick={handleNavClick}>Operators</Link>
+              <Link href="/accommodations" className={mobileLinkClass('/accommodations')} onClick={handleNavClick}>Accommodations</Link>
               <div className="px-4 pt-2 pb-1">
                 <CurrencyConverter />
               </div>

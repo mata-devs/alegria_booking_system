@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import Link from 'next/link'
 
 export default function Footer() {
   return (
@@ -28,10 +29,11 @@ export default function Footer() {
         <div>
           <h4 className="font-semibold text-white mb-4">Links</h4>
           <ul className="space-y-2.5 text-sm text-white/60">
-            <li><a href="#" className="hover:text-white transition-colors">About Us</a></li>
-            <li><a href="#" className="hover:text-white transition-colors">Eco-Tourism Initiatives</a></li>
-            <li><a href="#" className="hover:text-white transition-colors">Local Partners</a></li>
-            <li><a href="#" className="hover:text-white transition-colors">Visitor Guide</a></li>
+            <li><Link href="/locations" className="hover:text-white transition-colors">Locations</Link></li>
+            <li><Link href="/activities" className="hover:text-white transition-colors">Activities</Link></li>
+            <li><Link href="/accommodations" className="hover:text-white transition-colors">Accommodations</Link></li>
+            <li><Link href="/tour-packages" className="hover:text-white transition-colors">Tour Packages</Link></li>
+            <li><Link href="/operators" className="hover:text-white transition-colors">Local Partners</Link></li>
           </ul>
         </div>
 
@@ -40,8 +42,8 @@ export default function Footer() {
           <ul className="space-y-2.5 text-sm text-white/60">
             <li><a href="#" className="hover:text-white transition-colors">About Us</a></li>
             <li><a href="#" className="hover:text-white transition-colors">Eco-Tourism Initiatives</a></li>
-            <li><a href="#" className="hover:text-white transition-colors">Local Partners</a></li>
             <li><a href="#" className="hover:text-white transition-colors">Visitor Guide</a></li>
+            <li><a href="#" className="hover:text-white transition-colors">Contact Us</a></li>
           </ul>
         </div>
 
