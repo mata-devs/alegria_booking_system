@@ -122,20 +122,56 @@ export default function HomeCarousels() {
 
   return (
     <main className="flex-1">
-      <section className="bg-[#f0fdf4] py-12 sm:py-16">
+      <section className="bg-white py-12 sm:py-16">
         <div className="mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
           <h2 className="mb-3 text-2xl font-bold text-gray-900 sm:text-3xl">Cebu Adventures with Peace of Mind</h2>
           <p className="mx-auto mb-8 max-w-xl text-sm text-gray-500 sm:mb-12 sm:text-base">
             We combine local expertise with world class services to ensure your Cebu adventure is seamless and sustainable.
           </p>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-6">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-6">
             {[
-              { icon: '💰', title: 'Best Price Guarantee', desc: 'Get the best rates with no hidden fees. We match any lower price you find.' },
-              { icon: '🏅', title: 'Certified Tour Guides', desc: 'All our guides are licensed, trained, and deeply knowledgeable about Cebu.' },
-              { icon: '🛡️', title: '24/7 Support', desc: 'Our team is available around the clock to assist you before, during, and after your trip.' },
+              {
+                icon: (
+                  <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-12 w-12">
+                    <circle cx="24" cy="24" r="24" fill="#dcfce7" />
+                    <circle cx="24" cy="24" r="11" fill="#16a34a" />
+                    {/* Peso sign ₱ */}
+                    <text x="24" y="28.5" textAnchor="middle" fontSize="14" fontWeight="bold" fontFamily="Arial, sans-serif" fill="white">₱</text>
+                  </svg>
+                ),
+                title: 'Best Price Guarantee',
+                desc: 'Get the best rates with no hidden fees. We match any lower price you find.',
+              },
+              {
+                icon: (
+                  <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-12 w-12">
+                    <circle cx="24" cy="24" r="24" fill="#dcfce7" />
+                    <circle cx="24" cy="20" r="7" fill="#16a34a" />
+                    <path d="M20.5 20l2 2 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M16.5 27.5l-2.5 7h20l-2.5-7" fill="#bbf7d0" stroke="#16a34a" strokeWidth="1.5" strokeLinejoin="round"/>
+                    <path d="M21 28l3 3 3-3" stroke="#16a34a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                ),
+                title: 'Certified Tour Guides',
+                desc: 'All our guides are licensed, trained, and deeply knowledgeable about Cebu.',
+              },
+              {
+                icon: (
+                  <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-12 w-12">
+                    <circle cx="24" cy="24" r="24" fill="#dcfce7" />
+                    <path d="M15 26v-3a9 9 0 0118 0v3" stroke="#16a34a" strokeWidth="2" strokeLinecap="round"/>
+                    <rect x="12" y="26" width="5" height="7" rx="2.5" fill="#16a34a"/>
+                    <rect x="31" y="26" width="5" height="7" rx="2.5" fill="#16a34a"/>
+                    <path d="M36 31.5c0 3.5-2.5 5.5-6 5.5h-2" stroke="#16a34a" strokeWidth="2" strokeLinecap="round"/>
+                    <circle cx="28" cy="37" r="1.5" fill="#16a34a"/>
+                  </svg>
+                ),
+                title: '24/7 Support',
+                desc: 'Our team is available around the clock to assist you before, during, and after your trip.',
+              },
             ].map((feat) => (
               <div key={feat.title} className="rounded-2xl border border-green-100 bg-white p-6 text-center shadow-sm sm:p-8">
-                <div className="mb-4 text-4xl">{feat.icon}</div>
+                <div className="mb-4 flex justify-center">{feat.icon}</div>
                 <h3 className="mb-2 text-lg font-bold text-gray-900">{feat.title}</h3>
                 <p className="text-sm leading-relaxed text-gray-500">{feat.desc}</p>
               </div>
@@ -147,7 +183,7 @@ export default function HomeCarousels() {
       <section className="mx-auto max-w-7xl px-6 py-8 sm:py-12 lg:px-8">
         <h2 className="mb-8 text-center text-2xl font-bold text-gray-900 sm:text-3xl">Top Locations</h2>
         {!locationsReady ? (
-          <div className="flex h-72 items-center justify-center text-sm text-gray-400">Loading locations…</div>
+          <div className="flex h-72 items-center justify-center text-sm text-gray-400">Loading locationsâ€¦</div>
         ) : locations.length > 0 ? (
           <>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 sm:gap-4">
@@ -178,28 +214,20 @@ export default function HomeCarousels() {
         <h2 className="mb-8 text-center text-2xl font-bold text-gray-900 sm:text-3xl">Top Activities</h2>
         {activities.length > 0 ? (
           <>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 lg:gap-3">
-              {activities.slice(0, 15).map((act, idx) => (
-                <Link
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              {activities.slice(0, 8).map((act) => (
+                <PackageCard
                   key={act.firestoreId}
+                  image={act.image || `https://picsum.photos/seed/${act.firestoreId}/400/600`}
+                  title={act.title}
+                  price={act.price}
+                  pricePrefix="From"
+                  tag={act.category}
+                  rating={act.rating}
+                  location={act.location}
+                  cardKind="activity"
                   href={`/activities/${act.firestoreId}`}
-                  className="flex items-center gap-5 rounded-2xl p-4 transition-colors hover:bg-gray-50"
-                >
-                  <div className="relative h-[120px] w-[120px] shrink-0 overflow-hidden rounded-2xl">
-                    <Image
-                      src={act.image || `https://picsum.photos/seed/${act.firestoreId}/200/200`}
-                      alt={act.title}
-                      fill
-                      sizes="120px"
-                      className="object-cover"
-                      loading="lazy"
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-lg font-bold text-gray-900">{act.title}</p>
-                    <p className="mt-1 text-sm text-gray-400">{activitySubtitles[idx]}</p>
-                  </div>
-                </Link>
+                />
               ))}
             </div>
             <div className="mt-8 flex justify-center">
@@ -215,7 +243,7 @@ export default function HomeCarousels() {
             </div>
           </>
         ) : (
-          <div className="flex h-48 items-center justify-center text-sm text-gray-400">Loading activities…</div>
+          <div className="flex h-48 items-center justify-center text-sm text-gray-400">Loading activitiesâ€¦</div>
         )}
       </section>
 
@@ -253,7 +281,7 @@ export default function HomeCarousels() {
             </div>
           </>
         ) : (
-          <div className="flex h-48 items-center justify-center text-sm text-gray-400">Loading packages…</div>
+          <div className="flex h-48 items-center justify-center text-sm text-gray-400">Loading packagesâ€¦</div>
         )}
       </section>
 
@@ -426,3 +454,4 @@ function OperatorsMarquee({ operators }: { operators: MarqueeOperator[] }) {
     </section>
   )
 }
+

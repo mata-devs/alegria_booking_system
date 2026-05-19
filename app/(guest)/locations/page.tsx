@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -74,7 +74,7 @@ export default function LocationsPage() {
   const visible = filtered.slice(0, visibleCount)
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#f0fdf4]">
+    <div className="min-h-screen flex flex-col bg-white">
       <section className="relative overflow-hidden">
         <div className="relative w-full h-[clamp(180px,25vw,280px)]">
           <Image
@@ -90,7 +90,7 @@ export default function LocationsPage() {
         <div className="absolute top-0 left-0 px-8 md:px-16 pt-5">
           <nav className="text-white/80 text-sm">
             <Link href="/" className="hover:text-white transition-colors">Home</Link>
-            <span className="mx-2">›</span>
+            <span className="mx-2">â€º</span>
             <span className="text-white font-medium">Cebu Locations</span>
           </nav>
         </div>
@@ -124,7 +124,7 @@ export default function LocationsPage() {
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5 mb-8">
           {listLoading ? (
-            <div className="col-span-full h-48 flex items-center justify-center text-sm text-gray-500">Loading locations…</div>
+            <div className="col-span-full h-48 flex items-center justify-center text-sm text-gray-500">Loading locationsâ€¦</div>
           ) : visible.length === 0 ? (
             <div className="col-span-full h-48 flex items-center justify-center text-sm text-gray-500 text-center px-4">
               No locations found.
@@ -182,9 +182,9 @@ export default function LocationsPage() {
             Reviews from guests across activities and tour packages (published reviews only).
           </p>
           {reviewsLoading ? (
-            <div className="text-sm text-gray-500 py-16 text-center">Loading reviews…</div>
+            <div className="text-sm text-gray-500 py-16 text-center">Loading reviewsâ€¦</div>
           ) : reviews.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-12 italic">No reviews yet — be one of the first to book and leave feedback!</p>
+            <p className="text-sm text-gray-400 text-center py-12 italic">No reviews yet â€” be one of the first to book and leave feedback!</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {reviews.map((r) => (
@@ -199,3 +199,4 @@ export default function LocationsPage() {
     </div>
   )
 }
+
