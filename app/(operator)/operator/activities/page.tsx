@@ -9,7 +9,7 @@ import {
   type RowData,
 } from '@tanstack/react-table';
 import Image from 'next/image';
-import { Plus, Search, SlidersHorizontal, X, Upload, ChevronLeft, ChevronRight, Pencil, Trash2, LayoutGrid, Table as TableIcon } from 'lucide-react';
+import { Plus, Search, SlidersHorizontal, X, Upload, ChevronLeft, ChevronRight, Pencil, Trash2, LayoutGrid, Table as TableIcon, GripVertical } from 'lucide-react';
 import ToggleSwitch from '@/app/components/ui/ToggleSwitch';
 import PackageCard from '@/app/components/ui/PackageCard';
 import {
@@ -17,6 +17,7 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  deleteField,
   doc,
   query,
   where,
@@ -25,6 +26,21 @@ import {
   type Timestamp,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  useSortable,
+  arrayMove,
+  rectSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { firebaseDb, firebaseStorage } from '@/app/lib/firebase';
 import { useAuth } from '@/app/context/AuthContext';
 import { ACTIVITY_TAGS, type ActivityTag, type StoredActivityTag } from '@/app/lib/activity-tags';
@@ -53,6 +69,7 @@ const CEBU_MUNICIPALITIES = [
   'Tuburan', 'Tudela',
 ] as const;
 
+const MIN_IMAGES = 3;
 const MAX_IMAGES = 5;
 const MAX_SIZE_MB = 5;
 
@@ -346,6 +363,44 @@ function ViewDetailsModal({ activity, onClose, onEdit }: { activity: OperatorAct
   );
 }
 
+// ── Sortable image slot ─────────────────────────────────────────
+
+type ImageSlot =
+  | { id: string; kind: 'existing'; url: string }
+  | { id: string; kind: 'new'; file: File; preview: string };
+
+function SortableImageCard({ slot, onRemove }: { slot: ImageSlot; onRemove: () => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: slot.id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : 0,
+    opacity: isDragging ? 0.75 : 1,
+  };
+  const src = slot.kind === 'existing' ? slot.url : slot.preview;
+  return (
+    <div ref={setNodeRef} style={style} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200">
+      <Image src={src} alt="image" fill sizes="96px" className="object-cover" />
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        className="absolute top-0.5 left-0.5 bg-black/40 text-white rounded-full p-0.5 cursor-grab active:cursor-grabbing hover:bg-black/60"
+        aria-label="Drag to reorder"
+      >
+        <GripVertical className="w-3 h-3" />
+      </button>
+      <button
+        type="button"
+        onClick={onRemove}
+        className="absolute top-0.5 right-0.5 bg-black/50 text-white rounded-full p-0.5 hover:bg-black/70"
+      >
+        <X className="w-3 h-3" />
+      </button>
+    </div>
+  );
+}
+
 // ── Edit Activity Modal ─────────────────────────────────────────
 
 interface EditFormState {
@@ -378,41 +433,51 @@ function EditActivityModal({ activity, onClose, operatorId }: { activity: Operat
     activityTag: (ACTIVITY_TAGS as ReadonlyArray<string>).includes(activity.activityTag) ? activity.activityTag as ActivityTag : '',
     status: activity.status,
   });
-  // Existing images (URLs) + new files
-  const [existingImages, setExistingImages] = useState<string[]>(activity.activityImages);
-  const [newFiles, setNewFiles] = useState<File[]>([]);
-  const [newPreviews, setNewPreviews] = useState<string[]>([]);
+  const [images, setImages] = useState<ImageSlot[]>(
+    activity.activityImages.map((url, i) => ({ id: `ex-${i}-${url.slice(-6)}`, kind: 'existing' as const, url }))
+  );
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
-  useEffect(() => {
-    const urls = newPreviews;
-    return () => urls.forEach(URL.revokeObjectURL);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const totalImages = existingImages.length + newFiles.length;
+  const totalImages = images.length;
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
-    const toAdd = files.slice(0, MAX_IMAGES - totalImages);
+    const toAdd = files.slice(0, MAX_IMAGES - images.length);
     if (toAdd.some((f) => f.size > MAX_SIZE_MB * 1024 * 1024)) {
       setErrors((prev) => ({ ...prev, images: `Each image must be under ${MAX_SIZE_MB} MB.` }));
       e.target.value = '';
       return;
     }
     setErrors((prev) => ({ ...prev, images: undefined }));
-    setNewFiles((prev) => [...prev, ...toAdd]);
-    setNewPreviews((prev) => [...prev, ...toAdd.map((f) => URL.createObjectURL(f))]);
+    const newSlots: ImageSlot[] = toAdd.map((file, i) => ({
+      id: `new-${Date.now()}-${i}`,
+      kind: 'new' as const,
+      file,
+      preview: URL.createObjectURL(file),
+    }));
+    setImages((prev) => [...prev, ...newSlots]);
     e.target.value = '';
   };
 
-  const removeExisting = (idx: number) => setExistingImages((prev) => prev.filter((_, i) => i !== idx));
-  const removeNew = (idx: number) => {
-    URL.revokeObjectURL(newPreviews[idx]);
-    setNewFiles((prev) => prev.filter((_, i) => i !== idx));
-    setNewPreviews((prev) => prev.filter((_, i) => i !== idx));
+  const removeImage = (id: string) => {
+    setImages((prev) => {
+      const slot = prev.find((s) => s.id === id);
+      if (slot?.kind === 'new') URL.revokeObjectURL(slot.preview);
+      return prev.filter((s) => s.id !== id);
+    });
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setImages((prev) => {
+      const oldIdx = prev.findIndex((s) => s.id === active.id);
+      const newIdx = prev.findIndex((s) => s.id === over.id);
+      return arrayMove(prev, oldIdx, newIdx);
+    });
   };
 
   const validate = (): boolean => {
@@ -426,7 +491,7 @@ function EditActivityModal({ activity, onClose, operatorId }: { activity: Operat
     if (!CEBU_MUNICIPALITIES.includes(form.activityLocation as typeof CEBU_MUNICIPALITIES[number]))
       e.activityLocation = 'Select a valid municipality';
     if (!form.activityTag) e.activityTag = 'Select a tag';
-    if (totalImages === 0) e.images = 'At least 1 image required';
+    if (totalImages < MIN_IMAGES) e.images = `At least ${MIN_IMAGES} images required (${totalImages}/${MIN_IMAGES})`;
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -436,26 +501,30 @@ function EditActivityModal({ activity, onClose, operatorId }: { activity: Operat
     if (!validate()) return;
     setSubmitting(true);
     try {
-      const uploadedUrls: string[] = [];
-      for (const file of newFiles) {
-        const compressed = await compressImage(file);
-        const storageRef = ref(firebaseStorage, `activities/${operatorId}/${Date.now()}_${file.name}`);
-        await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg', cacheControl: 'public,max-age=31536000' });
-        uploadedUrls.push(await getDownloadURL(storageRef));
+      const finalUrls: string[] = [];
+      for (const slot of images) {
+        if (slot.kind === 'existing') {
+          finalUrls.push(slot.url);
+        } else {
+          const compressed = await compressImage(slot.file);
+          const storageRef = ref(firebaseStorage, `activities/${operatorId}/${Date.now()}_${slot.file.name}`);
+          await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg', cacheControl: 'public,max-age=31536000' });
+          finalUrls.push(await getDownloadURL(storageRef));
+        }
       }
       await updateDoc(doc(firebaseDb, 'activities', activity.id), {
         activityName: form.activityName.trim(),
         activityDetails: form.activityDetails.trim(),
         pricePerGuest: parseFloat(form.pricePerGuest),
-        priceAdult: form.priceAdult ? parseFloat(form.priceAdult) : undefined,
-        priceChild: form.priceChild ? parseFloat(form.priceChild) : undefined,
-        childAgeMax: form.childAgeMax ? Number(form.childAgeMax) : undefined,
+        priceAdult: form.priceAdult ? parseFloat(form.priceAdult) : deleteField(),
+        priceChild: form.priceChild ? parseFloat(form.priceChild) : deleteField(),
+        childAgeMax: form.childAgeMax ? Number(form.childAgeMax) : deleteField(),
         minimumNumberOfPeople: Number(form.minimumNumberOfPeople),
         maximumNumberOfPeople: Number(form.maximumNumberOfPeople),
         activityLocation: form.activityLocation.trim(),
         activityTag: form.activityTag,
         status: form.status,
-        activityImages: [...existingImages, ...uploadedUrls],
+        activityImages: finalUrls,
       });
       onClose();
     } catch (err) {
@@ -563,38 +632,27 @@ function EditActivityModal({ activity, onClose, operatorId }: { activity: Operat
             <TagCombobox value={form.activityTag} onChange={(v) => field('activityTag', v as ActivityTag)} error={errors.activityTag} />
           </div>
 
-          {/* Images — existing + new */}
+          {/* Images — drag to reorder */}
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">
-              Activity Images <span className="font-normal text-gray-400">(1–5 images, max 5 MB each)</span>
+              Activity Images <span className="font-normal text-gray-400">(3–5 images required, max 5 MB each)</span>
             </label>
-            <div className="grid grid-cols-5 gap-2 mb-2">
-              {existingImages.map((src, idx) => (
-                <div key={`ex-${idx}`} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200">
-                  <Image src={src} alt={`image ${idx + 1}`} fill sizes="96px" className="object-cover" />
-                  <button type="button" onClick={() => removeExisting(idx)}
-                    className="absolute top-0.5 right-0.5 bg-black/50 text-white rounded-full p-0.5 hover:bg-black/70">
-                    <X className="w-3 h-3" />
-                  </button>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={images.map((s) => s.id)} strategy={rectSortingStrategy}>
+                <div className="grid grid-cols-5 gap-2 mb-2">
+                  {images.map((slot) => (
+                    <SortableImageCard key={slot.id} slot={slot} onRemove={() => removeImage(slot.id)} />
+                  ))}
+                  {images.length < MAX_IMAGES && (
+                    <button type="button" onClick={() => fileInputRef.current?.click()}
+                      className="aspect-square rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:border-green-400 hover:text-green-500 transition-colors">
+                      <Upload className="w-5 h-5" />
+                      <span className="text-xs mt-1">Add</span>
+                    </button>
+                  )}
                 </div>
-              ))}
-              {newPreviews.map((src, idx) => (
-                <div key={`new-${idx}`} className="relative aspect-square rounded-lg overflow-hidden border border-green-300">
-                  <Image src={src} alt={`new ${idx + 1}`} fill sizes="96px" className="object-cover" />
-                  <button type="button" onClick={() => removeNew(idx)}
-                    className="absolute top-0.5 right-0.5 bg-black/50 text-white rounded-full p-0.5 hover:bg-black/70">
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
-              {totalImages < MAX_IMAGES && (
-                <button type="button" onClick={() => fileInputRef.current?.click()}
-                  className="aspect-square rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:border-green-400 hover:text-green-500 transition-colors">
-                  <Upload className="w-5 h-5" />
-                  <span className="text-xs mt-1">Add</span>
-                </button>
-              )}
-            </div>
+              </SortableContext>
+            </DndContext>
             <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageChange} />
             {errors.images && <p className="text-red-500 text-xs">{errors.images}</p>}
           </div>
@@ -632,36 +690,47 @@ const EMPTY_FORM: AddFormState = { activityName: '', activityDetails: '', priceP
 
 function AddActivityModal({ onClose, operatorId }: { onClose: () => void; operatorId: string }) {
   const [form, setForm] = useState<AddFormState>(EMPTY_FORM);
-  const [imageFiles, setImageFiles] = useState<File[]>([]);
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [images, setImages] = useState<ImageSlot[]>([]);
   const [errors, setErrors] = useState<Partial<Record<keyof AddFormState | 'images', string>>>({});
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    const urls = imagePreviews;
-    return () => urls.forEach(URL.revokeObjectURL);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
-    const toAdd = files.slice(0, MAX_IMAGES - imageFiles.length);
+    const toAdd = files.slice(0, MAX_IMAGES - images.length);
     if (toAdd.some((f) => f.size > MAX_SIZE_MB * 1024 * 1024)) {
       setErrors((prev) => ({ ...prev, images: `Each image must be under ${MAX_SIZE_MB} MB.` }));
       e.target.value = '';
       return;
     }
     setErrors((prev) => ({ ...prev, images: undefined }));
-    setImageFiles((prev) => [...prev, ...toAdd]);
-    setImagePreviews((prev) => [...prev, ...toAdd.map((f) => URL.createObjectURL(f))]);
+    const newSlots: ImageSlot[] = toAdd.map((file, i) => ({
+      id: `new-${Date.now()}-${i}`,
+      kind: 'new' as const,
+      file,
+      preview: URL.createObjectURL(file),
+    }));
+    setImages((prev) => [...prev, ...newSlots]);
     e.target.value = '';
   };
 
-  const removeImage = (idx: number) => {
-    URL.revokeObjectURL(imagePreviews[idx]);
-    setImageFiles((prev) => prev.filter((_, i) => i !== idx));
-    setImagePreviews((prev) => prev.filter((_, i) => i !== idx));
+  const removeImage = (id: string) => {
+    setImages((prev) => {
+      const slot = prev.find((s) => s.id === id);
+      if (slot?.kind === 'new') URL.revokeObjectURL(slot.preview);
+      return prev.filter((s) => s.id !== id);
+    });
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setImages((prev) => {
+      const oldIdx = prev.findIndex((s) => s.id === active.id);
+      const newIdx = prev.findIndex((s) => s.id === over.id);
+      return arrayMove(prev, oldIdx, newIdx);
+    });
   };
 
   const validate = (): boolean => {
@@ -674,7 +743,7 @@ function AddActivityModal({ onClose, operatorId }: { onClose: () => void; operat
     if (Number(form.maximumNumberOfPeople) < Number(form.minimumNumberOfPeople)) e.maximumNumberOfPeople = 'Must be ≥ minimum';
     if (!CEBU_MUNICIPALITIES.includes(form.activityLocation as typeof CEBU_MUNICIPALITIES[number])) e.activityLocation = 'Select a valid municipality';
     if (!form.activityTag) e.activityTag = 'Select a tag';
-    if (imageFiles.length === 0) e.images = 'At least 1 image required';
+    if (images.length < MIN_IMAGES) e.images = `At least ${MIN_IMAGES} images required (${images.length}/${MIN_IMAGES})`;
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -685,19 +754,21 @@ function AddActivityModal({ onClose, operatorId }: { onClose: () => void; operat
     setSubmitting(true);
     try {
       const imageUrls: string[] = [];
-      for (const file of imageFiles) {
-        const compressed = await compressImage(file);
-        const storageRef = ref(firebaseStorage, `activities/${operatorId}/${Date.now()}_${file.name}`);
-        await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg', cacheControl: 'public,max-age=31536000' });
-        imageUrls.push(await getDownloadURL(storageRef));
+      for (const slot of images) {
+        if (slot.kind === 'new') {
+          const compressed = await compressImage(slot.file);
+          const storageRef = ref(firebaseStorage, `activities/${operatorId}/${Date.now()}_${slot.file.name}`);
+          await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg', cacheControl: 'public,max-age=31536000' });
+          imageUrls.push(await getDownloadURL(storageRef));
+        }
       }
       await addDoc(collection(firebaseDb, 'activities'), {
         activityName: form.activityName.trim(),
         activityDetails: form.activityDetails.trim(),
         pricePerGuest: parseFloat(form.pricePerGuest),
-        priceAdult: form.priceAdult ? parseFloat(form.priceAdult) : undefined,
-        priceChild: form.priceChild ? parseFloat(form.priceChild) : undefined,
-        childAgeMax: form.childAgeMax ? Number(form.childAgeMax) : undefined,
+        ...(form.priceAdult ? { priceAdult: parseFloat(form.priceAdult) } : {}),
+        ...(form.priceChild ? { priceChild: parseFloat(form.priceChild) } : {}),
+        ...(form.childAgeMax ? { childAgeMax: Number(form.childAgeMax) } : {}),
         minimumNumberOfPeople: Number(form.minimumNumberOfPeople),
         maximumNumberOfPeople: Number(form.maximumNumberOfPeople),
         activityLocation: form.activityLocation.trim(),
@@ -789,25 +860,24 @@ function AddActivityModal({ onClose, operatorId }: { onClose: () => void; operat
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">
-              Activity Images <span className="font-normal text-gray-400">(1–5 images, max 5 MB each)</span>
+              Activity Images <span className="font-normal text-gray-400">(3–5 images required, max 5 MB each)</span>
             </label>
-            <div className="grid grid-cols-5 gap-2 mb-2">
-              {imagePreviews.map((src, idx) => (
-                <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200">
-                  <Image src={src} alt={`preview ${idx + 1}`} fill sizes="96px" className="object-cover" />
-                  <button type="button" onClick={() => removeImage(idx)} className="absolute top-0.5 right-0.5 bg-black/50 text-white rounded-full p-0.5 hover:bg-black/70">
-                    <X className="w-3 h-3" />
-                  </button>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={images.map((s) => s.id)} strategy={rectSortingStrategy}>
+                <div className="grid grid-cols-5 gap-2 mb-2">
+                  {images.map((slot) => (
+                    <SortableImageCard key={slot.id} slot={slot} onRemove={() => removeImage(slot.id)} />
+                  ))}
+                  {images.length < MAX_IMAGES && (
+                    <button type="button" onClick={() => fileInputRef.current?.click()}
+                      className="aspect-square rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:border-green-400 hover:text-green-500 transition-colors">
+                      <Upload className="w-5 h-5" />
+                      <span className="text-xs mt-1">Add</span>
+                    </button>
+                  )}
                 </div>
-              ))}
-              {imageFiles.length < MAX_IMAGES && (
-                <button type="button" onClick={() => fileInputRef.current?.click()}
-                  className="aspect-square rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:border-green-400 hover:text-green-500 transition-colors">
-                  <Upload className="w-5 h-5" />
-                  <span className="text-xs mt-1">Add</span>
-                </button>
-              )}
-            </div>
+              </SortableContext>
+            </DndContext>
             <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageChange} />
             {errors.images && <p className="text-red-500 text-xs">{errors.images}</p>}
           </div>

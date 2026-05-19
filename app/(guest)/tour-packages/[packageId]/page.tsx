@@ -10,7 +10,6 @@ import { Lightbox } from '@/app/components/ui/BentoGallery'
 import { collection, doc, getDoc, query, where, getDocs, limit } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
 import { getApprovedReviewsForItem, type ApprovedReview } from '@/app/lib/reviews-service'
-import { GuestReviewCard } from '@/app/components/GuestReviewCard'
 
 interface ItineraryStep {
   itineraryTime: string
@@ -237,11 +236,6 @@ function TourPackageDetailInner() {
     ? reviews.reduce((sum, r) => sum + ((r as ApprovedReview & { rating?: number }).rating ?? 5), 0) / reviews.length
     : pkg.packageRating
 
-  const ratingBreakdown = [5, 4, 3, 2, 1].map((star) => {
-    const count = reviews.filter((r) => Math.round(((r as ApprovedReview & { rating?: number }).rating ?? 5)) === star).length
-    return { star, count, pct: reviews.length > 0 ? (count / reviews.length) * 100 : 0 }
-  })
-
   const categoryBreakdown = [
     { label: 'Guide',        score: Math.min(5, +Math.max(1, avgRating + 0.3).toFixed(1)) },
     { label: 'Value',        score: Math.min(5, +Math.max(1, avgRating - 0.1).toFixed(1)) },
@@ -273,7 +267,7 @@ function TourPackageDetailInner() {
   const toggleItinerary = (i: number) =>
     setOpenItinerary((prev) => {
       const next = new Set(prev)
-      next.has(i) ? next.delete(i) : next.add(i)
+      if (next.has(i)) { next.delete(i) } else { next.add(i) }
       return next
     })
 
@@ -780,7 +774,7 @@ function TourPackageDetailInner() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                   </svg>
                 </button>
-                <p className="text-center text-xs text-gray-400 mt-2.5">Reserve now · pay nothing today</p>
+                <p className="text-center text-xs text-gray-400 mt-2.5">Reserve now</p>
 
                 {/* Travelers often pair with */}
                 {relatedPackages.length > 0 && (
@@ -930,7 +924,7 @@ function TourPackageDetailInner() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
               </svg>
             </button>
-            <p className="text-center text-xs text-gray-400">Reserve now · pay nothing today</p>
+            <p className="text-center text-xs text-gray-400">Reserve now</p>
           </div>
         </DrawerContent>
       </Drawer>
