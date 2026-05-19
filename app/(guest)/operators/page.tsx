@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect, useMemo } from 'react'
 import Image from 'next/image'
@@ -119,7 +119,7 @@ export default function OperatorsPage() {
         <div className="absolute top-0 left-0 px-4 sm:px-8 md:px-16 pt-5">
           <nav className="text-white/80 text-sm">
             <Link href="/" className="hover:text-white transition-colors">Home</Link>
-            <span className="mx-2">â€º</span>
+            <span className="mx-2">&rsaquo;</span>
             <span className="text-white font-medium">Tour Operators</span>
           </nav>
         </div>
@@ -146,22 +146,32 @@ export default function OperatorsPage() {
             className="outline-none text-sm text-gray-700 placeholder-gray-400 flex-1 bg-transparent"
           />
         </div>
-        <div className="flex items-center justify-between max-w-2xl mx-auto mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 max-w-2xl mx-auto mb-8">
           <p className="text-sm text-gray-400">{filtered.length} operator{filtered.length !== 1 ? 's' : ''}</p>
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value as typeof sort)}
-            aria-label="Sort operators"
-            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 outline-none focus:border-green-400 cursor-pointer"
-          >
-            <option value="name">Sort: Aâ€“Z</option>
-            <option value="rating">Sort: Top Rated</option>
-            <option value="activities">Sort: Most Active</option>
-          </select>
+          <div className="flex gap-2 flex-wrap">
+            {[
+              { value: 'name' as const, label: 'A-Z' },
+              { value: 'rating' as const, label: 'Top Rated' },
+              { value: 'activities' as const, label: 'Most Active' },
+            ].map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setSort(opt.value)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+                  sort === opt.value
+                    ? 'bg-green-500 text-white border-green-500'
+                    : 'border-gray-200 text-gray-600 hover:border-green-400 hover:text-green-600 bg-white'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {loading ? (
-          <div className="text-sm text-gray-500 py-16 text-center">Loading operatorsâ€¦</div>
+          <div className="text-sm text-gray-500 py-16 text-center">Loading operators…</div>
         ) : filtered.length === 0 ? (
           <div className="text-sm text-gray-500 py-16 text-center">
             {operators.length === 0 ? 'No operators registered yet.' : 'No operators match your search.'}

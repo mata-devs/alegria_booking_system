@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect, useRef, Suspense, useMemo } from 'react'
 import Image from 'next/image'
@@ -137,7 +137,7 @@ function TourPackagesContent() {
         <div className="absolute top-0 left-0 px-4 sm:px-8 md:px-16 pt-5">
           <nav className="text-white/80 text-sm">
             <Link href="/" className="hover:text-white transition-colors">Home</Link>
-            <span className="mx-2">â€º</span>
+            <span className="mx-2">›</span>
             <span className="text-white font-medium">Tour Packages</span>
           </nav>
         </div>
@@ -219,7 +219,7 @@ function TourPackagesContent() {
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pb-16">
         {loading ? (
-          <div className="text-sm text-gray-400 py-20 text-center">Loading packagesâ€¦</div>
+          <div className="text-sm text-gray-400 py-20 text-center">Loading packages…</div>
         ) : visible.length === 0 ? (
           <div className="text-sm text-gray-400 py-20 text-center">
             {packages.length === 0 ? 'No tour packages available yet.' : 'No packages match your search.'}
