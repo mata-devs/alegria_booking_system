@@ -10,7 +10,6 @@ import { Lightbox } from '@/app/components/ui/BentoGallery'
 import { collection, doc, getDoc, query, where, getDocs, limit } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
 import { getApprovedReviewsForItem, type ApprovedReview } from '@/app/lib/reviews-service'
-import { GuestReviewCard } from '@/app/components/GuestReviewCard'
 
 interface ItineraryStep {
   itineraryTime: string
@@ -237,11 +236,6 @@ function TourPackageDetailInner() {
     ? reviews.reduce((sum, r) => sum + ((r as ApprovedReview & { rating?: number }).rating ?? 5), 0) / reviews.length
     : pkg.packageRating
 
-  const ratingBreakdown = [5, 4, 3, 2, 1].map((star) => {
-    const count = reviews.filter((r) => Math.round(((r as ApprovedReview & { rating?: number }).rating ?? 5)) === star).length
-    return { star, count, pct: reviews.length > 0 ? (count / reviews.length) * 100 : 0 }
-  })
-
   const categoryBreakdown = [
     { label: 'Guide',        score: Math.min(5, +Math.max(1, avgRating + 0.3).toFixed(1)) },
     { label: 'Value',        score: Math.min(5, +Math.max(1, avgRating - 0.1).toFixed(1)) },
@@ -273,7 +267,7 @@ function TourPackageDetailInner() {
   const toggleItinerary = (i: number) =>
     setOpenItinerary((prev) => {
       const next = new Set(prev)
-      next.has(i) ? next.delete(i) : next.add(i)
+      if (next.has(i)) { next.delete(i) } else { next.add(i) }
       return next
     })
 
@@ -583,20 +577,18 @@ function TourPackageDetailInner() {
 
                 {/* Filter tabs */}
                 <div className="flex items-center gap-2 mb-6 overflow-x-auto scrollbar-hide pb-1">
-                  {(['all', '5', '4', '3', 'photos', 'solo', 'family'] as const).map((f) => (
+                  {(['all', '5', '4', '3'] as const).map((f) => (
                     <button
                       key={f}
                       type="button"
-                      onClick={() => setReviewFilter(f === 'photos' || f === 'solo' || f === 'family' ? 'all' : f)}
+                      onClick={() => setReviewFilter(f)}
                       className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-semibold border transition-colors capitalize ${
-                        reviewFilter === f || (f !== 'all' && f !== '5' && f !== '4' && f !== '3' && reviewFilter === 'all' && f === 'all')
-                          ? f === 'all' && reviewFilter === 'all' ? 'bg-gray-900 text-white border-gray-900'
-                          : reviewFilter === f ? 'bg-gray-900 text-white border-gray-900'
-                          : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                        reviewFilter === f
+                          ? 'bg-gray-900 text-white border-gray-900'
                           : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
                       }`}
                     >
-                      {f === 'all' ? 'All' : f === '5' ? '5★' : f === '4' ? '4★' : f === '3' ? '3★' : f.charAt(0).toUpperCase() + f.slice(1)}
+                      {f === 'all' ? 'All' : `${f}★`}
                     </button>
                   ))}
                 </div>
@@ -782,7 +774,7 @@ function TourPackageDetailInner() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                   </svg>
                 </button>
-                <p className="text-center text-xs text-gray-400 mt-2.5">Reserve now · pay nothing today</p>
+                <p className="text-center text-xs text-gray-400 mt-2.5">Reserve now</p>
 
                 {/* Travelers often pair with */}
                 {relatedPackages.length > 0 && (
@@ -932,7 +924,7 @@ function TourPackageDetailInner() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
               </svg>
             </button>
-            <p className="text-center text-xs text-gray-400">Reserve now · pay nothing today</p>
+            <p className="text-center text-xs text-gray-400">Reserve now</p>
           </div>
         </DrawerContent>
       </Drawer>

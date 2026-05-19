@@ -27,9 +27,11 @@ interface BookingSidebarProps {
     bookingDate: string;
     selectedActivityId: string;
     activityName?: string;
-    guestCount?: number;
+    adultCount?: number;
+    childCount?: number;
+    onAdultCountChange?: (count: number) => void;
+    onChildCountChange?: (count: number) => void;
     showPaymentMethods?: boolean;
-    onGuestCountChange?: (count: number) => void;
     paymentMethod?: PaymentMethod;
     onPaymentMethodChange?: (method: PaymentMethod) => void;
     onContinue?: () => void;
@@ -48,9 +50,11 @@ export function BookingSidebar({
     bookingDate,
     selectedActivityId,
     activityName,
-    guestCount: controlledGuestCount,
+    adultCount: controlledAdultCount,
+    childCount: controlledChildCount,
     showPaymentMethods = false,
-    onGuestCountChange,
+    onAdultCountChange,
+    onChildCountChange,
     paymentMethod,
     onPaymentMethodChange,
     onContinue,
@@ -117,24 +121,32 @@ export function BookingSidebar({
         return () => { cancelled = true; };
     }, [selectedActivityId, priceOverride, sourceType]);
 
-    const [internalGuestCount, setInternalGuestCount] = useState(effectiveMin);
+    const [internalAdultCount, setInternalAdultCount] = useState(Math.max(effectiveMin, 1));
+    const [internalChildCount, setInternalChildCount] = useState(0);
     const [showDropdown, setShowDropdown] = useState(false);
     const [showModal, setShowModal] = useState(false);
-    const [customInput, setCustomInput] = useState("");
+    const [customAdultInput, setCustomAdultInput] = useState("");
+    const [customChildInput, setCustomChildInput] = useState("");
     const [customError, setCustomError] = useState("");
     const [customWarning, setCustomWarning] = useState("");
     const dropdownRef = useRef<HTMLDivElement>(null);
     const customInputRef = useRef<HTMLInputElement>(null);
 
-    const guestCount = controlledGuestCount !== undefined
-        ? Math.max(1, controlledGuestCount)
-        : internalGuestCount;
+    const adultCount = controlledAdultCount !== undefined ? Math.max(1, controlledAdultCount) : internalAdultCount;
+    const childCount = controlledChildCount !== undefined ? Math.max(0, controlledChildCount) : internalChildCount;
+    const guestCount = adultCount + childCount;
 
-    const updateGuestCount = useCallback((nextCount: number) => {
+    const updateAdultCount = useCallback((nextCount: number) => {
         const n = Math.min(effectiveMax, Math.max(effectiveMin, nextCount));
-        if (controlledGuestCount === undefined) setInternalGuestCount(n);
-        onGuestCountChange?.(n);
-    }, [controlledGuestCount, onGuestCountChange, effectiveMin, effectiveMax]);
+        if (controlledAdultCount === undefined) setInternalAdultCount(n);
+        onAdultCountChange?.(n);
+    }, [controlledAdultCount, onAdultCountChange, effectiveMin, effectiveMax]);
+
+    const updateChildCount = useCallback((nextCount: number) => {
+        const n = Math.max(0, Math.min(effectiveMax - adultCount, nextCount));
+        if (controlledChildCount === undefined) setInternalChildCount(n);
+        onChildCountChange?.(n);
+    }, [controlledChildCount, onChildCountChange, effectiveMax, adultCount]);
 
     useEffect(() => {
         const handler = (e: MouseEvent) => {
@@ -153,26 +165,30 @@ export function BookingSidebar({
     const handleGuestSelect = (value: number | "custom") => {
         setShowDropdown(false);
         if (value === "custom") {
-            setCustomInput("");
+            setCustomAdultInput(String(adultCount));
+            setCustomChildInput(String(childCount));
             setCustomError("");
             setCustomWarning("");
             setShowModal(true);
         } else {
-            updateGuestCount(value);
+            updateAdultCount(value);
+            updateChildCount(0);
         }
     };
 
     const handleCustomConfirm = () => {
-        const parsed = parseInt(customInput.trim(), 10);
-        if (!customInput.trim() || isNaN(parsed)) { setCustomError("Please enter a valid number."); return; }
-        if (parsed < 1) { setCustomError("Minimum is 1 guest."); return; }
-        if (parsed > MAX_GUESTS) {
-            setCustomWarning(`${parsed} guests exceeds ${MAX_GUESTS}. Proceed?`);
-            if (customWarning) { updateGuestCount(parsed); setShowModal(false); setCustomWarning(""); }
+        const adults = parseInt(customAdultInput.trim(), 10);
+        const children = parseInt(customChildInput.trim(), 10);
+        if (!customAdultInput.trim() || isNaN(adults)) { setCustomError("Please enter valid adult count."); return; }
+        if (adults < 1) { setCustomError("Minimum 1 adult required."); return; }
+        if ((adults + children) > MAX_GUESTS) {
+            setCustomWarning(`${adults + children} guests exceeds ${MAX_GUESTS}. Proceed?`);
+            if (customWarning) { updateAdultCount(adults); updateChildCount(children); setShowModal(false); setCustomWarning(""); }
             return;
         }
         setCustomError(""); setCustomWarning("");
-        updateGuestCount(parsed);
+        updateAdultCount(adults);
+        updateChildCount(children);
         setShowModal(false);
     };
 
@@ -304,7 +320,7 @@ export function BookingSidebar({
                                 <div className="flex flex-col items-start gap-0.5">
                                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Guests</span>
                                     <span className="font-semibold text-black">
-                                        {guestCount} {guestCount === 1 ? "Guest" : "Guests"}
+                                        {adultCount} {adultCount === 1 ? "Adult" : "Adults"}{childCount > 0 ? `, ${childCount} ${childCount === 1 ? "Child" : "Children"}` : ""}
                                     </span>
                                 </div>
                                 <ChevronDown className={`w-5 h-5 text-gray-400 group-hover:text-[#74C00F] transition-transform duration-200 ${showDropdown ? "rotate-180" : ""}`} />
@@ -483,19 +499,38 @@ export function BookingSidebar({
                                 <X size={20} />
                             </button>
                         </div>
-                        <p className="text-sm text-gray-500 mb-6">Enter the number of guests (1 – {MAX_GUESTS})</p>
-                        <input
-                            ref={customInputRef}
-                            type="number"
-                            min={1}
-                            value={customInput}
-                            onChange={(e) => { setCustomInput(e.target.value); setCustomError(""); setCustomWarning(""); }}
-                            onKeyDown={(e) => e.key === "Enter" && handleCustomConfirm()}
-                            placeholder="e.g. 12"
-                            className={`w-full border rounded-xl px-4 py-3.5 outline-none text-black text-xl font-bold tracking-wide transition ${
-                                customError ? "border-red-400 ring-2 ring-red-100" : customWarning ? "border-amber-400 ring-2 ring-amber-100" : "border-gray-300 focus:border-[#74C00F] focus:ring-2 focus:ring-[#74C00F]/20"
-                            }`}
-                        />
+                        <p className="text-sm text-gray-500 mb-6">Enter guest count (min 1 adult, max {MAX_GUESTS} total)</p>
+                        <div className="grid grid-cols-2 gap-3 mb-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-2">Adults</label>
+                                <input
+                                    ref={customInputRef}
+                                    type="number"
+                                    min={1}
+                                    value={customAdultInput}
+                                    onChange={(e) => { setCustomAdultInput(e.target.value); setCustomError(""); setCustomWarning(""); }}
+                                    onKeyDown={(e) => e.key === "Enter" && handleCustomConfirm()}
+                                    placeholder="1"
+                                    className={`w-full border rounded-xl px-4 py-3.5 outline-none text-black text-lg font-bold tracking-wide transition ${
+                                        customError ? "border-red-400 ring-2 ring-red-100" : customWarning ? "border-amber-400 ring-2 ring-amber-100" : "border-gray-300 focus:border-[#74C00F] focus:ring-2 focus:ring-[#74C00F]/20"
+                                    }`}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-2">Children</label>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    value={customChildInput}
+                                    onChange={(e) => { setCustomChildInput(e.target.value); setCustomError(""); setCustomWarning(""); }}
+                                    onKeyDown={(e) => e.key === "Enter" && handleCustomConfirm()}
+                                    placeholder="0"
+                                    className={`w-full border rounded-xl px-4 py-3.5 outline-none text-black text-lg font-bold tracking-wide transition ${
+                                        customError ? "border-red-400 ring-2 ring-red-100" : customWarning ? "border-amber-400 ring-2 ring-amber-100" : "border-gray-300 focus:border-[#74C00F] focus:ring-2 focus:ring-[#74C00F]/20"
+                                    }`}
+                                />
+                            </div>
+                        </div>
                         {customError && <p className="text-red-500 text-xs mt-2 font-semibold flex items-center gap-1"><span>⚠</span> {customError}</p>}
                         {customWarning && !customError && (
                             <p className="text-amber-600 text-xs mt-2 font-semibold">{customWarning}</p>

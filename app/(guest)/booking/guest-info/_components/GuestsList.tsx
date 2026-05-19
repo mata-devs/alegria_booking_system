@@ -11,6 +11,7 @@ interface Guest {
     age: string;
     gender: string;
     nationality: string;
+    guestType: "adult" | "child";
 }
 
 interface GuestsListProps {
@@ -23,7 +24,7 @@ interface GuestsListProps {
 }
 
 function validateGuestField(field: string, value: string): string | undefined {
-    const defaults: Guest = { name: "A", age: "1", gender: "Male", nationality: "PH" };
+    const defaults: Guest = { name: "A", age: "1", gender: "Male", nationality: "PH", guestType: "adult" };
     const result = guestSchema.safeParse({ ...defaults, [field]: value });
     if (result.success) return undefined;
     const issue = result.error.issues.find((i: ZodIssue) => i.path[0] === field);
@@ -139,22 +140,37 @@ const GuestRow = ({ idx, guest, onUpdate, onRemove, externalErrors = {}, submitt
                 </div>
             </div>
 
-            <div>
-                <label className="block text-xs font-semibold tracking-wide text-gray-400 mb-1.5 uppercase">
-                    Nationality <span className="text-red-400">*</span>
-                </label>
-                <CountryDropdown
-                    placeholder="Select country"
-                    defaultValue={guest.nationality}
-                    onChange={(val) => {
-                        onUpdate("nationality", val);
-                        if (touched["nationality"] || submitted) {
-                            setLiveErrors((prev) => ({ ...prev, nationality: validateGuestField("nationality", val) }));
-                        }
-                        markTouched("nationality");
-                    }}
-                />
-                <FieldError message={getError("nationality")} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label className="block text-xs font-semibold tracking-wide text-gray-400 mb-1.5 uppercase">
+                        Nationality <span className="text-red-400">*</span>
+                    </label>
+                    <CountryDropdown
+                        placeholder="Select country"
+                        defaultValue={guest.nationality}
+                        onChange={(val) => {
+                            onUpdate("nationality", val);
+                            if (touched["nationality"] || submitted) {
+                                setLiveErrors((prev) => ({ ...prev, nationality: validateGuestField("nationality", val) }));
+                            }
+                            markTouched("nationality");
+                        }}
+                    />
+                    <FieldError message={getError("nationality")} />
+                </div>
+                <div>
+                    <label className="block text-xs font-semibold tracking-wide text-gray-400 mb-1.5 uppercase">
+                        Guest Type <span className="text-red-400">*</span>
+                    </label>
+                    <select
+                        value={guest.guestType ?? "adult"}
+                        onChange={(e) => handleChange("guestType", e.target.value)}
+                        className={`${inputCls(false)} bg-white`}
+                    >
+                        <option value="adult">Adult</option>
+                        <option value="child">Child</option>
+                    </select>
+                </div>
             </div>
         </div>
     );

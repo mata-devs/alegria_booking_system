@@ -1,5 +1,7 @@
 import express, { type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
+import helmet from "helmet";
+import { rateLimit } from "express-rate-limit";
 import bookingsRoutes from "./routes/bookings.routes";
 import { HttpsError } from "firebase-functions/v2/https";
 import { admin, db } from "../shared/firebase";
@@ -7,6 +9,7 @@ import { sendReviewEmailForBooking } from "../reviews/sendReviewEmail";
 
 const app = express();
 const APP_CHECK_ENFORCE = process.env.APP_CHECK_ENFORCE === "true";
+const IS_EMULATOR = process.env.FUNCTIONS_EMULATOR === "true";
 const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? "")
   .split(",")
   .map((origin) => origin.trim())
@@ -14,9 +17,17 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? "")
 
 function isOriginAllowed(origin?: string): boolean {
   if (!origin) return true;
-  if (allowedOrigins.length === 0) return true;
+  if (allowedOrigins.length === 0) {
+    // Fail-closed in production: block all browser origins if ALLOWED_ORIGINS not configured
+    return IS_EMULATOR;
+  }
   return allowedOrigins.includes(origin);
 }
+
+// Trust Google Cloud's proxy layer so req.ip reflects real client IP
+app.set("trust proxy", 1);
+
+app.use(helmet());
 
 app.use(
   cors({
@@ -38,6 +49,23 @@ app.use(
   })
 );
 app.use(express.json({ limit: "6mb" }));
+
+// Rate limiters — in-memory, per Cloud Functions instance; provides burst protection
+const bookingCreateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { error: "Too many booking requests. Try again later." },
+});
+
+const reviewLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 15,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { error: "Too many review requests. Try again later." },
+});
 
 app.use(async (req, res, next) => {
   if (!APP_CHECK_ENFORCE || req.method === "OPTIONS") {
@@ -63,7 +91,7 @@ app.get("/hello", (_req, res) => {
   res.status(200).send("Hello from Alegria Booking API");
 });
 
-app.use("/bookings", bookingsRoutes);
+app.use("/bookings", bookingCreateLimit, bookingsRoutes);
 
 async function requireOperatorAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -230,7 +258,7 @@ app.post("/operator/bookings/:bookingId/reschedule", requireOperatorAuth, async 
 });
 
 // Public review endpoints — no auth, token-gated
-app.get("/review/:bookingId", async (req, res) => {
+app.get("/review/:bookingId", reviewLimit, async (req, res) => {
   const bookingId = String(req.params.bookingId ?? "").trim();
   const token = String(req.query.token ?? "").trim();
 
@@ -260,7 +288,7 @@ app.get("/review/:bookingId", async (req, res) => {
   });
 });
 
-app.post("/review/:bookingId", async (req, res) => {
+app.post("/review/:bookingId", reviewLimit, async (req, res) => {
   const bookingId = String(req.params.bookingId ?? "").trim();
   const { token, rating, text, reviewerCountry, displayConsent } = req.body as {
     token?: string;

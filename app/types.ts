@@ -57,13 +57,15 @@ export interface Guest {
   age: string
   nationality: string
   gender: string
+  guestType: "adult" | "child"
 }
 
 export interface BookingState {
   item: Activity | TourPackage | null
   date: string
   time: string
-  guestCount: number
+  adultCount: number
+  childCount: number
   promoCode: string
   promoDiscount: number
   paymentMethod: string
