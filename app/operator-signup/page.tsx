@@ -1,12 +1,15 @@
 'use client';
 
 import { Suspense, useState, useEffect, useRef, type ChangeEvent, type FormEvent } from 'react';
+import dynamic from 'next/dynamic';
 import { collection, addDoc, serverTimestamp, doc, getDoc, deleteDoc, query, where, getDocs } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { firebaseDb, firebaseStorage } from '@/app/lib/firebase';
 import { Upload, X, FileImage, ArrowLeft, ShieldX } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+
+const LocationPicker = dynamic(() => import('@/app/components/LocationPicker'), { ssr: false });
 
 interface FormData {
   name: string;
@@ -15,6 +18,8 @@ interface FormData {
   mobileNumber: string;
   email: string;
   address: string;
+  lat: number | null;
+  lng: number | null;
 }
 
 const MAX_FILE_SIZE_MB = 10;
@@ -48,6 +53,8 @@ function OperatorSignUpContent() {
     mobileNumber: '',
     email: '',
     address: '',
+    lat: null,
+    lng: null,
   });
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -234,6 +241,7 @@ function OperatorSignUpContent() {
         phoneNumber: form.phoneNumber,
         mobileNumber: form.mobileNumber,
         address: form.address,
+        ...(form.lat != null && form.lng != null ? { lat: form.lat, lng: form.lng } : {}),
         photoUrl,
         documents: uploadedDocs,
         status: 'pending',
@@ -312,17 +320,18 @@ function OperatorSignUpContent() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100 px-4 py-10">
+    <div className="flex min-h-screen items-start justify-center bg-gray-100 px-3 py-8 sm:items-center sm:px-4 sm:py-10">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-xl rounded-2xl border border-gray-200 bg-white p-8 shadow-sm"
+        className="w-full max-w-xl rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-8"
       >
         <h1 className="text-center text-2xl font-extrabold text-gray-900">
           Operator Sign Up Form
         </h1>
 
-        <div className="mt-8 flex gap-6">
-          <div className="relative h-28 w-28 shrink-0">
+        {/* Photo + Name + Company — always side-by-side */}
+        <div className="mt-6 flex gap-4 sm:mt-8 sm:gap-6">
+          <div className="relative mt-6 h-24 w-24 shrink-0 sm:h-28 sm:w-28">
             <button
               type="button"
               onClick={() => photoInputRef.current?.click()}
@@ -331,12 +340,14 @@ function OperatorSignUpContent() {
               {photoPreview ? (
                 <img src={photoPreview} alt="Preview" className="h-full w-full object-cover" />
               ) : (
-                <span className="font-medium">Add Photo</span>
+                <span className="text-center font-medium leading-tight">Add Logo</span>
               )}
             </button>
             {photoPreview && (
               <button
                 type="button"
+                title="Remove photo"
+                aria-label="Remove photo"
                 onClick={removePhoto}
                 className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white shadow-sm hover:bg-red-600 transition-colors"
               >
@@ -348,14 +359,16 @@ function OperatorSignUpContent() {
             ref={photoInputRef}
             type="file"
             accept="image/*"
+            aria-label="Upload profile photo"
             className="hidden"
             onChange={handlePhotoChange}
           />
 
-          <div className="flex-1 space-y-3">
+          <div className="min-w-0 flex-1 space-y-3">
             <div>
-              <label className="text-xs font-semibold text-gray-700">Name</label>
+              <label htmlFor="signup-name" className="text-xs font-semibold text-gray-700">Name</label>
               <input
+                id="signup-name"
                 name="name"
                 value={form.name}
                 onChange={handleInput}
@@ -363,57 +376,64 @@ function OperatorSignUpContent() {
               />
             </div>
             <div>
-              <label className="text-xs font-semibold text-gray-700">Company / Agency Name</label>
+              <label htmlFor="signup-company" className="text-xs font-semibold text-gray-700">Company / Agency Name</label>
               <input
+                id="signup-company"
                 name="companyName"
                 value={form.companyName}
                 onChange={handleInput}
                 className="mt-0.5 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-[#558B2F] focus:outline-none focus:ring-1 focus:ring-[#558B2F]"
               />
             </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-700">Telephone number</label>
-              <input
-                name="phoneNumber"
-                value={form.phoneNumber}
-                onChange={handleInput}
-                className="mt-0.5 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-[#558B2F] focus:outline-none focus:ring-1 focus:ring-[#558B2F]"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-700">Mobile number</label>
-              <input
-                name="mobileNumber"
-                value={form.mobileNumber}
-                onChange={handleInput}
-                className="mt-0.5 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-[#558B2F] focus:outline-none focus:ring-1 focus:ring-[#558B2F]"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-700">Email address</label>
-              <input
-                name="email"
-                type="email"
-                value={form.email}
-                onChange={handleInput}
-                onBlur={() => { if (form.email.trim()) checkEmailAvailable(form.email); }}
-                className={`mt-0.5 w-full rounded-md border px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 ${emailTakenError ? 'border-red-400 focus:border-red-400 focus:ring-red-200' : 'border-gray-300 focus:border-[#558B2F] focus:ring-[#558B2F]'}`}
-              />
-              {checkingEmail && (
-                <p className="mt-0.5 text-xs text-gray-400">Checking…</p>
-              )}
-              {emailTakenError && (
-                <p className="mt-0.5 text-xs text-red-500">{emailTakenError}</p>
-              )}
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-700">Address</label>
-              <textarea
-                name="address"
+          </div>
+        </div>
+
+        {/* Telephone → Address — full width */}
+        <div className="mt-3 space-y-3">
+          <div>
+            <label htmlFor="signup-phone" className="text-xs font-semibold text-gray-700">Telephone number</label>
+            <input
+              id="signup-phone"
+              name="phoneNumber"
+              value={form.phoneNumber}
+              onChange={handleInput}
+              className="mt-0.5 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-[#558B2F] focus:outline-none focus:ring-1 focus:ring-[#558B2F]"
+            />
+          </div>
+          <div>
+            <label htmlFor="signup-mobile" className="text-xs font-semibold text-gray-700">Mobile number</label>
+            <input
+              id="signup-mobile"
+              name="mobileNumber"
+              value={form.mobileNumber}
+              onChange={handleInput}
+              className="mt-0.5 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-[#558B2F] focus:outline-none focus:ring-1 focus:ring-[#558B2F]"
+            />
+          </div>
+          <div>
+            <label htmlFor="signup-email" className="text-xs font-semibold text-gray-700">Email address</label>
+            <input
+              id="signup-email"
+              name="email"
+              type="email"
+              value={form.email}
+              onChange={handleInput}
+              onBlur={() => { if (form.email.trim()) checkEmailAvailable(form.email); }}
+              className={`mt-0.5 w-full rounded-md border px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 ${emailTakenError ? 'border-red-400 focus:border-red-400 focus:ring-red-200' : 'border-gray-300 focus:border-[#558B2F] focus:ring-[#558B2F]'}`}
+            />
+            {checkingEmail && (
+              <p className="mt-0.5 text-xs text-gray-400">Checking…</p>
+            )}
+            {emailTakenError && (
+              <p className="mt-0.5 text-xs text-red-500">{emailTakenError}</p>
+            )}
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-700">Address</label>
+            <div className="mt-0.5">
+              <LocationPicker
                 value={form.address}
-                onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))}
-                rows={2}
-                className="mt-0.5 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 resize-none focus:border-[#558B2F] focus:outline-none focus:ring-1 focus:ring-[#558B2F]"
+                onChange={(address, lat, lng) => setForm((prev) => ({ ...prev, address, lat, lng }))}
               />
             </div>
           </div>
@@ -455,6 +475,7 @@ function OperatorSignUpContent() {
               type="file"
               accept=".pdf,image/*"
               multiple
+              aria-label="Upload required documents"
               className="hidden"
               onChange={handleFileSelect}
             />
@@ -477,6 +498,8 @@ function OperatorSignUpContent() {
                   </div>
                   <button
                     type="button"
+                    title={`Remove ${file.name}`}
+                    aria-label={`Remove ${file.name}`}
                     onClick={() => removeDocument(i)}
                     className="shrink-0 text-red-400 hover:text-red-600 transition-colors"
                   >

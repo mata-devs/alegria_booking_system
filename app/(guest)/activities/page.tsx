@@ -1,6 +1,6 @@
-﻿'use client'
+'use client'
 
-import { useState, useEffect, Suspense, useMemo } from 'react'
+import { useState, useEffect, Suspense, useMemo, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import Footer from '@/app/components/Footer'
@@ -12,10 +12,10 @@ import { parseGuestListingSearchParams } from '@/app/lib/searchSchema'
 import { getDayCapacity } from '@/app/lib/getDayCapacity'
 import { collection, query, where, getDocs, limit } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
-import { CategoryFilterCollapsible } from '@/app/components/CategoryFilterCollapsible'
 import { ACTIVITY_TAGS } from '@/app/lib/activity-tags'
 import type { Activity } from '@/app/types'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/app/components/ui/drawer'
+import { SlidersHorizontal, ChevronDown, CalendarDays, ChevronRight } from 'lucide-react'
 
 export default function ActivitiesPage() {
   return (
@@ -30,6 +30,7 @@ function ActivitiesContent() {
   const queryKey = searchParams.toString()
   const initialSearch = parseGuestListingSearchParams(searchParams)
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
+  const tagScrollRef = useRef<HTMLDivElement>(null)
   const [searchLocation, setSearchLocation] = useState(initialSearch.location)
   const [searchDate, setSearchDate] = useState(initialSearch.date)
   const [searchTravelers, setSearchTravelers] = useState(initialSearch.travelers)
@@ -190,38 +191,85 @@ function ActivitiesContent() {
         </DrawerContent>
       </Drawer>
 
-      <div className="max-w-7xl mx-auto w-full px-6 lg:px-8 py-4">
-        <CategoryFilterCollapsible
-          expanded={filterPanelOpen}
-          onToggle={() => setFilterPanelOpen((o) => !o)}
-          activeSummary={activeFilter}
-        >
-          <button
-            type="button"
-            onClick={() => setActiveFilter(null)}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors border ${
-              activeFilter === null
-                ? 'bg-green-500 text-white border-green-500'
-                : 'border-gray-300 text-gray-600 hover:border-green-400 hover:text-green-600'
-            }`}
-          >
-            All
-          </button>
-          {ACTIVITY_TAGS.map((cat) => (
+      {/* TripAdvisor-style filter bar */}
+      <div className="sticky top-0 z-20 bg-white border-b border-gray-100 shadow-sm">
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center h-14 gap-2">
+
+            {/* Filters button */}
             <button
-              key={cat}
               type="button"
-              onClick={() => setActiveFilter(activeFilter === cat ? null : cat)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                activeFilter === cat
-                  ? 'bg-green-500 text-white border border-green-500'
-                  : 'border border-gray-300 text-gray-600 hover:border-green-400 hover:text-green-600'
+              onClick={() => setFilterPanelOpen((o) => !o)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-colors whitespace-nowrap shrink-0 ${
+                filterPanelOpen || searchLocation ? 'border-green-500 text-green-700 bg-green-50 font-medium' : 'border-gray-300 text-gray-600 hover:border-gray-400'
               }`}
             >
-              {cat}
+              <SlidersHorizontal className="h-3.5 w-3.5 shrink-0" />
+              Filters
+              {searchLocation && (
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-green-500 text-[10px] font-bold text-white">1</span>
+              )}
             </button>
-          ))}
-        </CategoryFilterCollapsible>
+
+            {/* Divider */}
+            <div className="h-6 w-px bg-gray-200 shrink-0" />
+
+            {/* Category pills — scrollable */}
+            <div ref={tagScrollRef} className="flex items-center gap-2 overflow-x-auto flex-1 scrollbar-hide">
+              <button
+                type="button"
+                onClick={() => setActiveFilter(null)}
+                className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+                  activeFilter === null ? 'bg-green-500 text-white border-green-500' : 'border-gray-300 text-gray-600 hover:border-green-400 hover:text-green-600'
+                }`}
+              >
+                All
+              </button>
+              {ACTIVITY_TAGS.map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => setActiveFilter(activeFilter === tag ? null : tag)}
+                  className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+                    activeFilter === tag ? 'bg-green-500 text-white border-green-500' : 'border-gray-300 text-gray-600 hover:border-green-400 hover:text-green-600'
+                  }`}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+
+            {/* Scroll arrow */}
+            <button
+              type="button"
+              aria-label="Scroll categories right"
+              onClick={() => tagScrollRef.current?.scrollBy({ left: 200, behavior: 'smooth' })}
+              className="shrink-0 flex items-center justify-center h-8 w-8 rounded-full border border-gray-200 bg-white shadow-sm text-gray-500 hover:bg-gray-50 transition-colors"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Expanded: location filter */}
+          {filterPanelOpen && (
+            <div className="pb-3 flex items-center gap-3">
+              <label htmlFor="act-location-filter" className="text-sm font-medium text-gray-700 shrink-0">Location</label>
+              <input
+                id="act-location-filter"
+                type="text"
+                value={searchLocation}
+                onChange={(e) => setSearchLocation(e.target.value)}
+                placeholder="Filter by location in Cebu…"
+                className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+              />
+              {searchLocation && (
+                <button type="button" onClick={() => setSearchLocation('')} className="text-sm text-gray-400 hover:text-gray-600">
+                  Clear
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 lg:px-8 pb-16">
@@ -240,6 +288,7 @@ function ActivitiesContent() {
         <div className="flex items-center justify-center gap-3 mb-16">
           {visibleCount < filtered.length && (
             <button
+              type="button"
               onClick={() => setVisibleCount((c) => c + 8)}
               className="border border-gray-300 text-gray-700 px-10 py-2.5 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors"
             >
@@ -248,6 +297,7 @@ function ActivitiesContent() {
           )}
           {visibleCount > 8 && (
             <button
+              type="button"
               onClick={() => setVisibleCount(8)}
               className="border border-gray-300 text-gray-700 px-10 py-2.5 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors"
             >
@@ -285,6 +335,7 @@ function ActivitiesContent() {
       {/* Mobile floating search button */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 sm:hidden">
         <button
+          type="button"
           onClick={() => setSearchDrawerOpen(true)}
           className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-5 py-3 rounded-full shadow-lg text-sm font-semibold transition-colors"
         >

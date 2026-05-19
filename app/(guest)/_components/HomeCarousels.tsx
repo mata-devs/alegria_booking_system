@@ -47,6 +47,12 @@ export default function HomeCarousels() {
   const [activities, setActivities] = useState<Activity[]>([])
   const [packages, setPackages] = useState<FSPackage[]>([])
   const [marqueeOperators, setMarqueeOperators] = useState<MarqueeOperator[]>([])
+  const pkgScrollRef = useRef<HTMLDivElement>(null)
+
+  const scrollPkgs = (dir: 'left' | 'right') => {
+    if (!pkgScrollRef.current) return
+    pkgScrollRef.current.scrollBy({ left: dir === 'left' ? -320 : 320, behavior: 'smooth' })
+  }
 
   useEffect(() => {
     async function fetchAll() {
@@ -233,22 +239,41 @@ export default function HomeCarousels() {
         <h2 className="mb-8 text-center text-2xl font-bold text-gray-900 sm:text-3xl">Top Activities</h2>
         {activities.length > 0 ? (
           <>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              {activities.slice(0, 8).map((act) => (
-                <PackageCard
-                  key={act.firestoreId}
-                  image={act.image}
-                  title={act.title}
-                  price={act.price}
-                  pricePrefix="From"
-                  tag={act.category}
-                  rating={act.rating}
-                  location={act.location}
-                  cardKind="activity"
-                  href={`/activities/${act.firestoreId}`}
-                />
-              ))}
-            </div>
+            {(() => {
+              const locationCount: Record<string, number> = {}
+              for (const a of activities) {
+                const loc = a.location || 'Cebu'
+                locationCount[loc] = (locationCount[loc] ?? 0) + 1
+              }
+              return (
+                <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {activities.slice(0, 9).map((act) => {
+                    const count = locationCount[act.location || 'Cebu'] ?? 1
+                    return (
+                      <Link
+                        key={act.firestoreId}
+                        href={`/activities/${act.firestoreId}`}
+                        className="flex items-center gap-5 rounded-2xl p-4 transition-colors hover:bg-gray-50 group"
+                      >
+                        <div className="relative h-32 w-32 shrink-0 overflow-hidden rounded-2xl">
+                          <Image
+                            src={act.image || `https://picsum.photos/seed/${act.firestoreId}/200/200`}
+                            alt={act.title}
+                            fill
+                            sizes="128px"
+                            className="object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-gray-900 text-xl leading-snug line-clamp-2 group-hover:text-green-600 transition-colors">{act.title}</p>
+                          <p className="mt-1.5 text-base text-gray-500">{count} {count === 1 ? 'Tour and Activity' : 'Tours and Activities'}</p>
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              )
+            })()}
             <div className="mt-8 flex justify-center">
               <Link
                 href="/activities"
@@ -270,22 +295,45 @@ export default function HomeCarousels() {
         <h2 className="mb-8 text-center text-2xl font-bold text-gray-900 sm:text-3xl">Top Tour Packages</h2>
         {packages.length > 0 ? (
           <>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              {packages.map((pkg) => (
-                <PackageCard
-                  key={pkg.id}
-                  image={pkg.packageImages?.[0] ?? ''}
-                  title={pkg.packageName}
-                  price={pkg.pricePerPerson}
-                  pricePrefix="From"
-                  tag={pkg.packageTag}
-                  duration={pkg.duration}
-                  rating={pkg.packageRating}
-                  location={pkg.packageLocation}
-                  cardKind="tourPackage"
-                  href={`/tour-packages/${pkg.slug}`}
-                />
-              ))}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => scrollPkgs('left')}
+                className="absolute -left-8 top-1/2 z-10 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-md transition hover:border-green-400 hover:text-green-600"
+                aria-label="Scroll left"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollPkgs('right')}
+                className="absolute -right-5 top-1/2 z-10 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-md transition hover:border-green-400 hover:text-green-600"
+                aria-label="Scroll right"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+              <div ref={pkgScrollRef} className="flex gap-4 overflow-x-auto pb-2">
+                {packages.map((pkg) => (
+                  <div key={pkg.id} className="w-64 shrink-0 sm:w-72">
+                    <PackageCard
+                      image={pkg.packageImages?.[0] ?? ''}
+                      title={pkg.packageName}
+                      price={pkg.pricePerPerson}
+                      pricePrefix="From"
+                      tag={pkg.packageTag}
+                      duration={pkg.duration}
+                      rating={pkg.packageRating}
+                      location={pkg.packageLocation}
+                      cardKind="tourPackage"
+                      href={`/tour-packages/${pkg.slug}`}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
             <div className="mt-8 flex justify-center">
               <Link

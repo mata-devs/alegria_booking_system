@@ -20,7 +20,7 @@ const securityHeaders = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline'",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' blob: data: https://picsum.photos https://firebasestorage.googleapis.com",
+      "img-src 'self' blob: data: https://picsum.photos https://firebasestorage.googleapis.com https://*.tile.openstreetmap.org",
       "font-src 'self' data:",
       [
         "connect-src 'self'",
@@ -31,6 +31,7 @@ const securityHeaders = [
         'https://*.cloudfunctions.net',
         'https://www.google-analytics.com',
         'https://analytics.google.com',
+        'https://nominatim.openstreetmap.org',
       ].join(' '),
       "media-src 'self'",
       "frame-src 'none'",
