@@ -42,7 +42,7 @@ export function mergeGuestLocations(
       name,
       activityCount: ac,
       packageCount: pc,
-      image: `https://picsum.photos/seed/${encodeURIComponent(name)}/400/300`,
+      image: '',
     })
   }
   next.sort((a, b) => a.name.localeCompare(b.name))
@@ -67,7 +67,7 @@ export function allCebuMunicipalitiesAsLocations(
       name,
       activityCount: ac,
       packageCount: pc,
-      image: `https://picsum.photos/seed/${encodeURIComponent(name)}/400/300`,
+      image: '',
     }
     if (ac > 0 || pc > 0) withContent.push(loc)
     else empty.push(loc)

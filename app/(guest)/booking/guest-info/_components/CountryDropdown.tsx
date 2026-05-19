@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { ChevronDown, Check } from "lucide-react";
-import { CircleFlag } from "react-circle-flags";
+import { DynamicFlag } from "@sankyu/react-circle-flags";
 import { countries } from "country-data-list";
 
 interface CountryDropdownProps {
@@ -63,7 +63,7 @@ export const CountryDropdown = ({
                 <div className="flex items-center gap-3 truncate">
                     {selectedCountry ? (
                         <>
-                            <CircleFlag countryCode={selectedCountry.alpha2.toLowerCase()} className="w-5 h-5 flex-shrink-0" />
+                            <DynamicFlag code={selectedCountry.alpha2.toLowerCase()} className="w-5 h-5 flex-shrink-0" />
                             <span className="truncate">{selectedCountry.name}</span>
                         </>
                     ) : (
@@ -103,7 +103,7 @@ export const CountryDropdown = ({
                                     }`}
                                 >
                                     <div className="flex items-center gap-3 truncate">
-                                        <CircleFlag countryCode={country.alpha2.toLowerCase()} className="w-5 h-5 flex-shrink-0" />
+                                        <DynamicFlag code={country.alpha2.toLowerCase()} className="w-5 h-5 flex-shrink-0" />
                                         <span className="truncate">{country.name}</span>
                                     </div>
                                     {selectedAlpha2 === country.alpha2 && (

@@ -16,6 +16,9 @@ export interface Activity {
   rating: number
   reviewCount: number
   price: number
+  priceAdult?: number
+  priceChild?: number
+  childAgeMax?: number
   maxGuests?: number
   image: string
   municipalityId: string
@@ -26,6 +29,9 @@ export interface TourPackage {
   title: string
   description: string
   price: number
+  priceAdult?: number
+  priceChild?: number
+  childAgeMax?: number
   image: string
   theme: string
   duration: string

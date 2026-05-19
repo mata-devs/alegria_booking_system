@@ -18,10 +18,19 @@ A Cebu tourism booking platform for guests, tour operators, and super-admins. Gu
 | [Recharts](https://recharts.org) | 2.15 | Analytics charts (bar, line, pie) |
 | [Radix UI](https://www.radix-ui.com) | — | Headless UI primitives |
 | [Lucide React](https://lucide.dev) | — | Icon set |
+| [react-icons](https://react-icons.github.io/react-icons) | 5 | Additional icon set |
+| [vaul](https://vaul.emilkowal.ski) | 1 | Slide-out drawer primitive |
+| [dnd-kit](https://dndkit.com) | — | Drag-and-drop (site-content CMS) |
+| [Zod](https://zod.dev) | 4 | Search param schema validation |
+| [@tanstack/react-table](https://tanstack.com/table) | 8 | Table primitives |
 | [react-qr-code](https://github.com/rosskhanas/react-qr-code) | 2.0 | Scannable QR code generation |
 | [@zxing/browser](https://github.com/zxing-js/library) | 0.2 | QR code scanning (operator check-in) |
-| [dnd-kit](https://dndkit.com) | — | Drag-and-drop (site-content CMS) |
+| [@sankyu/react-circle-flags](https://github.com/HatScripts/circle-flags) | — | Country flag icons (phone prefix picker) |
+| [country-data-list](https://github.com/planet-cards/country-data-list) | — | Country + dial-code data |
+| [class-variance-authority](https://cva.style) | — | Variant-based className utility |
+| [clsx](https://github.com/lukeed/clsx) + [tailwind-merge](https://github.com/dcastil/tailwind-merge) | — | `cn()` className helper |
 | [ESLint](https://eslint.org) | 9 | Linting |
+| [@playwright/test](https://playwright.dev) | 1.59 | E2E testing |
 
 ### Backend (`functions/`)
 
@@ -30,6 +39,10 @@ A Cebu tourism booking platform for guests, tour operators, and super-admins. Gu
 | [Firebase Admin SDK](https://firebase.google.com/docs/admin/setup) | 13 | Server-side Firestore, Auth, Storage |
 | [Firebase Functions v2](https://firebase.google.com/docs/functions) | 7 | Cloud Functions (HTTP + Firestore triggers) |
 | [Express](https://expressjs.com) | 5 | HTTP API framework for booking + operator endpoints |
+| [express-rate-limit](https://github.com/express-rate-limit/express-rate-limit) | 7 | Rate limiting on booking API |
+| [Helmet](https://helmetjs.github.io) | 8 | HTTP security headers |
+| [Nodemailer](https://nodemailer.com) | 7 | Transactional email (review requests, signup links) |
+| [qrcode](https://github.com/soldair/node-qrcode) | 1.5 | Server-side QR code generation |
 | Node.js | 24 | Runtime |
 
 ---
@@ -160,18 +173,18 @@ app/
 │
 ├── (guest)/                             # Guest-facing pages
 │   ├── _components/
-│   │   ├── HomeCarousels.tsx            # Operator marquee + discovery carousels
-│   │   └── HomeHero.tsx                 # Hero slideshow with CMS-driven images + fallback
+│   │   ├── HomeCarousels.tsx            # Operator marquee + discovery carousels (locations, activities, packages, offers)
+│   │   └── HomeHero.tsx                 # Hero slideshow + SearchBar — CMS-driven images with FallbackHero fallback
 │   ├── layout.tsx                       # Guest layout (Navbar + Footer)
 │   ├── page.tsx                         # Landing page (hero slideshow, carousels, ticker)
 │   ├── activities/
-│   │   ├── page.tsx                     # Filterable activity grid
+│   │   ├── page.tsx                     # Filterable activity grid + overlapping SearchBar (filters by location/date/travelers)
 │   │   └── [activityId]/
 │   │       └── page.tsx                 # Activity detail page
 │   ├── locations/
-│   │   ├── page.tsx                     # Location grid with search
+│   │   ├── page.tsx                     # Location grid with search — CMS-ordered, approved reviews
 │   │   └── [municipalityId]/
-│   │       └── page.tsx                 # Per-location map hero + activity cards + reviews
+│   │       └── page.tsx                 # Per-location hero (CMS image) + SearchBar + activity cards + reviews + other locations carousel
 │   ├── operators/
 │   │   ├── page.tsx                     # Operators listing with ratings
 │   │   └── [operatorId]/
@@ -179,7 +192,7 @@ app/
 │   ├── review/
 │   │   └── page.tsx                     # Guest review submission form
 │   ├── tour-packages/
-│   │   ├── page.tsx                     # Filterable tour packages grid
+│   │   ├── page.tsx                     # Filterable tour packages grid + overlapping SearchBar (filters by location/date/travelers)
 │   │   └── [packageId]/
 │   │       └── page.tsx                 # Package detail, itinerary, guides, chatbot
 │   └── booking/
@@ -232,7 +245,7 @@ app/
 │       │   ├── linechart.tsx            # Bookings trend (dynamic Y-axis)
 │       │   ├── barchart.tsx             # Age distribution
 │       │   ├── barcharty.tsx            # Affiliated entities horizontal bar
-│       │   ├── piechart.tsx             # Tourist nationalities
+│       │   ├── piechart.tsx             # Tourist nationalities (circle-flags per country)
 │       │   ├── piechart2.tsx            # Promo code usage
 │       │   └── payment.tsx              # Payment methods
 │       ├── activities/
@@ -267,7 +280,7 @@ app/
 │       │   ├── loading.tsx
 │       │   └── _components/
 │       │       ├── HeroEditor.tsx
-│       │       ├── LocationsEditor.tsx  # Drag-and-drop location ordering
+│       │       ├── LocationsEditor.tsx  # Drag-and-drop location ordering + image upload
 │       │       ├── PreviewPane.tsx      # Live preview (ticker + locations grid)
 │       │       └── TickerEditor.tsx
 │       ├── notifications/
@@ -307,7 +320,7 @@ app/
 ├── components/
 │   ├── Navbar.tsx                       # Logo + nav links + currency converter (guest layout)
 │   ├── Footer.tsx                       # Dark green footer
-│   ├── SearchBar.tsx                    # Where / When / Travelers search bar
+│   ├── SearchBar.tsx                    # Where / When / Travelers search bar — CMS location thumbnails, activity + package counts
 │   ├── ActivityCard.tsx                 # Activity card with rating + price
 │   ├── TourPackageCard.tsx              # Tour package card with overlay
 │   ├── LocationCard.tsx                 # Location card with activity count
@@ -328,11 +341,11 @@ app/
 │   │   ├── ResetPasswordPanel.tsx       # Password reset panel
 │   │   └── types.ts                     # Auth panel shared types
 │   ├── ui/
-│   │   ├── Skeleton.tsx                 # Reusable skeleton loader component
-│   │   ├── BentoGallery.tsx             # Bento-grid image gallery
-│   │   ├── PackageCard.tsx              # Reusable tour package card
+│   │   ├── Skeleton.tsx                 # Skeleton loader primitives (Skeleton, SkeletonCard, SkeletonRow)
+│   │   ├── BentoGallery.tsx             # Bento-grid image gallery with Lightbox
+│   │   ├── PackageCard.tsx              # Reusable card — activities + tour packages (gray placeholder when no image)
 │   │   ├── ToggleSwitch.tsx             # Toggle switch primitive
-│   │   └── drawer.tsx                   # Slide-out drawer primitive
+│   │   └── drawer.tsx                   # Slide-out drawer (Drawer, DrawerHeader, DrawerFooter)
 │   ├── (operator)/
 │   │   ├── OperatorSidebar.tsx          # Operator nav sidebar
 │   │   └── RoleGuard.tsx                # Role-based route protection
@@ -370,7 +383,7 @@ app/
 │   └── utils.ts                         # cn() utility (clsx + tailwind-merge)
 │
 └── data/
-    └── mockData.ts                      # Static seed data (locations, activities, packages)
+    └── mockData.ts                      # Static seed data (locations, activities, packages, reviews)
 
 functions/src/
 ├── index.ts                             # Entry point — re-exports all Cloud Functions
@@ -380,7 +393,7 @@ functions/src/
 │   └── mailer.ts                        # Nodemailer transporter + from-address resolver
 ├── booking/
 │   ├── api.http.ts                      # onRequest wrapper (asia-southeast1)
-│   ├── app.ts                           # Express app — CORS, auth middleware, all booking + operator routes
+│   ├── app.ts                           # Express app — CORS, Helmet, rate-limit, auth middleware, all booking + operator routes
 │   ├── checkInBooking.ts                # Check-in logic (QR scan → mark attended)
 │   ├── operatorRescheduleBooking.ts     # Operator booking reschedule handler
 │   ├── routes/bookings.routes.ts        # POST /bookings, POST /bookings/:bookingId/confirm
@@ -409,11 +422,11 @@ functions/src/
 | Route | Page | Description |
 |-------|------|-------------|
 | `/` | LandingPage | Auto-rotating hero slideshow + discovery carousels + municipality ticker |
-| `/locations` | LocationsPage | Browse and search Cebu locations; featured approved reviews |
-| `/locations/[municipalityId]` | MunicipalityView | Location hero, linked activities, reviews |
-| `/activities` | ActivitiesPage | All activities with filter chips and same-day capacity hints |
+| `/locations` | LocationsPage | Browse and search Cebu locations; CMS-ordered with approved reviews |
+| `/locations/[municipalityId]` | MunicipalityView | CMS hero image, linked activities + packages, reviews, other locations carousel |
+| `/activities` | ActivitiesPage | All activities with SearchBar, filter chips, and same-day capacity hints |
 | `/activities/[activityId]` | ActivityDetail | Single-activity detail + approved reviews |
-| `/tour-packages` | TourPackagesPage | All tour packages with filter chips and same-day capacity hints |
+| `/tour-packages` | TourPackagesPage | All tour packages with SearchBar, filter chips, and same-day capacity hints |
 | `/tour-packages/[packageId]` | TourPackageDetail | Package detail, itinerary, guides, chatbot, approved reviews |
 | `/operators` | OperatorsPage | Browse tour operators with ratings |
 | `/operators/[operatorId]` | OperatorProfilePage | Public operator profile with ratings breakdown |
@@ -443,7 +456,7 @@ functions/src/
 | `/super-admin/operators` | Approve / manage operator accounts |
 | `/super-admin/analytics` | Platform-wide analytics with operator + demographic filters |
 | `/super-admin/revenue` | Revenue reports |
-| `/super-admin/site-content` | CMS — hero images, municipality ticker, locations grid (drag-and-drop) |
+| `/super-admin/site-content` | CMS — hero images, municipality ticker, locations grid (drag-and-drop, image upload) |
 | `/super-admin/notifications` | Notifications inbox |
 | `/super-admin/vouchers` | Voucher code oversight (code + entity sub-pages) |
 | `/super-admin/reviews` | Review moderation (approve / reject / flag) |
@@ -478,13 +491,14 @@ Landing → Locations → Municipality View → Tour Package Detail
 
 - **Hero slideshow** — Auto-rotating CMS-driven background images on the landing page
 - **Municipality ticker** — Scrolling news-style ticker with location highlights on the landing page
-- **Searchable location dropdown** — "Where" field filters Cebu locations with thumbnails
+- **CMS-driven location images** — Super-admin uploads images per municipality via site-content editor; guest `/locations` grid, `/locations/[municipalityId]` hero, and SearchBar "Where" suggestions use these images in real-time
+- **Searchable location dropdown** — Shared `SearchBar` on the landing page, `/activities`, `/tour-packages`, and municipality views: filters municipalities with live activity + tour-package counts; shows CMS thumbnails when configured (pin icon fallback otherwise); dropdown stacks above listing card overlays
 - **Floating chatbot** — Context-aware assistant on the Tour Package Detail page
 - **Approved guest reviews** — Firestore-backed reviews on locations catalog, activity detail, and tour package detail
 - **Guest review submission** — Post-booking review form at `/review`
 - **Availability hints** — Same-day capacity counts on activities and tour-packages grids
 - **Dynamic location catalog** — Activity/package counts per municipality merged from Firestore
-- **Operator public profiles** — Browsable operator listing with ratings at `/operators`
+- **Operator public profiles** — Browsable operator listing with ratings at `/operators`; initials avatar when no profile photo
 - **Operator analytics export** — Download dashboard metrics as CSV
 - **Multiple payment methods** — GCash/Maya (with QR when configured), BDO, BPI; operator-specific account details from Firestore
 - **File upload** — Drag & drop or browse for payment screenshot upload
@@ -497,7 +511,7 @@ Landing → Locations → Municipality View → Tour Package Detail
 - **Notifications system** — Real-time Firestore-backed notifications with bell icon, toast, and inbox for operators and super-admin
 - **Analytics dashboards** — Bar, line, and pie charts via Recharts for operators and super-admin; CSV export; dynamic Y-axis scaling; per-card skeleton loaders; sticky filter sidebar
 - **Super-admin analytics filters** — Filter platform analytics by operator, date range, age, gender, and nationality
-- **Site content CMS** — Super-admin drag-and-drop editor for hero images, municipality ticker, and locations grid; live preview pane
+- **Site content CMS** — Super-admin drag-and-drop editor for hero images, municipality ticker, and locations grid with image upload; live preview pane; changes reflect immediately on guest pages
 - **Review moderation** — Super-admin approve / reject / flag guest reviews
 - **Voucher / promo codes** — Manage promo codes and affiliated entities; super-admin oversight
 - **Loading states** — Per-page `loading.tsx` files; skeleton loaders on analytics cards
@@ -506,6 +520,7 @@ Landing → Locations → Municipality View → Tour Package Detail
 - **Firestore security rules** — Super-admin rules cover voucher codes and affiliated entity management
 - **Automated review emails** — Cloud Function sends review-request email after booking completion grace period
 - **Mobile responsive** — All pages adapt to mobile with stacked layouts and hamburger menu
+- **No external placeholder images** — All guest-facing cards use real Firebase Storage images; gray placeholder rendered locally when no image is set
 
 ---
 
@@ -536,12 +551,16 @@ Landing → Locations → Municipality View → Tour Package Detail
 
 Key abstractions identified from codebase graph analysis:
 
-| Symbol | Edges | Role |
-|--------|-------|------|
-| `useAuth()` | 15 | Cross-cutting auth hook — consumed by guest, operator, and admin layers |
-| `createBooking()` | 14 | Central booking creation — called from operator portal and booking API |
-| `getAnalyticsDashboard()` | 9 | Single analytics data source — both operator and super-admin dashboards depend on it |
-| `assertSuperAdmin()` | 5 | Cloud Function auth guard — all admin-only functions call this |
-| `uploadReceiptImage()` | 5 | Payment receipt storage — called from both guest upload and operator confirmation flows |
+| Symbol | Role |
+|--------|------|
+| `useAuth()` | Cross-cutting auth hook — consumed by guest, operator, and admin layers |
+| `BookingProvider` | Central booking flow state — bridges guest-info and payment pages |
+| `PackageCard` | Shared display primitive — used across home carousels, activity grids, package grids, and location detail pages |
+| `parseHomepageCms()` | CMS data pipeline entry point — guest pages and `SearchBar` that read CMS location images depend on this |
+| `mergeGuestLocations()` | Merges per-municipality activity + package counts from Firestore — used by locations browse UI and SearchBar suggestions |
+| `createBooking()` | Central booking creation — called from operator portal and booking API |
+| `getAnalyticsDashboard()` | Single analytics data source — both operator and super-admin dashboards depend on it |
+| `assertSuperAdmin()` | Cloud Function auth guard — all admin-only functions call this |
+| `uploadReceiptImage()` | Payment receipt storage — called from both guest upload and operator confirmation flows |
 
-`useAuth()` is the highest-betweenness node in the graph — it bridges App Shell, Analytics, Operator Bookings, and Tour Package CRUD communities. Changes to `AuthContext.tsx` have the widest blast radius.
+`BookingState` (in `types.ts`) and `FieldErrors` (in `components/auth/types.ts`) are the highest PageRank nodes in the import graph — changes to these types have the widest blast radius.

@@ -184,14 +184,20 @@ export default function OperatorsPage() {
                 onClick={() => router.push(`/operators/${op.uid}`)}
                 className="flex items-center gap-4 bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-shadow cursor-pointer group"
               >
-                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl">
-                  <Image
-                    src={op.profileImage ?? `https://picsum.photos/seed/${encodeURIComponent(op.companyName)}/80/80`}
-                    alt={op.companyName}
-                    fill
-                    sizes="64px"
-                    className="object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-green-100">
+                  {op.profileImage ? (
+                    <Image
+                      src={op.profileImage}
+                      alt={op.companyName}
+                      fill
+                      sizes="64px"
+                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center text-xl font-bold text-green-600">
+                      {op.companyName.charAt(0).toUpperCase()}
+                    </span>
+                  )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">

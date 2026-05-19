@@ -228,23 +228,11 @@ export default function OperatorProfilePage() {
     )
   }
 
-  const heroSeed = encodeURIComponent(operator.companyName + '-hero')
-  const avatarSeed = encodeURIComponent(operator.companyName)
-
   return (
     <div className="min-h-screen flex flex-col bg-white">
       {/* Hero */}
       <section className="relative overflow-hidden">
-        <div className="relative w-full h-[clamp(200px,30vw,320px)]">
-          <Image
-            src={`https://picsum.photos/seed/${heroSeed}/1400/500`}
-            alt={operator.companyName}
-            fill
-            sizes="100vw"
-            className="object-cover"
-            priority
-          />
-        </div>
+        <div className="relative w-full h-[clamp(200px,30vw,320px)] bg-green-900" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/60" />
         <div className="absolute top-0 left-0 px-8 md:px-16 pt-5">
           <nav className="text-white/80 text-sm">
@@ -260,14 +248,20 @@ export default function OperatorProfilePage() {
       {/* Profile card */}
       <div className="relative z-10 -mt-16 px-4 sm:px-8 lg:px-16 mb-8">
         <div className="max-w-4xl mx-auto bg-white rounded-3xl shadow-xl p-6 sm:p-8 flex flex-col sm:flex-row gap-6 items-start">
-          <div className="relative h-24 w-24 sm:h-28 sm:w-28 shrink-0 overflow-hidden rounded-2xl shadow-md">
-            <Image
-              src={operator.profileImage ?? `https://picsum.photos/seed/${avatarSeed}/120/120`}
-              alt={operator.companyName}
-              fill
-              sizes="112px"
-              className="object-cover"
-            />
+          <div className="relative h-24 w-24 sm:h-28 sm:w-28 shrink-0 overflow-hidden rounded-2xl shadow-md bg-green-100">
+            {operator.profileImage ? (
+              <Image
+                src={operator.profileImage}
+                alt={operator.companyName}
+                fill
+                sizes="112px"
+                className="object-cover"
+              />
+            ) : (
+              <span className="absolute inset-0 flex items-center justify-center text-green-700 font-bold text-3xl">
+                {operator.companyName.charAt(0).toUpperCase()}
+              </span>
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 leading-tight">{operator.companyName}</h1>

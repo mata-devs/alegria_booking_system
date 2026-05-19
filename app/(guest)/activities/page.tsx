@@ -157,7 +157,7 @@ function ActivitiesContent() {
       </section>
 
       {/* Desktop search bar */}
-      <div className="relative z-10 -mt-8 px-4 sm:px-6 md:px-16 mb-4 hidden sm:block">
+      <div className="relative z-30 -mt-8 px-4 sm:px-6 md:px-16 mb-4 hidden sm:block">
         <SearchBar
           className="max-w-4xl mx-auto"
           defaultWhere={searchLocation}
