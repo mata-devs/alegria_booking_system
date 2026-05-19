@@ -18,6 +18,7 @@ import {
   countByPackageLocation,
   mergeGuestLocations,
 } from '@/app/lib/guest-location-list'
+import { getHomepageCmsClient } from '@/app/lib/homepage-cms'
 import {
   matchesMunicipalityRoute,
   municipalityFromSlug,
@@ -87,6 +88,7 @@ export default function MunicipalityView() {
   const [activities, setActivities] = useState<Activity[]>([])
   const [packages, setPackages] = useState<FirestorePackageRow[]>([])
   const [otherLocations, setOtherLocations] = useState<Location[]>([])
+  const [cmsHeroImage, setCmsHeroImage] = useState<string | null>(null)
 
   const municipalityName = useMemo(() => {
     const official = municipalityFromSlug(municipalityId)
@@ -98,16 +100,32 @@ export default function MunicipalityView() {
     async function load() {
       setLoading(true)
       try {
-        const [actSnap, pkgSnap] = await Promise.all([
+        const [actSnap, pkgSnap, cms] = await Promise.all([
           getDocs(query(collection(firebaseDb, 'activities'), firestoreWhere('status', '==', 'active'))),
           getDocs(query(collection(firebaseDb, 'tourPackages'), firestoreWhere('status', '==', 'active'))),
+          getHomepageCmsClient(),
         ])
         if (cancelled) return
+
+        const cmsItemMap = new Map(
+          cms.locations.items
+            .filter((i) => i.published)
+            .map((i) => [i.municipalitySlug, i]),
+        )
+
+        const thisItem = cmsItemMap.get(municipalityId)
+        if (thisItem?.imageUrl) setCmsHeroImage(thisItem.imageUrl)
 
         const activityByMuni = countByActivityLocation(actSnap)
         const packageByMuni = countByPackageLocation(pkgSnap)
         const merged = mergeGuestLocations(activityByMuni, packageByMuni)
-        setOtherLocations(merged.filter((l) => l.id !== municipalityId))
+        const others = merged
+          .filter((l) => l.id !== municipalityId)
+          .map((l) => {
+            const cmsItem = cmsItemMap.get(l.id)
+            return cmsItem?.imageUrl ? { ...l, image: cmsItem.imageUrl } : l
+          })
+        setOtherLocations(others)
 
         const actList: Activity[] = []
         actSnap.docs.forEach((d, idx) => {
@@ -178,7 +196,6 @@ export default function MunicipalityView() {
     [packages, activeFilter],
   )
 
-  const heroImage = `https://picsum.photos/seed/${encodeURIComponent(municipalityId)}-map/1400/480`
   const hasAny =
     filteredActivities.length > 0 || filteredPackages.length > 0
   const hasAnyUnfiltered = activities.length > 0 || packages.length > 0
@@ -187,14 +204,18 @@ export default function MunicipalityView() {
     <div className="min-h-screen flex flex-col bg-white">
       <section className="relative overflow-hidden">
         <div className="relative w-full h-[50vh] min-h-[220px]">
-          <Image
-            src={heroImage}
-            alt={municipalityName}
-            fill
-            sizes="100vw"
-            className="object-cover"
-            priority
-          />
+          {cmsHeroImage ? (
+            <Image
+              src={cmsHeroImage}
+              alt={municipalityName}
+              fill
+              sizes="100vw"
+              className="object-cover"
+              priority
+            />
+          ) : (
+            <div className="absolute inset-0 bg-green-900" />
+          )}
         </div>
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/50" />
         <div className="absolute top-0 left-0 px-8 md:px-16 pt-5">
@@ -214,7 +235,7 @@ export default function MunicipalityView() {
         </div>
       </section>
 
-      <div className="relative z-10 -mt-8 px-4 sm:px-6 md:px-16 mb-4">
+      <div className="relative z-30 -mt-8 px-4 sm:px-6 md:px-16 mb-4">
         <SearchBar defaultWhere={municipalityName} className="max-w-4xl mx-auto" />
       </div>
 

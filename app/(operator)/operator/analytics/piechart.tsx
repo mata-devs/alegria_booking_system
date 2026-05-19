@@ -1,6 +1,6 @@
 "use client"
 
-import { CircleFlag } from "react-circle-flags"
+import { DynamicFlag } from "@sankyu/react-circle-flags"
 import { countries as cdl } from "country-data-list"
 import { Globe2 } from "lucide-react"
 
@@ -142,8 +142,8 @@ export default function ChartPieNationalities({
             >
               <span className="flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-full ring-1 ring-neutral-200 bg-neutral-50">
                 {code ? (
-                  <CircleFlag
-                    countryCode={code}
+                  <DynamicFlag
+                    code={code}
                     height={20}
                     width={20}
                     className="h-5 w-5 object-cover"

@@ -8,13 +8,14 @@ const defaultRepresentative: Representative = {
   name: '', age: '', email: '', gender: '', phone: '', nationality: '',
 }
 
-const defaultGuest = (): Guest => ({ name: '', age: '', nationality: '', gender: '' })
+const defaultGuest = (): Guest => ({ name: '', age: '', nationality: '', gender: '', guestType: 'adult' })
 
 const initialBooking: BookingState = {
   item: null,
   date: 'January 8, 2026',
   time: '8:00 AM',
-  guestCount: 5,
+  adultCount: 5,
+  childCount: 0,
   promoCode: '',
   promoDiscount: 0,
   paymentMethod: 'GCash',
@@ -40,7 +41,9 @@ export function BookingProvider({ children }: { children: ReactNode }) {
   }
 
   const basePrice = booking.item?.price ?? 2500
-  const subtotal = basePrice * booking.guestCount
+  const adultPrice = booking.item?.priceAdult ?? basePrice
+  const childPrice = booking.item?.priceChild ?? basePrice
+  const subtotal = adultPrice * booking.adultCount + childPrice * booking.childCount
   const serviceCharge = SERVICE_CHARGE
   const total = subtotal + serviceCharge - booking.promoDiscount
 

@@ -137,7 +137,7 @@ function TourPackagesContent() {
         <div className="absolute top-0 left-0 px-4 sm:px-8 md:px-16 pt-5">
           <nav className="text-white/80 text-sm">
             <Link href="/" className="hover:text-white transition-colors">Home</Link>
-            <span className="mx-2">â€º</span>
+            <span className="mx-2">›</span>
             <span className="text-white font-medium">Tour Packages</span>
           </nav>
         </div>
@@ -152,7 +152,7 @@ function TourPackagesContent() {
       </section>
 
       {/* Desktop search bar */}
-      <div className="relative z-10 -mt-8 px-4 sm:px-6 md:px-16 mb-4 hidden sm:block">
+      <div className="relative z-30 -mt-8 mb-4 hidden px-4 sm:block sm:px-6 md:px-16">
         <SearchBar
           className="max-w-4xl mx-auto"
           defaultWhere={searchWhere}
@@ -219,7 +219,7 @@ function TourPackagesContent() {
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pb-16">
         {loading ? (
-          <div className="text-sm text-gray-400 py-20 text-center">Loading packagesâ€¦</div>
+          <div className="text-sm text-gray-400 py-20 text-center">Loading packages…</div>
         ) : visible.length === 0 ? (
           <div className="text-sm text-gray-400 py-20 text-center">
             {packages.length === 0 ? 'No tour packages available yet.' : 'No packages match your search.'}

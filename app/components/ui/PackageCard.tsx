@@ -135,13 +135,17 @@ export default function PackageCard({
       className={`relative rounded-2xl overflow-hidden group ${wide ? 'h-52' : 'w-full min-w-0 aspect-[3/4]'} ${isInteractive ? 'cursor-pointer' : ''} ${className}`}
       onClick={onClick}
     >
-      <Image
-        src={image}
-        alt={title}
-        fill
-        sizes={wide ? '(max-width: 768px) 100vw, 480px' : '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 280px'}
-        className={`object-cover ${isInteractive ? 'group-hover:scale-105 transition-transform duration-500' : ''}`}
-      />
+      {image ? (
+        <Image
+          src={image}
+          alt={title}
+          fill
+          sizes={wide ? '(max-width: 768px) 100vw, 480px' : '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 280px'}
+          className={`object-cover ${isInteractive ? 'group-hover:scale-105 transition-transform duration-500' : ''}`}
+        />
+      ) : (
+        <div className="absolute inset-0 bg-gray-200" />
+      )}
 
       {/* Gradient overlay — image clear top ~40%, transitions to near-black at bottom
           Adjust the rgba stop values to control gradient strength */}

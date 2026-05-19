@@ -119,7 +119,7 @@ export default function OperatorsPage() {
         <div className="absolute top-0 left-0 px-4 sm:px-8 md:px-16 pt-5">
           <nav className="text-white/80 text-sm">
             <Link href="/" className="hover:text-white transition-colors">Home</Link>
-            <span className="mx-2">â€º</span>
+            <span className="mx-2">›</span>
             <span className="text-white font-medium">Tour Operators</span>
           </nav>
         </div>
@@ -154,14 +154,14 @@ export default function OperatorsPage() {
             aria-label="Sort operators"
             className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 outline-none focus:border-green-400 cursor-pointer"
           >
-            <option value="name">Sort: Aâ€“Z</option>
+            <option value="name">Sort: A–Z</option>
             <option value="rating">Sort: Top Rated</option>
             <option value="activities">Sort: Most Active</option>
           </select>
         </div>
 
         {loading ? (
-          <div className="text-sm text-gray-500 py-16 text-center">Loading operatorsâ€¦</div>
+          <div className="text-sm text-gray-500 py-16 text-center">Loading operators…</div>
         ) : filtered.length === 0 ? (
           <div className="text-sm text-gray-500 py-16 text-center">
             {operators.length === 0 ? 'No operators registered yet.' : 'No operators match your search.'}
@@ -174,14 +174,20 @@ export default function OperatorsPage() {
                 onClick={() => router.push(`/operators/${op.uid}`)}
                 className="flex items-center gap-4 bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-shadow cursor-pointer group"
               >
-                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl">
-                  <Image
-                    src={op.profileImage ?? `https://picsum.photos/seed/${encodeURIComponent(op.companyName)}/80/80`}
-                    alt={op.companyName}
-                    fill
-                    sizes="64px"
-                    className="object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-green-100">
+                  {op.profileImage ? (
+                    <Image
+                      src={op.profileImage}
+                      alt={op.companyName}
+                      fill
+                      sizes="64px"
+                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <span className="absolute inset-0 flex items-center justify-center text-green-700 font-bold text-xl">
+                      {op.companyName.charAt(0).toUpperCase()}
+                    </span>
+                  )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">

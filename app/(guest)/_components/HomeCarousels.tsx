@@ -18,6 +18,7 @@ import {
   countByPackageLocation,
   allCebuMunicipalitiesAsLocations,
 } from '@/app/lib/guest-location-list'
+import { getHomepageCmsClient } from '@/app/lib/homepage-cms'
 import type { Activity, Location } from '@/app/types'
 
 interface FSPackage {
@@ -50,10 +51,11 @@ export default function HomeCarousels() {
   useEffect(() => {
     async function fetchAll() {
       try {
-        const [actSnap, pkgSnap, opSnap] = await Promise.all([
+        const [actSnap, pkgSnap, opSnap, cms] = await Promise.all([
           getDocs(query(collection(firebaseDb, 'activities'), firestoreWhere('status', '==', 'active'), limit(15))),
           getDocs(query(collection(firebaseDb, 'tourPackages'), firestoreWhere('status', '==', 'active'), limit(8))),
           getDocs(query(collection(firebaseDb, 'users'), firestoreWhere('role', '==', 'operator'), firestoreWhere('status', '==', 'active'), limit(20))),
+          getHomepageCmsClient(),
         ])
 
         const mappedActivities: Activity[] = actSnap.docs.map((d, idx) => {
@@ -91,7 +93,24 @@ export default function HomeCarousels() {
 
         const activityByMuni = countByActivityLocation(actSnap)
         const packageByMuni = countByPackageLocation(pkgSnap)
-        setLocations(allCebuMunicipalitiesAsLocations(activityByMuni, packageByMuni))
+
+        const publishedCmsItems = cms.locations.items
+          .filter((i) => i.published)
+          .sort((a, b) => a.order - b.order)
+
+        if (publishedCmsItems.length > 0) {
+          setLocations(
+            publishedCmsItems.map((item) => ({
+              id: item.municipalitySlug,
+              name: item.displayName,
+              image: item.imageUrl,
+              activityCount: activityByMuni.get(item.displayName) ?? 0,
+              packageCount: packageByMuni.get(item.displayName) ?? 0,
+            })),
+          )
+        } else {
+          setLocations(allCebuMunicipalitiesAsLocations(activityByMuni, packageByMuni))
+        }
 
         setPackages(
           pkgSnap.docs.slice(0, 8).map((d) => ({ id: d.id, ...d.data() } as FSPackage)),
@@ -183,7 +202,7 @@ export default function HomeCarousels() {
       <section className="mx-auto max-w-7xl px-6 py-8 sm:py-12 lg:px-8">
         <h2 className="mb-8 text-center text-2xl font-bold text-gray-900 sm:text-3xl">Top Locations</h2>
         {!locationsReady ? (
-          <div className="flex h-72 items-center justify-center text-sm text-gray-400">Loading locationsâ€¦</div>
+          <div className="flex h-72 items-center justify-center text-sm text-gray-400">Loading locations…</div>
         ) : locations.length > 0 ? (
           <>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 sm:gap-4">
@@ -218,7 +237,7 @@ export default function HomeCarousels() {
               {activities.slice(0, 8).map((act) => (
                 <PackageCard
                   key={act.firestoreId}
-                  image={act.image || `https://picsum.photos/seed/${act.firestoreId}/400/600`}
+                  image={act.image}
                   title={act.title}
                   price={act.price}
                   pricePrefix="From"
@@ -243,7 +262,7 @@ export default function HomeCarousels() {
             </div>
           </>
         ) : (
-          <div className="flex h-48 items-center justify-center text-sm text-gray-400">Loading activitiesâ€¦</div>
+          <div className="flex h-48 items-center justify-center text-sm text-gray-400">Loading activities…</div>
         )}
       </section>
 
@@ -255,7 +274,7 @@ export default function HomeCarousels() {
               {packages.map((pkg) => (
                 <PackageCard
                   key={pkg.id}
-                  image={pkg.packageImages?.[0] || `https://picsum.photos/seed/${pkg.id}/400/600`}
+                  image={pkg.packageImages?.[0] ?? ''}
                   title={pkg.packageName}
                   price={pkg.pricePerPerson}
                   pricePrefix="From"
@@ -281,7 +300,7 @@ export default function HomeCarousels() {
             </div>
           </>
         ) : (
-          <div className="flex h-48 items-center justify-center text-sm text-gray-400">Loading packagesâ€¦</div>
+          <div className="flex h-48 items-center justify-center text-sm text-gray-400">Loading packages…</div>
         )}
       </section>
 
@@ -293,13 +312,7 @@ export default function HomeCarousels() {
 
           {/* Banner 1 */}
           <div className="relative h-44 overflow-hidden rounded-2xl sm:h-52">
-            <Image
-              src="https://picsum.photos/seed/cebu-canyoneer/600/300"
-              alt="Canyoneering Adventure"
-              fill
-              sizes="(max-width: 640px) 100vw, 33vw"
-              className="object-cover"
-            />
+            <div className="absolute inset-0 bg-green-700" />
             <div className="absolute inset-0 bg-gradient-to-br from-green-600/85 via-green-500/60 to-transparent" />
             <div className="absolute inset-0 flex flex-col justify-between p-5">
               <h3 className="text-2xl font-extrabold uppercase leading-tight text-white drop-shadow">
@@ -319,13 +332,7 @@ export default function HomeCarousels() {
 
           {/* Banner 2 */}
           <div className="relative h-44 overflow-hidden rounded-2xl sm:h-52">
-            <Image
-              src="https://picsum.photos/seed/cebu-whale/600/300"
-              alt="Whale Shark Watching"
-              fill
-              sizes="(max-width: 640px) 100vw, 33vw"
-              className="object-cover"
-            />
+            <div className="absolute inset-0 bg-teal-700" />
             <div className="absolute inset-0 bg-gradient-to-br from-teal-700/85 via-teal-500/60 to-transparent" />
             <div className="absolute inset-0 flex flex-col justify-between p-5">
               <h3 className="text-2xl font-extrabold uppercase leading-tight text-white drop-shadow">
@@ -345,13 +352,7 @@ export default function HomeCarousels() {
 
           {/* Highlight card */}
           <div className="relative h-44 overflow-hidden rounded-2xl sm:h-52">
-            <Image
-              src="https://picsum.photos/seed/cebu-deals-offer/600/300"
-              alt="Top travel deals"
-              fill
-              sizes="(max-width: 640px) 100vw, 33vw"
-              className="object-cover"
-            />
+            <div className="absolute inset-0 bg-green-600" />
             <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(22,163,74,0.55)_0%,rgba(22,163,74,0.85)_100%)]" />
             <div className="absolute inset-0 flex flex-col justify-between p-5">
               <div>
@@ -433,15 +434,21 @@ function OperatorsMarquee({ operators }: { operators: MarqueeOperator[] }) {
               key={`${op.uid}-${i}`}
               className="flex shrink-0 items-center gap-3 w-[200px] sm:w-[220px] group"
             >
-              <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl">
-                <Image
-                  src={op.profileImage ?? `https://picsum.photos/seed/${encodeURIComponent(op.companyName)}/80/80`}
-                  alt={op.companyName}
-                  fill
-                  sizes="56px"
-                  className="object-cover group-hover:scale-105 transition-transform duration-300"
-                  loading="lazy"
-                />
+              <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-green-100">
+                {op.profileImage ? (
+                  <Image
+                    src={op.profileImage}
+                    alt={op.companyName}
+                    fill
+                    sizes="56px"
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    loading="lazy"
+                  />
+                ) : (
+                  <span className="absolute inset-0 flex items-center justify-center text-green-700 font-bold text-lg">
+                    {op.companyName.charAt(0).toUpperCase()}
+                  </span>
+                )}
               </div>
               <div className="min-w-0">
                 <p className="truncate font-bold text-gray-900 text-sm group-hover:text-green-600 transition-colors">{op.companyName}</p>
