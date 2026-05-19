@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -184,7 +184,7 @@ export default function MunicipalityView() {
   const hasAnyUnfiltered = activities.length > 0 || packages.length > 0
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#f0fdf4]">
+    <div className="min-h-screen flex flex-col bg-white">
       <section className="relative overflow-hidden">
         <div className="relative w-full h-[50vh] min-h-[220px]">
           <Image

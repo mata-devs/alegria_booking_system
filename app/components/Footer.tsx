@@ -2,11 +2,11 @@ import Image from 'next/image'
 
 export default function Footer() {
   return (
-    <footer className="bg-[#0d3320] text-white pt-14 pb-8">
+    <footer className="bg-black text-white pt-14 pb-8">
       <div className="w-full px-10 lg:px-20 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-16">
         <div>
           <h3 className="text-xl font-bold text-white mb-3">VisitCebu</h3>
-          <p className="text-sm text-green-200/70 leading-relaxed mb-5">
+          <p className="text-sm text-white/60 leading-relaxed mb-5">
             Showcasing the natural wonders of Cebu through sustainable and curated travel experiences.
           </p>
           <div className="flex gap-4 items-center">
@@ -27,7 +27,7 @@ export default function Footer() {
 
         <div>
           <h4 className="font-semibold text-white mb-4">Links</h4>
-          <ul className="space-y-2.5 text-sm text-green-200/70">
+          <ul className="space-y-2.5 text-sm text-white/60">
             <li><a href="#" className="hover:text-white transition-colors">About Us</a></li>
             <li><a href="#" className="hover:text-white transition-colors">Eco-Tourism Initiatives</a></li>
             <li><a href="#" className="hover:text-white transition-colors">Local Partners</a></li>
@@ -37,7 +37,7 @@ export default function Footer() {
 
         <div>
           <h4 className="font-semibold text-white mb-4">Support</h4>
-          <ul className="space-y-2.5 text-sm text-green-200/70">
+          <ul className="space-y-2.5 text-sm text-white/60">
             <li><a href="#" className="hover:text-white transition-colors">About Us</a></li>
             <li><a href="#" className="hover:text-white transition-colors">Eco-Tourism Initiatives</a></li>
             <li><a href="#" className="hover:text-white transition-colors">Local Partners</a></li>
@@ -47,7 +47,7 @@ export default function Footer() {
 
         <div>
           <h4 className="font-semibold text-white mb-4">Island Updates</h4>
-          <p className="text-sm text-green-200/70 mb-4">Get the best Cebu travel deals and local guides</p>
+          <p className="text-sm text-white/60 mb-4">Get the best Cebu travel deals and local guides</p>
           <div className="flex w-full">
             <input
               type="email"
@@ -58,14 +58,14 @@ export default function Footer() {
               placeholder="Email"
               className="flex-1 min-w-0 px-4 py-2 rounded-l-full text-sm text-gray-800 bg-white outline-none"
             />
-            <button className="bg-[#0a6640] hover:bg-[#0b7348] px-5 py-2 rounded-r-full text-sm font-semibold transition-colors shrink-0">
+            <button className="bg-gray-900 hover:bg-gray-700 text-white px-5 py-2 rounded-r-full text-sm font-semibold transition-colors shrink-0">
               Join
             </button>
           </div>
         </div>
       </div>
 
-      <div className="w-full px-10 lg:px-20 mt-10 pt-6 border-t border-green-900 text-center text-xs text-green-200/50">
+      <div className="w-full px-10 lg:px-20 mt-10 pt-6 border-t border-white/10 text-center text-xs text-white/40">
         © {new Date().getFullYear()} VisitCebu. All rights reserved.
       </div>
     </footer>

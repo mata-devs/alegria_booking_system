@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
@@ -209,7 +209,7 @@ export default function OperatorProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col bg-[#f0fdf4]">
+      <div className="min-h-screen flex flex-col bg-white">
         <div className="flex-1 flex items-center justify-center text-sm text-gray-500">Loading operator profile…</div>
         <Footer />
       </div>
@@ -218,7 +218,7 @@ export default function OperatorProfilePage() {
 
   if (notFound || !operator) {
     return (
-      <div className="min-h-screen flex flex-col bg-[#f0fdf4]">
+      <div className="min-h-screen flex flex-col bg-white">
         <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center px-6">
           <p className="text-lg font-semibold text-gray-700">Operator not found</p>
           <Link href="/operators" className="text-sm text-green-600 hover:underline">← Back to operators</Link>
@@ -232,7 +232,7 @@ export default function OperatorProfilePage() {
   const avatarSeed = encodeURIComponent(operator.companyName)
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#f0fdf4]">
+    <div className="min-h-screen flex flex-col bg-white">
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div className="relative w-full h-[clamp(200px,30vw,320px)]">

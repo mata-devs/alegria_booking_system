@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, Suspense, useMemo } from 'react'
 import Image from 'next/image'
@@ -125,7 +125,7 @@ function ActivitiesContent() {
   const visible = filtered.slice(0, visibleCount)
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#f0fdf4]">
+    <div className="min-h-screen flex flex-col bg-white">
       <section className="relative overflow-hidden">
         <div className="relative w-full h-[clamp(180px,25vw,280px)]">
           <Image
@@ -140,9 +140,9 @@ function ActivitiesContent() {
         <div className="absolute top-0 left-0 px-8 md:px-16 pt-5">
           <nav className="text-white/80 text-sm">
             <Link href="/" className="hover:text-white transition-colors">Home</Link>
-            <span className="mx-2">›</span>
+            <span className="mx-2">â€º</span>
             <Link href="/locations" className="hover:text-white transition-colors">Cebu Locations</Link>
-            <span className="mx-2">›</span>
+            <span className="mx-2">â€º</span>
             <span className="text-white font-medium">Activities</span>
           </nav>
         </div>
@@ -226,7 +226,7 @@ function ActivitiesContent() {
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 lg:px-8 pb-16">
         {loading ? (
-          <div className="py-16 text-center text-sm text-gray-400">Loading activities…</div>
+          <div className="py-16 text-center text-sm text-gray-400">Loading activitiesâ€¦</div>
         ) : filtered.length === 0 ? (
           <div className="py-16 text-center text-sm text-gray-400">No activities available.</div>
         ) : (
@@ -299,3 +299,4 @@ function ActivitiesContent() {
     </div>
   )
 }
+
