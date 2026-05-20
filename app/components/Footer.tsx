@@ -6,7 +6,7 @@ export default function Footer() {
     <footer className="bg-black text-white pt-14 pb-8">
       <div className="w-full px-10 lg:px-20 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-16">
         <div>
-          <h3 className="text-xl font-bold text-white mb-3">VisitCebu</h3>
+          <h3 className="text-xl text-white mb-3 [font-family:'Potta_One',cursive]">VisitCebu</h3>
           <p className="text-sm text-white/60 leading-relaxed mb-5">
             Showcasing the natural wonders of Cebu through sustainable and curated travel experiences.
           </p>
@@ -60,7 +60,7 @@ export default function Footer() {
               placeholder="Email"
               className="flex-1 min-w-0 px-4 py-2 rounded-l-full text-sm text-gray-800 bg-white outline-none"
             />
-            <button className="bg-gray-900 hover:bg-gray-700 text-white px-5 py-2 rounded-r-full text-sm font-semibold transition-colors shrink-0">
+            <button type="button" className="bg-gray-900 hover:bg-gray-700 text-white px-5 py-2 rounded-r-full text-sm font-semibold transition-colors shrink-0">
               Join
             </button>
           </div>
