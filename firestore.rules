@@ -161,6 +161,12 @@ service cloud.firestore {
       allow read, delete: if true;
     }
 
+    // Platform pricing — public read for guest checkout; super-admin write
+    match /app_config/pricing {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+
     // ── ADDED 2026-05-11 ───────────────────────────────────────────
     // Homepage CMS singleton (TASK-53). Public read so the guest landing page can
     // SSR the doc + client editor can subscribe. Super admins are the only writers.
