@@ -6,7 +6,11 @@ import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { doc, getDoc, collection, getDocs, query, where } from "firebase/firestore";
 import { firestore } from "@/app/lib/firebase";
 import { createBooking, type PaymentMethod } from "@/app/lib/booking-service";
-import { SERVICE_CHARGE } from "@/app/lib/serviceCharge";
+import {
+    getPlatformPricing,
+    computeBookingTotals,
+    DEFAULT_SERVICE_CHARGE_PER_BOOKING,
+} from "@/app/lib/platform-pricing";
 import { PaymentInstructions } from "./_components/PaymentInstructions";
 import { BookingSummary } from "./_components/BookingSummary";
 import { UploadPayment } from "./_components/UploadPayment";
@@ -193,10 +197,11 @@ function PaymentPageContent() {
                     }
                 }
 
-                const baseSubtotal = pricePerGuest * sessionData.context.guestCount;
-                const discountAmount = discountPercent ? (baseSubtotal * (discountPercent / 100)) : 0;
-                const subtotal = baseSubtotal - discountAmount;
-                const total = subtotal + SERVICE_CHARGE;
+                const platformPricing = await getPlatformPricing();
+                const charge =
+                    platformPricing.serviceChargePerBooking ?? DEFAULT_SERVICE_CHARGE_PER_BOOKING;
+                const baseAmount = pricePerGuest * sessionData.context.guestCount;
+                const { total } = computeBookingTotals(baseAmount, charge, discountPercent);
 
                 if (!cancelled) setPricingTotal(total);
             } catch {

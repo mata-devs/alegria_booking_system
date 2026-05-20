@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, Camera, Check, LayoutTemplate, Loader2, TriangleAlert, User } from 'lucide-react';
+import { ArrowUpRight, Camera, Check, Coins, LayoutTemplate, Loader2, TriangleAlert, User } from 'lucide-react';
 import {
   EmailAuthProvider,
   reauthenticateWithCredential,
@@ -19,6 +19,12 @@ import {
   subscribeHomepageCms,
   type HomepageCms,
 } from '@/app/lib/homepage-cms';
+import {
+  subscribePlatformPricing,
+  setServiceChargePerBooking,
+  validateServiceChargePerBooking,
+  type PlatformPricing,
+} from '@/app/lib/platform-pricing';
 
 type Status =
   | { type: 'idle' }
@@ -49,6 +55,10 @@ export default function SuperAdminSettingsPage() {
   const [homepageCmsBusy, setHomepageCmsBusy] = useState(false);
   const [homepageCmsStatus, setHomepageCmsStatus] = useState<Status>({ type: 'idle' });
 
+  const [platformPricing, setPlatformPricing] = useState<PlatformPricing | null>(null);
+  const [serviceChargeInput, setServiceChargeInput] = useState('');
+  const [pricingStatus, setPricingStatus] = useState<Status>({ type: 'idle' });
+
   useEffect(() => {
     if (authState.status !== 'authenticated') return;
     setProfile({
@@ -71,6 +81,42 @@ export default function SuperAdminSettingsPage() {
     );
     return () => unsub();
   }, [authState.status]);
+
+  useEffect(() => {
+    if (authState.status !== 'authenticated') return;
+    const unsub = subscribePlatformPricing(
+      (pricing) => {
+        setPlatformPricing(pricing);
+        setServiceChargeInput(String(pricing.serviceChargePerBooking));
+      },
+      (err) => {
+        console.error('platform_pricing listener:', err);
+        setPricingStatus({ type: 'error', msg: 'Could not load platform pricing.' });
+      },
+    );
+    return () => unsub();
+  }, [authState.status]);
+
+  const onSaveServiceCharge = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (authState.status !== 'authenticated') return;
+    const amount = parseFloat(serviceChargeInput);
+    const validation = validateServiceChargePerBooking(amount);
+    if (validation) {
+      setPricingStatus({ type: 'error', msg: validation });
+      return;
+    }
+    setPricingStatus({ type: 'saving' });
+    try {
+      await setServiceChargePerBooking(amount, authState.user.uid);
+      setPricingStatus({ type: 'success', msg: 'Service charge updated.' });
+    } catch (err) {
+      setPricingStatus({
+        type: 'error',
+        msg: err instanceof Error ? err.message : 'Failed to update service charge.',
+      });
+    }
+  };
 
   const onToggleHomepageCms = async () => {
     if (authState.status !== 'authenticated' || !homepageCms || homepageCmsBusy) return;
@@ -367,6 +413,74 @@ export default function SuperAdminSettingsPage() {
             </div>
           </form>
         </div>
+
+        <form
+          onSubmit={onSaveServiceCharge}
+          className="rounded-lg border border-gray-200 bg-white shadow-sm"
+        >
+          <div className="border-b border-gray-200 px-6 py-4">
+            <h2 className="text-base font-semibold text-gray-900">Platform pricing</h2>
+            <p className="mt-0.5 text-xs text-gray-500">
+              Flat service fee added once per reservation for all activities and tour packages.
+            </p>
+          </div>
+
+          <div className="px-6 py-5">
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#558B2F]/10 text-[#558B2F]">
+                <Coins className="h-5 w-5" strokeWidth={2} />
+              </span>
+              <div className="flex-1 min-w-0">
+                <label className={LABEL} htmlFor="serviceChargePerBooking">
+                  Service charge (per booking)
+                </label>
+                <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-semibold text-gray-500">₱</span>
+                  <input
+                    id="serviceChargePerBooking"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={serviceChargeInput}
+                    onChange={(e) => {
+                      setServiceChargeInput(e.target.value);
+                      if (pricingStatus.type === 'error') setPricingStatus({ type: 'idle' });
+                    }}
+                    disabled={!platformPricing || pricingStatus.type === 'saving' || loading}
+                    className={`${INPUT} max-w-[200px]`}
+                  />
+                </div>
+                <p className="mt-1.5 text-[11px] text-gray-400">
+                  Not multiplied by guest count. Guests see this amount at checkout; new bookings store the same peso value.
+                </p>
+                {platformPricing?.updatedAt ? (
+                  <p className="mt-1 text-[11px] text-gray-400">
+                    Last updated {new Date(platformPricing.updatedAt).toLocaleString('en-PH')}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
+          <StatusLine status={pricingStatus} />
+
+          <div className="flex items-center justify-end gap-3 border-t border-gray-100 px-6 py-4">
+            <button
+              type="submit"
+              disabled={!platformPricing || pricingStatus.type === 'saving' || loading}
+              className={BTN_PRIMARY}
+            >
+              {pricingStatus.type === 'saving' ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} />
+                  Saving
+                </>
+              ) : (
+                'Save service charge'
+              )}
+            </button>
+          </div>
+        </form>
 
         <section className="rounded-lg border border-gray-200 bg-white shadow-sm">
           <div className="border-b border-gray-200 px-6 py-4">

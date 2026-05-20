@@ -1,3 +1,2 @@
-//plan should be variable (can be changed by admin without changing code in the dashboard)
-
-export const SERVICE_CHARGE = 500;
+/** @deprecated Use `DEFAULT_SERVICE_CHARGE_PER_BOOKING` from `@/app/lib/platform-pricing`. */
+export { DEFAULT_SERVICE_CHARGE_PER_BOOKING as SERVICE_CHARGE } from './platform-pricing';
