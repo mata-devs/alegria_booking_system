@@ -773,8 +773,6 @@ function SummarizedReportPanel({ r, recordsBy }: { r: MonthRow; recordsBy: Recor
   const guestRevenue = r.bookings.reduce((s, b) => s + b.pricePerGuest * b.numberOfGuests, 0);
   const serviceRevenue = r.serviceChargeSum;
   const avgPrice = r.bookings.length ? Math.round(r.bookings.reduce((s, b) => s + b.pricePerGuest, 0) / r.bookings.length) : 0;
-  const lgu = r.totalBookings * 50;
-  const mata = r.totalBookings * 50;
 
   return (
     <>
@@ -797,8 +795,6 @@ function SummarizedReportPanel({ r, recordsBy }: { r: MonthRow; recordsBy: Recor
           <div className="space-y-2 text-gray-700">
             <LineItem label={`${peso(avgPrice)} x ${r.totalGuests} (no. of guest)`} value={peso(guestRevenue)} />
             <LineItem label={`Service charge x ${r.totalBookings} (no. of bookings)`} value={peso(serviceRevenue)} />
-            <LineItem label={`LGU (₱50) x ${r.totalBookings} (no. of bookings)`} value={peso(lgu)} />
-            <LineItem label={`Mata (₱50) x ${r.totalBookings} (no. of bookings)`} value={peso(mata)} />
             <div className="border-t border-gray-200 pt-2 mt-2 flex justify-between font-bold text-gray-900">
               <span>Total</span><span>{peso(r.totalRevenue)}</span>
             </div>

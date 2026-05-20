@@ -1,8 +1,11 @@
 'use client'
 
-import { createContext, useContext, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { BookingState, BookingContextValue, Representative, Guest } from '../types'
-import { SERVICE_CHARGE } from '../lib/serviceCharge'
+import {
+  DEFAULT_SERVICE_CHARGE_PER_BOOKING,
+  subscribePlatformPricing,
+} from '../lib/platform-pricing'
 
 const defaultRepresentative: Representative = {
   name: '', age: '', email: '', gender: '', phone: '', nationality: '',
@@ -30,6 +33,16 @@ const BookingContext = createContext<BookingContextValue | null>(null)
 
 export function BookingProvider({ children }: { children: ReactNode }) {
   const [booking, setBooking] = useState<BookingState>(initialBooking)
+  const [serviceChargePerBooking, setServiceChargePerBooking] = useState(
+    DEFAULT_SERVICE_CHARGE_PER_BOOKING,
+  )
+
+  useEffect(() => {
+    const unsub = subscribePlatformPricing((p) => {
+      setServiceChargePerBooking(p.serviceChargePerBooking)
+    })
+    return unsub
+  }, [])
 
   const updateBooking = (updates: Partial<BookingState>) =>
     setBooking((prev) => ({ ...prev, ...updates }))
@@ -44,7 +57,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
   const adultPrice = booking.item?.priceAdult ?? basePrice
   const childPrice = booking.item?.priceChild ?? basePrice
   const subtotal = adultPrice * booking.adultCount + childPrice * booking.childCount
-  const serviceCharge = SERVICE_CHARGE
+  const serviceCharge = serviceChargePerBooking
   const total = subtotal + serviceCharge - booking.promoDiscount
 
   return (

@@ -5,7 +5,11 @@ import { collection, doc, getDoc, getDocs, query, where } from "firebase/firesto
 import { firestore } from "@/app/lib/firebase";
 import type { PaymentMethod } from "@/app/lib/booking-service";
 
-import { SERVICE_CHARGE } from '@/app/lib/serviceCharge';
+import {
+    subscribePlatformPricing,
+    computeBookingTotals,
+    DEFAULT_SERVICE_CHARGE_PER_BOOKING,
+} from '@/app/lib/platform-pricing';
 import { ItemDetailModal } from '@/app/(guest)/booking/_components/ItemDetailModal';
 
 const peso = (n: number) =>
@@ -39,6 +43,12 @@ export function BookingSummary({
     const [showItemModal, setShowItemModal] = useState(false);
     const [pricePerGuest, setPricePerGuest] = useState<number | null>(null);
     const [discountPercent, setDiscountPercent] = useState<number | null>(null);
+    const [serviceChargePerBooking, setServiceChargePerBooking] = useState<number | null>(null);
+
+    useEffect(() => {
+        const unsub = subscribePlatformPricing((p) => setServiceChargePerBooking(p.serviceChargePerBooking));
+        return unsub;
+    }, []);
 
     useEffect(() => {
         if (!activityId) { setPricePerGuest(null); return; }
@@ -79,15 +89,22 @@ export function BookingSummary({
     const pricing = useMemo(() => {
         const guests = typeof guestTotal === "number" && guestTotal > 0 ? guestTotal : null;
         const price = pricePerGuest;
-        if (!guests || !price) return null;
+        if (!guests || !price || serviceChargePerBooking === null) return null;
 
-        const baseSubtotal = price * guests;
-        const discountAmount = discountPercent ? (baseSubtotal * (discountPercent / 100)) : 0;
-        const subtotal = baseSubtotal - discountAmount;
-        const total = subtotal + SERVICE_CHARGE;
+        const baseAmount = price * guests;
+        const charge = serviceChargePerBooking ?? DEFAULT_SERVICE_CHARGE_PER_BOOKING;
+        const totals = computeBookingTotals(baseAmount, charge, discountPercent);
 
-        return { guests, price, baseSubtotal, discountAmount, discountPercent, subtotal, total };
-    }, [guestTotal, pricePerGuest, discountPercent]);
+        return {
+            guests,
+            price,
+            baseAmount,
+            discountAmount: totals.discountAmount,
+            discountPercent: totals.discountPercent,
+            serviceCharge: totals.serviceCharge,
+            total: totals.total,
+        };
+    }, [guestTotal, pricePerGuest, discountPercent, serviceChargePerBooking]);
 
     return (
         <aside className="w-full max-w-md rounded-3xl border border-gray-200 bg-white p-6 shadow-sm md:p-8 lg:max-w-none">
@@ -149,7 +166,13 @@ export function BookingSummary({
                                 {pricing ? `₱${pricing.price.toLocaleString("en-PH")} x ${pricing.guests}` : "—"}
                             </span>
                             <span className="font-mono text-sm font-bold text-gray-900">
-                                {pricing ? peso(pricing.baseSubtotal) : "—"}
+                                {pricing ? peso(pricing.baseAmount) : "—"}
+                            </span>
+                        </div>
+                        <div className="flex items-baseline justify-between gap-4">
+                            <span className="font-semibold text-gray-900">Service charge</span>
+                            <span className="font-mono text-sm font-bold text-gray-900">
+                                {pricing ? peso(pricing.serviceCharge) : "—"}
                             </span>
                         </div>
                         {pricing?.discountPercent ? (
@@ -158,10 +181,6 @@ export function BookingSummary({
                                 <span className="font-mono text-sm font-bold text-[#74C00F]">-{peso(pricing.discountAmount)}</span>
                             </div>
                         ) : null}
-                        <div className="flex items-baseline justify-between gap-4">
-                            <span className="font-semibold text-gray-900">Service charge</span>
-                            <span className="font-mono text-sm font-bold text-gray-900">{peso(SERVICE_CHARGE)}</span>
-                        </div>
                     </div>
 
                     <div className="mt-4 border-t border-gray-200 pt-4">

@@ -5,7 +5,7 @@ import { createTransporter, getFromAddress } from "../../shared/mailer";
 
 const BOOKING_ADVANCE_DAYS = 180;
 const MAX_PERSONS_PER_SLOT = 30; //this is for the time slot (should be in the dedicated `activity` collection)
-const SERVICE_CHARGE_PERCENTAGE = 5; //percentage of the total price
+const DEFAULT_SERVICE_CHARGE_PER_BOOKING = 500;
 const MIN_AGE = 10; //minimum age for the representative and guests
 const MAX_SPECIAL_REQUESTS_LENGTH = 300; //maximum length of the special requests
 const PHONE_PREFIX = "+63"; //phone prefix for the Philippines
@@ -230,9 +230,22 @@ async function uploadReceiptImage(bookingId: string, receiptDataUrl: string): Pr
   return { receiptUrl: signedUrl, filePath };
 }
 
+async function getServiceChargePerBooking(): Promise<number> {
+  try {
+    const snap = await db.collection("app_config").doc("pricing").get();
+    if (!snap.exists) return DEFAULT_SERVICE_CHARGE_PER_BOOKING;
+    const amount = Number(snap.data()?.serviceChargePerBooking);
+    if (!Number.isFinite(amount) || amount < 0) return DEFAULT_SERVICE_CHARGE_PER_BOOKING;
+    return amount;
+  } catch {
+    return DEFAULT_SERVICE_CHARGE_PER_BOOKING;
+  }
+}
+
 function calculatePricing(
   numberOfGuests: number,
   pricePerGuest: number,
+  serviceChargePerBooking: number,
   discount = 0,
   adultCount?: number,
   childCount?: number,
@@ -247,7 +260,7 @@ function calculatePricing(
     ? adultCount! * priceAdult! + childCount! * priceChild!
     : numberOfGuests * pricePerGuest;
 
-  const serviceCharge = (baseAmount * SERVICE_CHARGE_PERCENTAGE) / 100;
+  const serviceCharge = serviceChargePerBooking;
   const subtotal = baseAmount + serviceCharge;
   const discountAmount = discount > 0 ? (subtotal * discount) / 100 : 0;
   const finalPrice = subtotal - discountAmount;
@@ -379,9 +392,12 @@ export async function createBooking(data: CreateBookingInput) {
     throw new Error("Invalid or expired promo code");
   }
 
+  const serviceChargePerBooking = await getServiceChargePerBooking();
+
   const pricing = calculatePricing(
     numberOfGuests,
     pricePerGuest,
+    serviceChargePerBooking,
     promoData?.discount ?? 0,
     data.adultCount,
     data.childCount,
@@ -795,7 +811,7 @@ export async function confirmPayment(bookingId: string) {
             <table style="width:100%;border-collapse:collapse;font-size:14px">
               <tr><td style="padding:6px 0;color:#6b7280;width:42%">Price per Guest</td><td style="padding:6px 0">${fmt(booking.pricePerGuest ?? 0)} × ${booking.numberOfGuests ?? 1}</td></tr>
               <tr style="border-top:1px solid #f3f4f6"><td style="padding:6px 0;color:#6b7280">Base Amount</td><td style="padding:6px 0">${fmt(booking.baseAmount ?? 0)}</td></tr>
-              <tr style="border-top:1px solid #f3f4f6"><td style="padding:6px 0;color:#6b7280">Service Charge (5%)</td><td style="padding:6px 0">${fmt(booking.serviceCharge ?? 0)}</td></tr>
+              <tr style="border-top:1px solid #f3f4f6"><td style="padding:6px 0;color:#6b7280">Service charge</td><td style="padding:6px 0">${fmt(booking.serviceCharge ?? 0)}</td></tr>
               ${(booking.discountAmount ?? 0) > 0 ? `
               <tr style="border-top:1px solid #f3f4f6"><td style="padding:6px 0;color:#6b7280">Discount (${booking.discountPercentage ?? 0}%${booking.promoCode ? ` · ${booking.promoCode}` : ""})</td><td style="padding:6px 0;color:#16a34a">− ${fmt(booking.discountAmount)}</td></tr>` : ""}
               <tr style="border-top:2px solid #e5e7eb">

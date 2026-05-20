@@ -7,7 +7,11 @@ import { firestore } from "@/app/lib/firebase";
 import { ChevronDown, X, Users, Pencil } from "lucide-react";
 import type { PaymentMethod } from "@/app/lib/booking-service";
 
-import { SERVICE_CHARGE } from '@/app/lib/serviceCharge';
+import {
+    subscribePlatformPricing,
+    computeBookingTotals,
+    DEFAULT_SERVICE_CHARGE_PER_BOOKING,
+} from '@/app/lib/platform-pricing';
 import { ItemDetailModal } from '@/app/(guest)/booking/_components/ItemDetailModal';
 
 const MAX_GUESTS = 30;
@@ -79,6 +83,7 @@ export function BookingSidebar({
 
     const [pricePerGuest, setPricePerGuest] = useState<number | null>(priceOverride ?? null);
     const [priceLoading, setPriceLoading] = useState(priceOverride === undefined);
+    const [serviceChargePerBooking, setServiceChargePerBooking] = useState<number | null>(null);
 
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>(paymentMethod ?? "Gcash / Maya");
 
@@ -98,6 +103,13 @@ export function BookingSidebar({
     useEffect(() => {
         if (onPaymentMethodChange) onPaymentMethodChange(selectedPaymentMethod);
     }, [selectedPaymentMethod, onPaymentMethodChange]);
+
+    useEffect(() => {
+        const unsub = subscribePlatformPricing((pricing) => {
+            setServiceChargePerBooking(pricing.serviceChargePerBooking);
+        });
+        return unsub;
+    }, []);
 
     useEffect(() => {
         if (priceOverride !== undefined) return;
@@ -246,10 +258,10 @@ export function BookingSidebar({
     }, [initialPromoCode]);
 
     const price = pricePerGuest ?? 0;
-    const baseSubtotal = price * guestCount;
-    const discountAmount = appliedPromo ? (baseSubtotal * (appliedPromo.discount / 100)) : 0;
-    const subtotal = baseSubtotal - discountAmount;
-    const total = subtotal + SERVICE_CHARGE;
+    const baseAmount = price * guestCount;
+    const charge = serviceChargePerBooking ?? DEFAULT_SERVICE_CHARGE_PER_BOOKING;
+    const pricingReady = serviceChargePerBooking !== null;
+    const totals = computeBookingTotals(baseAmount, charge, appliedPromo?.discount);
 
     return (
         <>
@@ -394,18 +406,20 @@ export function BookingSidebar({
                     <div className="mt-8 space-y-4">
                         <div className="flex justify-between text-gray-500 font-medium text-sm">
                             <span>{priceLoading ? "Loading..." : `₱${(pricePerGuest ?? 0).toLocaleString("en-PH")} × ${guestCount} ${guestCount === 1 ? "person" : "persons"}`}</span>
-                            <span className="text-black">{priceLoading ? "—" : peso(baseSubtotal)}</span>
+                            <span className="text-black">{priceLoading ? "—" : peso(baseAmount)}</span>
+                        </div>
+                        <div className="flex justify-between text-gray-500 font-medium text-sm">
+                            <span>Service Charge</span>
+                            <span className="text-black">
+                                {!pricingReady ? "—" : peso(totals.serviceCharge)}
+                            </span>
                         </div>
                         {appliedPromo && (
                             <div className="flex justify-between text-[#74C00F] font-medium text-sm">
                                 <span>Discount ({appliedPromo.discount}%)</span>
-                                <span>-{peso(discountAmount)}</span>
+                                <span>-{pricingReady ? peso(totals.discountAmount) : "—"}</span>
                             </div>
                         )}
-                        <div className="flex justify-between text-gray-500 font-medium text-sm">
-                            <span>Service Charge</span>
-                            <span className="text-black">{peso(SERVICE_CHARGE)}</span>
-                        </div>
                     </div>
 
                     {/* Payment Method */}
@@ -461,7 +475,7 @@ export function BookingSidebar({
                         <div className="flex justify-between items-end">
                             <span className="text-gray-500 font-bold">Total</span>
                             <span className="text-3xl font-black text-black tracking-tight">
-                                {priceLoading ? "—" : peso(total)}
+                                {priceLoading || !pricingReady ? "—" : peso(totals.total)}
                             </span>
                         </div>
                     </div>

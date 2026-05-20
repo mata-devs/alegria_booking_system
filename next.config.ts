@@ -29,6 +29,7 @@ const securityHeaders = [
         'https://*.firebaseio.com',
         'wss://*.firebaseio.com',
         'https://*.cloudfunctions.net',
+        'https://*.run.app',
         'https://www.google-analytics.com',
         'https://analytics.google.com',
         'https://nominatim.openstreetmap.org',
