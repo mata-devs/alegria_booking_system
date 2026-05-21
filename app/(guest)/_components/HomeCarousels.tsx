@@ -13,6 +13,7 @@ import {
   where as firestoreWhere,
 } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
+import { packageImageUrl } from '@/app/lib/package-images'
 import {
   countByActivityLocation,
   countByPackageLocation,
@@ -20,13 +21,14 @@ import {
 } from '@/app/lib/guest-location-list'
 import { getHomepageCmsClient } from '@/app/lib/homepage-cms'
 import type { Activity, Location } from '@/app/types'
+import { normalizePackageLocations, formatLocationSummary } from '@/app/lib/package-locations'
 
 interface FSPackage {
   id: string
   packageName: string
   packageDescription: string
   pricePerPerson: number
-  packageLocation: string
+  packageLocations: string[]
   packageTag: string
   duration: string
   packageImages: string[]
@@ -119,7 +121,14 @@ export default function HomeCarousels() {
         }
 
         setPackages(
-          pkgSnap.docs.slice(0, 8).map((d) => ({ id: d.id, ...d.data() } as FSPackage)),
+          pkgSnap.docs.slice(0, 8).map((d) => {
+            const data = d.data()
+            return {
+              id: d.id,
+              ...data,
+              packageLocations: normalizePackageLocations(data),
+            } as FSPackage
+          }),
         )
       } catch (err) {
         console.error('Failed to fetch home data:', err)
@@ -320,14 +329,14 @@ export default function HomeCarousels() {
                 {packages.map((pkg) => (
                   <div key={pkg.id} className="w-64 shrink-0 sm:w-72">
                     <PackageCard
-                      image={pkg.packageImages?.[0] ?? ''}
+                      image={packageImageUrl(pkg.packageImages?.[0])}
                       title={pkg.packageName}
                       price={pkg.pricePerPerson}
                       pricePrefix="From"
                       tag={pkg.packageTag}
                       duration={pkg.duration}
                       rating={pkg.packageRating}
-                      location={pkg.packageLocation}
+                      location={formatLocationSummary(pkg.packageLocations)}
                       cardKind="tourPackage"
                       href={`/tour-packages/${pkg.slug}`}
                     />

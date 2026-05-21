@@ -8,9 +8,10 @@ interface Props {
   activity: Activity
   date?: string
   travelers?: string
+  dotSealGranted?: boolean
 }
 
-export default function ActivityCard({ activity, date, travelers }: Props) {
+export default function ActivityCard({ activity, date, travelers, dotSealGranted }: Props) {
   const router = useRouter()
 
   const handleClick = () => {
@@ -33,6 +34,7 @@ export default function ActivityCard({ activity, date, travelers }: Props) {
       location={activity.location}
       rating={activity.rating}
       cardKind="activity"
+      dotSealGranted={dotSealGranted}
       onClick={handleClick}
     />
   )

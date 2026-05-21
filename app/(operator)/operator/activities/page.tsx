@@ -44,6 +44,12 @@ import { CSS } from '@dnd-kit/utilities';
 import { firebaseDb, firebaseStorage } from '@/app/lib/firebase';
 import { useAuth } from '@/app/context/AuthContext';
 import { ACTIVITY_TAGS, type ActivityTag, type StoredActivityTag } from '@/app/lib/activity-tags';
+import { CEBU_MUNICIPALITIES } from '@/app/lib/cebu-municipalities';
+import { ChipGridSelector } from '@/app/components/ui/ChipGridSelector';
+import {
+  DEFAULT_EXCLUSION_CHIPS,
+  DEFAULT_INCLUSION_CHIPS,
+} from '@/app/lib/inclusion-chips';
 
 declare module '@tanstack/react-table' {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -54,20 +60,6 @@ declare module '@tanstack/react-table' {
 }
 
 type ActivityStatus = 'active' | 'disabled';
-
-const CEBU_MUNICIPALITIES = [
-  'Alcantara', 'Alcoy', 'Alegria', 'Aloguinsan', 'Argao',
-  'Asturias', 'Badian', 'Balamban', 'Bantayan', 'Barili',
-  'Bogo City', 'Boljoon', 'Borbon', 'Carcar City', 'Carmen',
-  'Catmon', 'Cebu City', 'Compostela', 'Consolacion', 'Cordova',
-  'Dalaguete', 'Danao City', 'Dumanjug', 'Ginatilan', 'Lapu-Lapu City',
-  'Liloan', 'Madridejos', 'Malabuyoc', 'Mandaue City', 'Medellin',
-  'Minglanilla', 'Moalboal', 'Naga City', 'Oslob', 'Pilar',
-  'Pinamungajan', 'Poro', 'Ronda', 'Samboan', 'San Fernando',
-  'San Francisco', 'San Remigio', 'Santa Fe', 'Santander', 'Sibonga',
-  'Sogod', 'Tabogon', 'Tabuelan', 'Talisay City', 'Toledo City',
-  'Tuburan', 'Tudela',
-] as const;
 
 const MIN_IMAGES = 3;
 const MAX_IMAGES = 5;
@@ -90,6 +82,8 @@ interface OperatorActivity {
   operatorId: string;
   createdAt: Timestamp | null;
   status: ActivityStatus;
+  inclusions: string[];
+  exclusions: string[];
 }
 
 interface Filters {
@@ -415,11 +409,27 @@ interface EditFormState {
   activityLocation: string;
   activityTag: ActivityTag | '';
   status: ActivityStatus;
+  inclusions: string[];
+  exclusions: string[];
 }
 
 type FormErrors = Partial<Record<keyof EditFormState | 'images', string>>;
 
 function EditActivityModal({ activity, onClose, operatorId }: { activity: OperatorActivity; onClose: () => void; operatorId: string }) {
+  const { authState } = useAuth();
+  const customInclusionChips = authState.status === 'authenticated' ? (authState.profile.customInclusionChips ?? []) : [];
+  const customExclusionChips = authState.status === 'authenticated' ? (authState.profile.customExclusionChips ?? []) : [];
+
+  async function persistCustomChip(kind: 'inclusion' | 'exclusion', chip: string) {
+    if (authState.status !== 'authenticated') return;
+    const field = kind === 'inclusion' ? 'customInclusionChips' : 'customExclusionChips';
+    const current = kind === 'inclusion' ? customInclusionChips : customExclusionChips;
+    if (current.includes(chip)) return;
+    await updateDoc(doc(firebaseDb, 'users', authState.user.uid), {
+      [field]: [...current, chip],
+    });
+  }
+
   const [form, setForm] = useState<EditFormState>({
     activityName: activity.activityName,
     activityDetails: activity.activityDetails,
@@ -432,6 +442,8 @@ function EditActivityModal({ activity, onClose, operatorId }: { activity: Operat
     activityLocation: activity.activityLocation,
     activityTag: (ACTIVITY_TAGS as ReadonlyArray<string>).includes(activity.activityTag) ? activity.activityTag as ActivityTag : '',
     status: activity.status,
+    inclusions: activity.inclusions ?? [],
+    exclusions: activity.exclusions ?? [],
   });
   const [images, setImages] = useState<ImageSlot[]>(
     activity.activityImages.map((url, i) => ({ id: `ex-${i}-${url.slice(-6)}`, kind: 'existing' as const, url }))
@@ -525,6 +537,8 @@ function EditActivityModal({ activity, onClose, operatorId }: { activity: Operat
         activityTag: form.activityTag,
         status: form.status,
         activityImages: finalUrls,
+        inclusions: form.inclusions,
+        exclusions: form.exclusions,
       });
       onClose();
     } catch (err) {
@@ -632,6 +646,29 @@ function EditActivityModal({ activity, onClose, operatorId }: { activity: Operat
             <TagCombobox value={form.activityTag} onChange={(v) => field('activityTag', v as ActivityTag)} error={errors.activityTag} />
           </div>
 
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-2">What&apos;s Included</label>
+            <ChipGridSelector
+              defaults={DEFAULT_INCLUSION_CHIPS}
+              customs={customInclusionChips}
+              value={form.inclusions}
+              onChange={(v) => field('inclusions', v)}
+              onAddCustom={(chip) => persistCustomChip('inclusion', chip)}
+              variant="inclusion"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-2">What&apos;s Excluded</label>
+            <ChipGridSelector
+              defaults={DEFAULT_EXCLUSION_CHIPS}
+              customs={customExclusionChips}
+              value={form.exclusions}
+              onChange={(v) => field('exclusions', v)}
+              onAddCustom={(chip) => persistCustomChip('exclusion', chip)}
+              variant="exclusion"
+            />
+          </div>
+
           {/* Images — drag to reorder */}
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">
@@ -684,11 +721,31 @@ interface AddFormState {
   maximumNumberOfPeople: string;
   activityLocation: string;
   activityTag: ActivityTag | '';
+  inclusions: string[];
+  exclusions: string[];
 }
 
-const EMPTY_FORM: AddFormState = { activityName: '', activityDetails: '', pricePerGuest: '', priceAdult: '', priceChild: '', childAgeMax: '', minimumNumberOfPeople: '1', maximumNumberOfPeople: '30', activityLocation: '', activityTag: '' };
+const EMPTY_FORM: AddFormState = {
+  activityName: '', activityDetails: '', pricePerGuest: '', priceAdult: '', priceChild: '', childAgeMax: '',
+  minimumNumberOfPeople: '1', maximumNumberOfPeople: '30', activityLocation: '', activityTag: '',
+  inclusions: [], exclusions: [],
+};
 
 function AddActivityModal({ onClose, operatorId }: { onClose: () => void; operatorId: string }) {
+  const { authState } = useAuth();
+  const customInclusionChips = authState.status === 'authenticated' ? (authState.profile.customInclusionChips ?? []) : [];
+  const customExclusionChips = authState.status === 'authenticated' ? (authState.profile.customExclusionChips ?? []) : [];
+
+  async function persistCustomChip(kind: 'inclusion' | 'exclusion', chip: string) {
+    if (authState.status !== 'authenticated') return;
+    const field = kind === 'inclusion' ? 'customInclusionChips' : 'customExclusionChips';
+    const current = kind === 'inclusion' ? customInclusionChips : customExclusionChips;
+    if (current.includes(chip)) return;
+    await updateDoc(doc(firebaseDb, 'users', authState.user.uid), {
+      [field]: [...current, chip],
+    });
+  }
+
   const [form, setForm] = useState<AddFormState>(EMPTY_FORM);
   const [images, setImages] = useState<ImageSlot[]>([]);
   const [errors, setErrors] = useState<Partial<Record<keyof AddFormState | 'images', string>>>({});
@@ -777,6 +834,8 @@ function AddActivityModal({ onClose, operatorId }: { onClose: () => void; operat
         activityImages: imageUrls,
         operatorId,
         status: 'active',
+        inclusions: form.inclusions,
+        exclusions: form.exclusions,
         createdAt: serverTimestamp(),
       });
       onClose();
@@ -788,7 +847,8 @@ function AddActivityModal({ onClose, operatorId }: { onClose: () => void; operat
     }
   };
 
-  const field = (k: keyof AddFormState, v: string) => setForm((prev) => ({ ...prev, [k]: v }));
+  const field = <K extends keyof AddFormState>(k: K, v: AddFormState[K]) =>
+    setForm((prev) => ({ ...prev, [k]: v }));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -857,6 +917,28 @@ function AddActivityModal({ onClose, operatorId }: { onClose: () => void; operat
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">Activity Tag</label>
             <TagCombobox value={form.activityTag} onChange={(v) => field('activityTag', v as ActivityTag)} error={errors.activityTag} />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-2">What&apos;s Included</label>
+            <ChipGridSelector
+              defaults={DEFAULT_INCLUSION_CHIPS}
+              customs={customInclusionChips}
+              value={form.inclusions}
+              onChange={(v) => field('inclusions', v)}
+              onAddCustom={(chip) => persistCustomChip('inclusion', chip)}
+              variant="inclusion"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-2">What&apos;s Excluded</label>
+            <ChipGridSelector
+              defaults={DEFAULT_EXCLUSION_CHIPS}
+              customs={customExclusionChips}
+              value={form.exclusions}
+              onChange={(v) => field('exclusions', v)}
+              onAddCustom={(chip) => persistCustomChip('exclusion', chip)}
+              variant="exclusion"
+            />
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">
@@ -1110,7 +1192,15 @@ export default function OperatorActivitiesPage() {
     if (!operatorId) return;
     const q = query(collection(firebaseDb, 'activities'), where('operatorId', '==', operatorId));
     const unsub = onSnapshot(q, (snap) => {
-      setActivities(snap.docs.map((d) => ({ id: d.id, ...d.data() } as OperatorActivity)));
+      setActivities(snap.docs.map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          ...data,
+          inclusions: Array.isArray(data.inclusions) ? data.inclusions : [],
+          exclusions: Array.isArray(data.exclusions) ? data.exclusions : [],
+        } as OperatorActivity;
+      }));
       setLoading(false);
     });
     return unsub;

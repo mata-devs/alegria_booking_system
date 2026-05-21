@@ -12,6 +12,9 @@ import { GuestReviewCard } from '@/app/components/GuestReviewCard'
 import { firebaseDb } from '@/app/lib/firebase'
 import { getAllApprovedReviewsForCatalog, type CatalogReview } from '@/app/lib/reviews-service'
 import type { Activity } from '@/app/types'
+import { DotSealBadge } from '@/app/components/ui/DotSealBadge'
+import { packageImageUrl } from '@/app/lib/package-images'
+import { normalizePackageLocations, formatLocationSummary } from '@/app/lib/package-locations'
 
 interface OperatorInfo {
   uid: string
@@ -23,6 +26,7 @@ interface OperatorInfo {
   mobileNumber: string
   email: string | null
   memberSince: string | null
+  hasDOTQualitySeal: boolean
 }
 
 interface FirestorePackageRow {
@@ -31,7 +35,7 @@ interface FirestorePackageRow {
   packageDescription: string
   pricePerPerson: number
   minimumNumberOfPeople: number
-  packageLocation: string
+  packageLocations: string[]
   duration: string
   packageTag: string
   packageImages: string[]
@@ -129,6 +133,7 @@ export default function OperatorProfilePage() {
           mobileNumber: data.mobileNumber ?? '',
           email: data.email ?? null,
           memberSince,
+          hasDOTQualitySeal: data.hasDOTQualitySeal === true,
         })
 
         const actList: Activity[] = actSnap.docs.map((d, idx) => {
@@ -158,7 +163,7 @@ export default function OperatorProfilePage() {
             packageDescription: p.packageDescription ?? '',
             pricePerPerson: p.pricePerPerson ?? 0,
             minimumNumberOfPeople: p.minimumNumberOfPeople ?? 1,
-            packageLocation: p.packageLocation ?? '',
+            packageLocations: normalizePackageLocations(p),
             duration: p.duration ?? '',
             packageTag: p.packageTag ?? '',
             packageImages: p.packageImages ?? [],
@@ -264,7 +269,10 @@ export default function OperatorProfilePage() {
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 leading-tight">{operator.companyName}</h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 leading-tight">{operator.companyName}</h1>
+              <DotSealBadge granted={operator.hasDOTQualitySeal} size="md" />
+            </div>
             {(operator.firstName || operator.lastName) && (
               <p className="text-sm text-gray-500 mt-0.5">{operator.firstName} {operator.lastName}</p>
             )}
@@ -383,7 +391,7 @@ export default function OperatorProfilePage() {
             </h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
               {activities.map((act) => (
-                <ActivityCard key={act.firestoreId ?? act.id} activity={act} />
+                <ActivityCard key={act.firestoreId ?? act.id} activity={act} dotSealGranted={operator.hasDOTQualitySeal} />
               ))}
             </div>
           </section>
@@ -399,7 +407,7 @@ export default function OperatorProfilePage() {
               {packages.map((pkg) => (
                 <PackageCard
                   key={pkg.id}
-                  image={pkg.packageImages[0] ?? ''}
+                  image={packageImageUrl(pkg.packageImages[0])}
                   title={pkg.packageName}
                   price={pkg.pricePerPerson}
                   pricePrefix="Starting from"
@@ -407,7 +415,9 @@ export default function OperatorProfilePage() {
                   duration={pkg.duration}
                   rating={pkg.packageRating}
                   minGuests={pkg.minimumNumberOfPeople}
+                  location={formatLocationSummary(pkg.packageLocations)}
                   cardKind="tourPackage"
+                  dotSealGranted={operator.hasDOTQualitySeal}
                   href={`/tour-packages/${pkg.slug}`}
                 />
               ))}

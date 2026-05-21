@@ -44,6 +44,15 @@ import { CSS } from '@dnd-kit/utilities';
 import { firebaseDb, firebaseStorage } from '@/app/lib/firebase';
 import { useAuth } from '@/app/context/AuthContext';
 import { ACTIVITY_TAGS, type ActivityTag, type StoredActivityTag } from '@/app/lib/activity-tags';
+import { CEBU_MUNICIPALITIES } from '@/app/lib/cebu-municipalities';
+import { MunicipalityMultiSelect } from '@/app/components/ui/MunicipalityMultiSelect';
+import { ChipGridSelector } from '@/app/components/ui/ChipGridSelector';
+import {
+  DEFAULT_EXCLUSION_CHIPS,
+  DEFAULT_INCLUSION_CHIPS,
+} from '@/app/lib/inclusion-chips';
+import { normalizePackageLocations, formatLocationSummary } from '@/app/lib/package-locations';
+import { normalizePackageImages, packageImageUrl, type PackageImage } from '@/app/lib/package-images';
 
 declare module '@tanstack/react-table' {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -54,20 +63,6 @@ declare module '@tanstack/react-table' {
 }
 
 type PackageStatus = 'active' | 'disabled';
-
-const CEBU_MUNICIPALITIES = [
-  'Alcantara', 'Alcoy', 'Alegria', 'Aloguinsan', 'Argao',
-  'Asturias', 'Badian', 'Balamban', 'Bantayan', 'Barili',
-  'Bogo City', 'Boljoon', 'Borbon', 'Carcar City', 'Carmen',
-  'Catmon', 'Cebu City', 'Compostela', 'Consolacion', 'Cordova',
-  'Dalaguete', 'Danao City', 'Dumanjug', 'Ginatilan', 'Lapu-Lapu City',
-  'Liloan', 'Madridejos', 'Malabuyoc', 'Mandaue City', 'Medellin',
-  'Minglanilla', 'Moalboal', 'Naga City', 'Oslob', 'Pilar',
-  'Pinamungajan', 'Poro', 'Ronda', 'Samboan', 'San Fernando',
-  'San Francisco', 'San Remigio', 'Santa Fe', 'Santander', 'Sibonga',
-  'Sogod', 'Tabogon', 'Tabuelan', 'Talisay City', 'Toledo City',
-  'Tuburan', 'Tudela',
-] as const;
 
 const MIN_IMAGES = 3;
 const MAX_IMAGES = 5;
@@ -89,12 +84,12 @@ interface OperatorPackage {
   childAgeMax?: number;
   minimumNumberOfPeople: number;
   maximumNumberOfPeople: number;
-  packageLocation: string;
+  packageLocations: string[];
   duration: string;
   inclusions: string[];
   exclusions: string[];
   packageItinerary: ItineraryStep[];
-  packageImages: string[];
+  packageImages: PackageImage[];
   packageTag: StoredActivityTag;
   packageRating: number;
   status: PackageStatus;
@@ -113,8 +108,9 @@ interface Filters {
 
 const EMPTY_FILTERS: Filters = { status: 'all', location: '', priceMin: '', priceMax: '', tag: '' };
 
-function generateSlug(location: string, docId: string): string {
-  const loc = location.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+function generateSlug(locations: string[], docId: string): string {
+  const primary = locations[0] ?? 'package';
+  const loc = primary.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
   return `${loc}-${docId.slice(0, 6)}`;
 }
 
@@ -361,14 +357,14 @@ function OperatorPackageCard({ pkg, onViewDetails }: { pkg: OperatorPackage; onV
   const createdDate = pkg.createdAt?.toDate?.()?.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' }) ?? '—';
   return (
     <PackageCard
-      image={pkg.packageImages[0]}
+      image={packageImageUrl(pkg.packageImages[0])}
       title={pkg.packageName}
       price={pkg.pricePerPerson}
       pricePrefix=""
       tag={pkg.packageTag}
       duration={pkg.duration}
       rating={pkg.packageRating}
-      location={pkg.packageLocation}
+      location={formatLocationSummary(pkg.packageLocations)}
       createdAt={`Created: ${createdDate}`}
       minGuests={pkg.minimumNumberOfPeople ?? 1}
       status={<StatusBadge status={pkg.status} />}
@@ -382,7 +378,7 @@ function OperatorPackageCard({ pkg, onViewDetails }: { pkg: OperatorPackage; onV
 
 function ViewDetailsModal({ pkg, onClose, onEdit }: { pkg: OperatorPackage; onClose: () => void; onEdit: (p: OperatorPackage) => void }) {
   const [imgIdx, setImgIdx] = useState(0);
-  const images = pkg.packageImages;
+  const images = pkg.packageImages.map((img) => packageImageUrl(img));
   const createdDate = pkg.createdAt?.toDate?.()?.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) ?? '—';
 
   return (
@@ -440,7 +436,7 @@ function ViewDetailsModal({ pkg, onClose, onEdit }: { pkg: OperatorPackage; onCl
             <svg className="w-4 h-4 text-green-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
             </svg>
-            {pkg.packageLocation}
+            {formatLocationSummary(pkg.packageLocations, 10)}
           </div>
           <div className="flex items-center gap-3">
             <StarDisplay rating={pkg.packageRating} />
@@ -538,10 +534,18 @@ function ViewDetailsModal({ pkg, onClose, onEdit }: { pkg: OperatorPackage; onCl
 // ── Sortable image slot ─────────────────────────────────────────
 
 type ImageSlot =
-  | { id: string; kind: 'existing'; url: string }
-  | { id: string; kind: 'new'; file: File; preview: string };
+  | { id: string; kind: 'existing'; url: string; title: string; description: string }
+  | { id: string; kind: 'new'; file: File; preview: string; title: string; description: string };
 
-function SortableImageCard({ slot, onRemove }: { slot: ImageSlot; onRemove: () => void }) {
+function SortableImageCard({
+  slot,
+  onRemove,
+  onUpdate,
+}: {
+  slot: ImageSlot;
+  onRemove: () => void;
+  onUpdate: (patch: Partial<Pick<ImageSlot, 'title' | 'description'>>) => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: slot.id });
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -551,24 +555,102 @@ function SortableImageCard({ slot, onRemove }: { slot: ImageSlot; onRemove: () =
   };
   const src = slot.kind === 'existing' ? slot.url : slot.preview;
   return (
-    <div ref={setNodeRef} style={style} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200">
-      <Image src={src} alt="image" fill sizes="96px" className="object-cover" />
-      <button
-        type="button"
-        {...attributes}
-        {...listeners}
-        className="absolute top-0.5 left-0.5 bg-black/40 text-white rounded-full p-0.5 cursor-grab active:cursor-grabbing hover:bg-black/60"
-        aria-label="Drag to reorder"
-      >
-        <GripVertical className="w-3 h-3" />
-      </button>
-      <button
-        type="button"
-        onClick={onRemove}
-        className="absolute top-0.5 right-0.5 bg-black/50 text-white rounded-full p-0.5 hover:bg-black/70"
-      >
-        <X className="w-3 h-3" />
-      </button>
+    <div ref={setNodeRef} style={style} className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
+      <div className="flex items-start gap-2">
+        <div className="relative w-20 h-20 shrink-0 rounded-lg overflow-hidden border border-gray-200">
+          <Image src={src} alt="Package image" fill sizes="80px" className="object-cover" />
+          <button
+            type="button"
+            {...attributes}
+            {...listeners}
+            className="absolute top-0.5 left-0.5 bg-black/40 text-white rounded-full p-0.5 cursor-grab active:cursor-grabbing hover:bg-black/60"
+            aria-label="Drag to reorder"
+          >
+            <GripVertical className="w-3 h-3" />
+          </button>
+        </div>
+        <div className="flex-1 min-w-0 space-y-2">
+          <div>
+            <label className="block text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1">Title</label>
+            <input
+              type="text"
+              value={slot.title}
+              onChange={(e) => onUpdate({ title: e.target.value })}
+              placeholder="e.g. Oslob Whale Watching"
+              className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1">Description</label>
+            <textarea
+              value={slot.description}
+              onChange={(e) => onUpdate({ description: e.target.value })}
+              rows={2}
+              placeholder="Short caption for this image"
+              className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 resize-none"
+            />
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="shrink-0 bg-black/5 hover:bg-red-50 text-gray-500 hover:text-red-600 rounded-full p-1 transition-colors"
+          aria-label="Remove image"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PackageImagesEditor({
+  images,
+  errors,
+  fileInputRef,
+  sensors,
+  onDragEnd,
+  onImageChange,
+  onRemove,
+  onUpdate,
+}: {
+  images: ImageSlot[];
+  errors?: string;
+  fileInputRef: React.RefObject<HTMLInputElement>;
+  sensors: ReturnType<typeof useSensors>;
+  onDragEnd: (event: DragEndEvent) => void;
+  onImageChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onRemove: (id: string) => void;
+  onUpdate: (id: string, patch: Partial<Pick<ImageSlot, 'title' | 'description'>>) => void;
+}) {
+  return (
+    <div>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+        <SortableContext items={images.map((s) => s.id)} strategy={rectSortingStrategy}>
+          <div className="space-y-2 mb-2">
+            {images.map((slot) => (
+              <SortableImageCard
+                key={slot.id}
+                slot={slot}
+                onRemove={() => onRemove(slot.id)}
+                onUpdate={(patch) => onUpdate(slot.id, patch)}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
+      {images.length < MAX_IMAGES && (
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="w-full rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center gap-2 py-3 text-gray-400 hover:border-green-400 hover:text-green-500 transition-colors"
+        >
+          <Upload className="w-4 h-4" />
+          <span className="text-sm">Add image</span>
+        </button>
+      )}
+      <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={onImageChange} />
+      {errors && <p className="text-red-500 text-xs mt-1">{errors}</p>}
     </div>
   );
 }
@@ -584,7 +666,7 @@ interface AddFormState {
   childAgeMax: string;
   minimumNumberOfPeople: string;
   maximumNumberOfPeople: string;
-  packageLocation: string;
+  packageLocations: string[];
   duration: string;
   packageTag: ActivityTag | '';
   inclusions: string[];
@@ -601,7 +683,7 @@ const EMPTY_FORM: AddFormState = {
   childAgeMax: '',
   minimumNumberOfPeople: '1',
   maximumNumberOfPeople: '10',
-  packageLocation: '',
+  packageLocations: [],
   duration: '',
   packageTag: '',
   inclusions: [],
@@ -612,6 +694,20 @@ const EMPTY_FORM: AddFormState = {
 type AddFormErrors = Partial<Record<keyof AddFormState | 'images' | 'minimumNumberOfPeople' | 'maximumNumberOfPeople', string>>;
 
 function AddPackageModal({ onClose, operatorId }: { onClose: () => void; operatorId: string }) {
+  const { authState } = useAuth();
+  const customInclusionChips = authState.status === 'authenticated' ? (authState.profile.customInclusionChips ?? []) : [];
+  const customExclusionChips = authState.status === 'authenticated' ? (authState.profile.customExclusionChips ?? []) : [];
+
+  async function persistCustomChip(kind: 'inclusion' | 'exclusion', chip: string) {
+    if (authState.status !== 'authenticated') return;
+    const field = kind === 'inclusion' ? 'customInclusionChips' : 'customExclusionChips';
+    const current = kind === 'inclusion' ? customInclusionChips : customExclusionChips;
+    if (current.includes(chip)) return;
+    await updateDoc(doc(firebaseDb, 'users', authState.user.uid), {
+      [field]: [...current, chip],
+    });
+  }
+
   const [form, setForm] = useState<AddFormState>(EMPTY_FORM);
   const [images, setImages] = useState<ImageSlot[]>([]);
   const [errors, setErrors] = useState<AddFormErrors>({});
@@ -633,6 +729,8 @@ function AddPackageModal({ onClose, operatorId }: { onClose: () => void; operato
       kind: 'new' as const,
       file,
       preview: URL.createObjectURL(file),
+      title: '',
+      description: '',
     }));
     setImages((prev) => [...prev, ...newSlots]);
     e.target.value = '';
@@ -644,6 +742,10 @@ function AddPackageModal({ onClose, operatorId }: { onClose: () => void; operato
       if (slot?.kind === 'new') URL.revokeObjectURL(slot.preview);
       return prev.filter((s) => s.id !== id);
     });
+  };
+
+  const updateImage = (id: string, patch: Partial<Pick<ImageSlot, 'title' | 'description'>>) => {
+    setImages((prev) => prev.map((slot) => (slot.id === id ? { ...slot, ...patch } : slot)));
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -664,8 +766,10 @@ function AddPackageModal({ onClose, operatorId }: { onClose: () => void; operato
     if (!form.minimumNumberOfPeople || Number(form.minimumNumberOfPeople) < 1) e.minimumNumberOfPeople = 'Minimum 1';
     if (!form.maximumNumberOfPeople || Number(form.maximumNumberOfPeople) < 1) e.maximumNumberOfPeople = 'Minimum 1';
     if (Number(form.maximumNumberOfPeople) < Number(form.minimumNumberOfPeople)) e.maximumNumberOfPeople = 'Must be ≥ minimum';
-    if (!CEBU_MUNICIPALITIES.includes(form.packageLocation as typeof CEBU_MUNICIPALITIES[number]))
-      e.packageLocation = 'Select a valid municipality';
+    if (!form.packageLocations.length)
+      e.packageLocations = 'Select at least one municipality';
+    else if (!form.packageLocations.every((m) => (CEBU_MUNICIPALITIES as readonly string[]).includes(m)))
+      e.packageLocations = 'Select valid municipalities';
     if (!form.duration.trim()) e.duration = 'Required';
     if (!form.packageTag) e.packageTag = 'Select a tag';
     if (images.length < MIN_IMAGES) e.images = `At least ${MIN_IMAGES} images required (${images.length}/${MIN_IMAGES})`;
@@ -678,17 +782,21 @@ function AddPackageModal({ onClose, operatorId }: { onClose: () => void; operato
     if (!validate()) return;
     setSubmitting(true);
     try {
-      const imageUrls: string[] = [];
+      const imageEntries: PackageImage[] = [];
       for (const slot of images) {
         if (slot.kind === 'new') {
           const compressed = await compressImage(slot.file);
           const storageRef = ref(firebaseStorage, `tour-packages/${operatorId}/${Date.now()}_${slot.file.name}`);
           await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg', cacheControl: 'public,max-age=31536000' });
-          imageUrls.push(await getDownloadURL(storageRef));
+          imageEntries.push({
+            url: await getDownloadURL(storageRef),
+            title: slot.title.trim(),
+            description: slot.description.trim(),
+          });
         }
       }
       const docRef = doc(collection(firebaseDb, 'tourPackages'));
-      const slug = generateSlug(form.packageLocation, docRef.id);
+      const slug = generateSlug(form.packageLocations, docRef.id);
       await setDoc(docRef, {
         packageName: form.packageName.trim(),
         packageDescription: form.packageDescription.trim(),
@@ -698,13 +806,13 @@ function AddPackageModal({ onClose, operatorId }: { onClose: () => void; operato
         ...(form.childAgeMax ? { childAgeMax: Number(form.childAgeMax) } : {}),
         minimumNumberOfPeople: Number(form.minimumNumberOfPeople),
         maximumNumberOfPeople: Number(form.maximumNumberOfPeople),
-        packageLocation: form.packageLocation,
+        packageLocations: form.packageLocations,
         duration: form.duration.trim(),
         packageTag: form.packageTag,
-        inclusions: form.inclusions.filter(Boolean),
-        exclusions: form.exclusions.filter(Boolean),
+        inclusions: form.inclusions,
+        exclusions: form.exclusions,
         packageItinerary: form.packageItinerary.filter((s) => s.itineraryTitle.trim()),
-        packageImages: imageUrls,
+        packageImages: imageEntries,
         packageRating: 0,
         status: 'active',
         operatorId,
@@ -797,7 +905,7 @@ function AddPackageModal({ onClose, operatorId }: { onClose: () => void; operato
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">Package Location</label>
-            <MunicipalityCombobox value={form.packageLocation} onChange={(v) => field('packageLocation', v)} error={errors.packageLocation} />
+            <MunicipalityMultiSelect value={form.packageLocations} onChange={(v) => field('packageLocations', v)} error={errors.packageLocations} />
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">Package Tag</label>
@@ -806,11 +914,25 @@ function AddPackageModal({ onClose, operatorId }: { onClose: () => void; operato
 
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-2">What&apos;s Included</label>
-            <DynamicList items={form.inclusions} onChange={(v) => field('inclusions', v)} placeholder="e.g. Transportation (A/C van)" />
+            <ChipGridSelector
+              defaults={DEFAULT_INCLUSION_CHIPS}
+              customs={customInclusionChips}
+              value={form.inclusions}
+              onChange={(v) => field('inclusions', v)}
+              onAddCustom={(chip) => persistCustomChip('inclusion', chip)}
+              variant="inclusion"
+            />
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-2">What&apos;s Excluded</label>
-            <DynamicList items={form.exclusions} onChange={(v) => field('exclusions', v)} placeholder="e.g. Personal expenses" />
+            <ChipGridSelector
+              defaults={DEFAULT_EXCLUSION_CHIPS}
+              customs={customExclusionChips}
+              value={form.exclusions}
+              onChange={(v) => field('exclusions', v)}
+              onAddCustom={(chip) => persistCustomChip('exclusion', chip)}
+              variant="exclusion"
+            />
           </div>
 
           <div>
@@ -822,24 +944,16 @@ function AddPackageModal({ onClose, operatorId }: { onClose: () => void; operato
             <label className="block text-xs font-semibold text-gray-600 mb-1">
               Package Images <span className="font-normal text-gray-400">(3–5 images required, max 5 MB each)</span>
             </label>
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={images.map((s) => s.id)} strategy={rectSortingStrategy}>
-                <div className="grid grid-cols-5 gap-2 mb-2">
-                  {images.map((slot) => (
-                    <SortableImageCard key={slot.id} slot={slot} onRemove={() => removeImage(slot.id)} />
-                  ))}
-                  {images.length < MAX_IMAGES && (
-                    <button type="button" onClick={() => fileInputRef.current?.click()}
-                      className="aspect-square rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:border-green-400 hover:text-green-500 transition-colors">
-                      <Upload className="w-5 h-5" />
-                      <span className="text-xs mt-1">Add</span>
-                    </button>
-                  )}
-                </div>
-              </SortableContext>
-            </DndContext>
-            <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageChange} />
-            {errors.images && <p className="text-red-500 text-xs">{errors.images}</p>}
+            <PackageImagesEditor
+              images={images}
+              errors={errors.images}
+              fileInputRef={fileInputRef}
+              sensors={sensors}
+              onDragEnd={handleDragEnd}
+              onImageChange={handleImageChange}
+              onRemove={removeImage}
+              onUpdate={updateImage}
+            />
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
@@ -869,7 +983,7 @@ interface EditFormState {
   childAgeMax: string;
   minimumNumberOfPeople: string;
   maximumNumberOfPeople: string;
-  packageLocation: string;
+  packageLocations: string[];
   duration: string;
   packageTag: ActivityTag | '';
   status: PackageStatus;
@@ -881,6 +995,20 @@ interface EditFormState {
 type EditFormErrors = Partial<Record<keyof EditFormState | 'images' | 'minimumNumberOfPeople' | 'maximumNumberOfPeople', string>>;
 
 function EditPackageModal({ pkg, onClose, onDelete, operatorId }: { pkg: OperatorPackage; onClose: () => void; onDelete: () => void; operatorId: string }) {
+  const { authState } = useAuth();
+  const customInclusionChips = authState.status === 'authenticated' ? (authState.profile.customInclusionChips ?? []) : [];
+  const customExclusionChips = authState.status === 'authenticated' ? (authState.profile.customExclusionChips ?? []) : [];
+
+  async function persistCustomChip(kind: 'inclusion' | 'exclusion', chip: string) {
+    if (authState.status !== 'authenticated') return;
+    const field = kind === 'inclusion' ? 'customInclusionChips' : 'customExclusionChips';
+    const current = kind === 'inclusion' ? customInclusionChips : customExclusionChips;
+    if (current.includes(chip)) return;
+    await updateDoc(doc(firebaseDb, 'users', authState.user.uid), {
+      [field]: [...current, chip],
+    });
+  }
+
   const [form, setForm] = useState<EditFormState>({
     packageName: pkg.packageName,
     packageDescription: pkg.packageDescription,
@@ -890,7 +1018,7 @@ function EditPackageModal({ pkg, onClose, onDelete, operatorId }: { pkg: Operato
     childAgeMax: pkg.childAgeMax != null ? String(pkg.childAgeMax) : '',
     minimumNumberOfPeople: String(pkg.minimumNumberOfPeople ?? 1),
     maximumNumberOfPeople: String(pkg.maximumNumberOfPeople ?? 10),
-    packageLocation: pkg.packageLocation,
+    packageLocations: pkg.packageLocations,
     duration: pkg.duration,
     packageTag: (ACTIVITY_TAGS as ReadonlyArray<string>).includes(pkg.packageTag) ? pkg.packageTag as ActivityTag : '',
     status: pkg.status,
@@ -899,7 +1027,13 @@ function EditPackageModal({ pkg, onClose, onDelete, operatorId }: { pkg: Operato
     packageItinerary: pkg.packageItinerary,
   });
   const [images, setImages] = useState<ImageSlot[]>(
-    pkg.packageImages.map((url, i) => ({ id: `ex-${i}-${url.slice(-6)}`, kind: 'existing' as const, url }))
+    pkg.packageImages.map((img, i) => ({
+      id: `ex-${i}-${packageImageUrl(img).slice(-6)}`,
+      kind: 'existing' as const,
+      url: packageImageUrl(img),
+      title: typeof img === 'string' ? '' : (img.title ?? ''),
+      description: typeof img === 'string' ? '' : (img.description ?? ''),
+    }))
   );
   const [errors, setErrors] = useState<EditFormErrors>({});
   const [submitting, setSubmitting] = useState(false);
@@ -922,6 +1056,8 @@ function EditPackageModal({ pkg, onClose, onDelete, operatorId }: { pkg: Operato
       kind: 'new' as const,
       file,
       preview: URL.createObjectURL(file),
+      title: '',
+      description: '',
     }));
     setImages((prev) => [...prev, ...newSlots]);
     e.target.value = '';
@@ -933,6 +1069,10 @@ function EditPackageModal({ pkg, onClose, onDelete, operatorId }: { pkg: Operato
       if (slot?.kind === 'new') URL.revokeObjectURL(slot.preview);
       return prev.filter((s) => s.id !== id);
     });
+  };
+
+  const updateImage = (id: string, patch: Partial<Pick<ImageSlot, 'title' | 'description'>>) => {
+    setImages((prev) => prev.map((slot) => (slot.id === id ? { ...slot, ...patch } : slot)));
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -953,8 +1093,10 @@ function EditPackageModal({ pkg, onClose, onDelete, operatorId }: { pkg: Operato
     if (!form.minimumNumberOfPeople || Number(form.minimumNumberOfPeople) < 1) e.minimumNumberOfPeople = 'Minimum 1';
     if (!form.maximumNumberOfPeople || Number(form.maximumNumberOfPeople) < 1) e.maximumNumberOfPeople = 'Minimum 1';
     if (Number(form.maximumNumberOfPeople) < Number(form.minimumNumberOfPeople)) e.maximumNumberOfPeople = 'Must be ≥ minimum';
-    if (!CEBU_MUNICIPALITIES.includes(form.packageLocation as typeof CEBU_MUNICIPALITIES[number]))
-      e.packageLocation = 'Select a valid municipality';
+    if (!form.packageLocations.length)
+      e.packageLocations = 'Select at least one municipality';
+    else if (!form.packageLocations.every((m) => (CEBU_MUNICIPALITIES as readonly string[]).includes(m)))
+      e.packageLocations = 'Select valid municipalities';
     if (!form.duration.trim()) e.duration = 'Required';
     if (!form.packageTag) e.packageTag = 'Select a tag';
     if (totalImages < MIN_IMAGES) e.images = `At least ${MIN_IMAGES} images required (${totalImages}/${MIN_IMAGES})`;
@@ -967,15 +1109,23 @@ function EditPackageModal({ pkg, onClose, onDelete, operatorId }: { pkg: Operato
     if (!validate()) return;
     setSubmitting(true);
     try {
-      const finalUrls: string[] = [];
+      const finalImages: PackageImage[] = [];
       for (const slot of images) {
         if (slot.kind === 'existing') {
-          finalUrls.push(slot.url);
+          finalImages.push({
+            url: slot.url,
+            title: slot.title.trim(),
+            description: slot.description.trim(),
+          });
         } else {
           const compressed = await compressImage(slot.file);
           const storageRef = ref(firebaseStorage, `tour-packages/${operatorId}/${Date.now()}_${slot.file.name}`);
           await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg', cacheControl: 'public,max-age=31536000' });
-          finalUrls.push(await getDownloadURL(storageRef));
+          finalImages.push({
+            url: await getDownloadURL(storageRef),
+            title: slot.title.trim(),
+            description: slot.description.trim(),
+          });
         }
       }
       await updateDoc(doc(firebaseDb, 'tourPackages', pkg.id), {
@@ -987,14 +1137,14 @@ function EditPackageModal({ pkg, onClose, onDelete, operatorId }: { pkg: Operato
         childAgeMax: form.childAgeMax ? Number(form.childAgeMax) : deleteField(),
         minimumNumberOfPeople: Number(form.minimumNumberOfPeople),
         maximumNumberOfPeople: Number(form.maximumNumberOfPeople),
-        packageLocation: form.packageLocation,
+        packageLocations: form.packageLocations,
         duration: form.duration.trim(),
         packageTag: form.packageTag,
         status: form.status,
         inclusions: form.inclusions.filter(Boolean),
         exclusions: form.exclusions.filter(Boolean),
         packageItinerary: form.packageItinerary.filter((s) => s.itineraryTitle.trim()),
-        packageImages: finalUrls,
+        packageImages: finalImages,
       });
       onClose();
     } catch (err) {
@@ -1097,7 +1247,7 @@ function EditPackageModal({ pkg, onClose, onDelete, operatorId }: { pkg: Operato
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">Package Location</label>
-            <MunicipalityCombobox value={form.packageLocation} onChange={(v) => field('packageLocation', v)} error={errors.packageLocation} />
+            <MunicipalityMultiSelect value={form.packageLocations} onChange={(v) => field('packageLocations', v)} error={errors.packageLocations} />
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">Package Tag</label>
@@ -1106,11 +1256,25 @@ function EditPackageModal({ pkg, onClose, onDelete, operatorId }: { pkg: Operato
 
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-2">What&apos;s Included</label>
-            <DynamicList items={form.inclusions} onChange={(v) => field('inclusions', v)} placeholder="e.g. Transportation" />
+            <ChipGridSelector
+              defaults={DEFAULT_INCLUSION_CHIPS}
+              customs={customInclusionChips}
+              value={form.inclusions}
+              onChange={(v) => field('inclusions', v)}
+              onAddCustom={(chip) => persistCustomChip('inclusion', chip)}
+              variant="inclusion"
+            />
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-2">What&apos;s Excluded</label>
-            <DynamicList items={form.exclusions} onChange={(v) => field('exclusions', v)} placeholder="e.g. Personal expenses" />
+            <ChipGridSelector
+              defaults={DEFAULT_EXCLUSION_CHIPS}
+              customs={customExclusionChips}
+              value={form.exclusions}
+              onChange={(v) => field('exclusions', v)}
+              onAddCustom={(chip) => persistCustomChip('exclusion', chip)}
+              variant="exclusion"
+            />
           </div>
 
           <div>
@@ -1122,24 +1286,16 @@ function EditPackageModal({ pkg, onClose, onDelete, operatorId }: { pkg: Operato
             <label className="block text-xs font-semibold text-gray-600 mb-1">
               Package Images <span className="font-normal text-gray-400">(3–5 images required, max 5 MB each)</span>
             </label>
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={images.map((s) => s.id)} strategy={rectSortingStrategy}>
-                <div className="grid grid-cols-5 gap-2 mb-2">
-                  {images.map((slot) => (
-                    <SortableImageCard key={slot.id} slot={slot} onRemove={() => removeImage(slot.id)} />
-                  ))}
-                  {images.length < MAX_IMAGES && (
-                    <button type="button" onClick={() => fileInputRef.current?.click()}
-                      className="aspect-square rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:border-green-400 hover:text-green-500 transition-colors">
-                      <Upload className="w-5 h-5" />
-                      <span className="text-xs mt-1">Add</span>
-                    </button>
-                  )}
-                </div>
-              </SortableContext>
-            </DndContext>
-            <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageChange} />
-            {errors.images && <p className="text-red-500 text-xs">{errors.images}</p>}
+            <PackageImagesEditor
+              images={images}
+              errors={errors.images}
+              fileInputRef={fileInputRef}
+              sensors={sensors}
+              onDragEnd={handleDragEnd}
+              onImageChange={handleImageChange}
+              onRemove={removeImage}
+              onUpdate={updateImage}
+            />
           </div>
 
           <div className="flex items-center justify-between gap-3 pt-2">
@@ -1338,7 +1494,17 @@ export default function OperatorTourPackagesPage() {
     if (!operatorId) return;
     const q = query(collection(firebaseDb, 'tourPackages'), where('operatorId', '==', operatorId));
     const unsub = onSnapshot(q, (snap) => {
-      setPackages(snap.docs.map((d) => ({ id: d.id, ...d.data() } as OperatorPackage)));
+      setPackages(snap.docs.map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          ...data,
+          packageLocations: normalizePackageLocations(data),
+          packageImages: normalizePackageImages(data.packageImages),
+          inclusions: Array.isArray(data.inclusions) ? data.inclusions : [],
+          exclusions: Array.isArray(data.exclusions) ? data.exclusions : [],
+        } as OperatorPackage;
+      }));
       setLoading(false);
     });
     return unsub;
@@ -1401,7 +1567,7 @@ export default function OperatorTourPackagesPage() {
     if (search && !p.packageName.toLowerCase().includes(search.toLowerCase())) return false;
     if (filters.tag && p.packageTag !== filters.tag) return false;
     if (filters.status !== 'all' && p.status !== filters.status) return false;
-    if (filters.location && p.packageLocation !== filters.location) return false;
+    if (filters.location && !p.packageLocations.includes(filters.location)) return false;
     if (filters.priceMin && p.pricePerPerson < Number(filters.priceMin)) return false;
     if (filters.priceMax && p.pricePerPerson > Number(filters.priceMax)) return false;
     return true;
@@ -1419,7 +1585,12 @@ export default function OperatorTourPackagesPage() {
       ),
     },
     { accessorKey: 'packageTag', header: 'Tag', meta: { tdClassName: 'px-4 py-3 text-gray-600' } },
-    { accessorKey: 'packageLocation', header: 'Location', meta: { tdClassName: 'px-4 py-3 text-gray-600' } },
+    {
+      id: 'packageLocations',
+      header: 'Location',
+      meta: { tdClassName: 'px-4 py-3 text-gray-600' },
+      cell: ({ row }) => formatLocationSummary(row.original.packageLocations),
+    },
     {
       accessorKey: 'pricePerPerson',
       header: 'Price',

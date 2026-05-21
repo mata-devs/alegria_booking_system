@@ -4,6 +4,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { Layers, Sparkle, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { DotSealBadge } from '@/app/components/ui/DotSealBadge'
 
 /** Guest hint: single-spot vs bundled itinerary (icon + tooltip top-right). */
 export type PackageCardKind = 'activity' | 'tourPackage'
@@ -97,6 +98,8 @@ export interface PackageCardProps {
   topRightAction?: ReactNode
   /** Shows type hint icon (guest listings). */
   cardKind?: PackageCardKind
+  /** Operator DOT Quality Seal (display-only). */
+  dotSealGranted?: boolean
   wide?: boolean
   className?: string
 }
@@ -120,6 +123,7 @@ export default function PackageCard({
   onClick,
   topRightAction,
   cardKind,
+  dotSealGranted = false,
   wide = false,
   className = '',
 }: PackageCardProps) {
@@ -173,9 +177,12 @@ export default function PackageCard({
       {/* Bottom content — p-3 on mobile, p-5 on sm+ */}
       <div className="absolute inset-0 flex flex-col justify-end p-3 sm:p-5 gap-1">
         {/* Title — text-base mobile, text-2xl sm+. Adjust here */}
-        <h3 className="text-white font-bold text-base sm:text-2xl leading-tight drop-shadow line-clamp-1">
-          {title}
-        </h3>
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="text-white font-bold text-base sm:text-2xl leading-tight drop-shadow line-clamp-1 flex-1 min-w-0">
+            {title}
+          </h3>
+          <DotSealBadge granted={dotSealGranted} size="sm" showLabel={false} />
+        </div>
 
         {/* Description — hidden on mobile and on wide cards (h-52 too compact); visible sm+ on tall cards */}
         {description && !wide && (

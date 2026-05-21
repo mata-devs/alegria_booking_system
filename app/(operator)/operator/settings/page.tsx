@@ -13,6 +13,15 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import { firebaseAuth, firebaseDb, firebaseStorage } from '@/app/lib/firebase';
 import { useAuth } from '@/app/context/AuthContext';
+import { PhPhoneInput } from '@/app/components/ui/PhPhoneInput';
+import { PhLandlineInput } from '@/app/components/ui/PhLandlineInput';
+import { isValidPhE164, PH_PHONE_INVALID_MSG, normalizeStoredMobileE164 } from '@/app/lib/ph-phone';
+import {
+  isValidLandlineE164,
+  PH_LANDLINE_INVALID_MSG,
+  normalizeStoredLandlineE164,
+} from '@/app/lib/ph-landline';
+import { blurUnlessPhoneSibling } from '@/app/lib/phone-field-blur';
 
 type Status =
   | { type: 'idle' }
@@ -136,8 +145,16 @@ export default function OperatorSettingsPage() {
 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [profile, setProfile] = useState({ firstName: '', lastName: '', email: '', companyName: '' });
+  const [profile, setProfile] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    companyName: '',
+    phoneNumber: '',
+    mobileNumber: '',
+  });
   const [profileStatus, setProfileStatus] = useState<Status>({ type: 'idle' });
+  const [phoneErrors, setPhoneErrors] = useState<{ phoneNumber?: string; mobileNumber?: string }>({});
 
   const [passwords, setPasswords] = useState({
     currentPassword: '',
@@ -151,32 +168,62 @@ export default function OperatorSettingsPage() {
   );
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deletingOption, setDeletingOption] = useState(false);
+  const [customInclusionChips, setCustomInclusionChips] = useState<string[]>([]);
+  const [customExclusionChips, setCustomExclusionChips] = useState<string[]>([]);
+  const [chipsStatus, setChipsStatus] = useState<Status>({ type: 'idle' });
 
   useEffect(() => {
     if (authState.status !== 'authenticated') return;
-    setProfile({
+    setProfile((prev) => ({
+      ...prev,
       firstName: authState.profile.firstName ?? '',
       lastName: authState.profile.lastName ?? '',
       email: authState.profile.email ?? '',
-      companyName: '',
-    });
+    }));
     if (authState.user.photoURL) setPhotoPreview(authState.user.photoURL);
 
     getDoc(doc(firebaseDb, 'users', authState.user.uid)).then((snap) => {
       if (!snap.exists()) return;
       const data = snap.data() as {
         companyName?: string;
+        phoneNumber?: string;
+        mobileNumber?: string;
         paymentMethods?: StoredPaymentMethod[];
+        customInclusionChips?: string[];
+        customExclusionChips?: string[];
       };
 
       setProfile((prev) => ({
         ...prev,
         companyName: data.companyName ?? '',
+        phoneNumber: normalizeStoredLandlineE164(data.phoneNumber ?? ''),
+        mobileNumber: normalizeStoredMobileE164(data.mobileNumber ?? ''),
       }));
 
       setPaymentOptions(fromStoredPaymentMethods(data.paymentMethods));
+      setCustomInclusionChips(Array.isArray(data.customInclusionChips) ? data.customInclusionChips : []);
+      setCustomExclusionChips(Array.isArray(data.customExclusionChips) ? data.customExclusionChips : []);
     });
   }, [authState]);
+
+  async function saveCustomChips() {
+    if (authState.status !== 'authenticated') return;
+    setChipsStatus({ type: 'saving' });
+    try {
+      await updateDoc(doc(firebaseDb, 'users', authState.user.uid), {
+        customInclusionChips,
+        customExclusionChips,
+      });
+      setChipsStatus({ type: 'success', msg: 'Custom chips saved.' });
+    } catch {
+      setChipsStatus({ type: 'error', msg: 'Failed to save custom chips.' });
+    }
+  }
+
+  function removeCustomChip(kind: 'inclusion' | 'exclusion', chip: string) {
+    if (kind === 'inclusion') setCustomInclusionChips((prev) => prev.filter((c) => c !== chip));
+    else setCustomExclusionChips((prev) => prev.filter((c) => c !== chip));
+  }
 
   const onPickPhoto = () => photoFileRef.current?.click();
 
@@ -195,9 +242,43 @@ export default function OperatorSettingsPage() {
     setPhotoPreview(URL.createObjectURL(file));
   };
 
+  function validateProfilePhones(): { phoneNumber?: string; mobileNumber?: string; formError?: string } {
+    const errs: { phoneNumber?: string; mobileNumber?: string } = {};
+    const phoneFilled = profile.phoneNumber.trim().length > 0;
+    const mobileFilled = profile.mobileNumber.trim().length > 0;
+
+    if (phoneFilled && !isValidLandlineE164(profile.phoneNumber)) {
+      errs.phoneNumber = PH_LANDLINE_INVALID_MSG;
+    }
+    if (mobileFilled && !isValidPhE164(profile.mobileNumber)) {
+      errs.mobileNumber = PH_PHONE_INVALID_MSG;
+    }
+    if (!phoneFilled && !mobileFilled) {
+      return { ...errs, formError: 'Provide at least one contact number (landline or mobile).' };
+    }
+    const hasValid =
+      (phoneFilled && isValidLandlineE164(profile.phoneNumber)) ||
+      (mobileFilled && isValidPhE164(profile.mobileNumber));
+    if (!hasValid) {
+      return { ...errs, formError: 'Enter at least one valid landline or mobile number.' };
+    }
+    return errs;
+  }
+
   const onSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (authState.status !== 'authenticated') return;
+
+    const phoneResult = validateProfilePhones();
+    setPhoneErrors(phoneResult);
+    if (phoneResult.formError || phoneResult.phoneNumber || phoneResult.mobileNumber) {
+      setProfileStatus({
+        type: 'error',
+        msg: phoneResult.formError ?? 'Fix telephone or mobile number.',
+      });
+      return;
+    }
+
     setProfileStatus({ type: 'saving' });
     try {
       const user = authState.user;
@@ -216,6 +297,8 @@ export default function OperatorSettingsPage() {
       await updateDoc(doc(firebaseDb, 'users', user.uid), {
         firstName: profile.firstName,
         lastName: profile.lastName,
+        phoneNumber: profile.phoneNumber.trim(),
+        mobileNumber: profile.mobileNumber.trim(),
       });
 
       try { sessionStorage.removeItem('vc_auth_v1'); } catch {}
@@ -446,6 +529,45 @@ export default function OperatorSettingsPage() {
               />
               <p className="mt-1 text-[11px] text-gray-400">Contact support to change your email.</p>
             </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <PhLandlineInput
+                id="settings-phone"
+                label="Telephone (landline)"
+                labelClassName={LABEL}
+                valueE164={profile.phoneNumber}
+                onChangeE164={(v) => {
+                  setProfile((p) => ({ ...p, phoneNumber: v }));
+                  setPhoneErrors(validateProfilePhones());
+                }}
+                error={phoneErrors.phoneNumber}
+                onBlur={(e) =>
+                  blurUnlessPhoneSibling(e, 'settings-mobile', () =>
+                    setPhoneErrors(validateProfilePhones()),
+                  )
+                }
+              />
+              <PhPhoneInput
+                id="settings-mobile"
+                label="Mobile number"
+                labelClassName={LABEL}
+                valueE164={profile.mobileNumber}
+                onChangeE164={(v) => {
+                  setProfile((p) => ({ ...p, mobileNumber: v }));
+                  setPhoneErrors(validateProfilePhones());
+                }}
+                error={phoneErrors.mobileNumber}
+                onBlur={(e) =>
+                  blurUnlessPhoneSibling(e, 'settings-phone', () =>
+                    setPhoneErrors(validateProfilePhones()),
+                  )
+                }
+                accent="signup"
+              />
+            </div>
+            <p className="text-[11px] text-gray-400 -mt-2">
+              At least one valid number required. Metro 02 8XXX XXXX or provincial 0XX XXX XXXX for landline; 9XX for mobile.
+            </p>
           </div>
 
           <StatusLine status={profileStatus} />
@@ -545,6 +667,50 @@ export default function OperatorSettingsPage() {
               onDelete={() => setDeleteConfirmId(opt.id)}
             />
           ))}
+        </div>
+      </SettingsSection>
+
+      <SettingsSection
+        title="My Custom Chips"
+        description="Manage inclusion and exclusion chips available when editing your listings."
+      >
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm px-6 py-5 space-y-5">
+          <div>
+            <p className={LABEL}>Custom inclusion chips</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {customInclusionChips.length === 0 ? (
+                <p className="text-xs text-gray-400">None yet — add from a listing edit modal.</p>
+              ) : (
+                customInclusionChips.map((chip) => (
+                  <span key={chip} className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-xs text-green-800">
+                    {chip}
+                    <button type="button" onClick={() => removeCustomChip('inclusion', chip)} className="text-green-600 hover:text-red-600">×</button>
+                  </span>
+                ))
+              )}
+            </div>
+          </div>
+          <div>
+            <p className={LABEL}>Custom exclusion chips</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {customExclusionChips.length === 0 ? (
+                <p className="text-xs text-gray-400">None yet — add from a listing edit modal.</p>
+              ) : (
+                customExclusionChips.map((chip) => (
+                  <span key={chip} className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700">
+                    {chip}
+                    <button type="button" onClick={() => removeCustomChip('exclusion', chip)} className="text-gray-500 hover:text-red-600">×</button>
+                  </span>
+                ))
+              )}
+            </div>
+          </div>
+          <StatusLine status={chipsStatus} />
+          <div className="flex justify-end">
+            <button type="button" onClick={() => void saveCustomChips()} className={BTN_PRIMARY}>
+              Save custom chips
+            </button>
+          </div>
         </div>
       </SettingsSection>
 

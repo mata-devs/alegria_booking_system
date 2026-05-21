@@ -3,34 +3,9 @@
 import React, { useState, useCallback } from "react";
 import { Users, Mail } from "lucide-react";
 import { CountryDropdown } from "./CountryDropdown";
+import { PhPhoneInput } from "@/app/components/ui/PhPhoneInput";
 import { representativeFormSchema } from "@/app/lib/schema";
 import type { ZodIssue } from "zod";
-
-const PHFlag = () => (
-    <svg viewBox="0 0 20 15" width="20" height="15" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <rect width="20" height="7.5" fill="#0038A8" />
-        <rect y="7.5" width="20" height="7.5" fill="#CE1126" />
-        <polygon points="0,0 10,7.5 0,15" fill="white" />
-        <circle cx="3.6" cy="7.5" r="1.2" fill="#FCD116" />
-        {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => {
-            const rad = (deg * Math.PI) / 180;
-            return (
-                <line
-                    key={deg}
-                    x1={3.6 + Math.cos(rad) * 1.3}
-                    y1={7.5 + Math.sin(rad) * 1.3}
-                    x2={3.6 + Math.cos(rad) * 1.9}
-                    y2={7.5 + Math.sin(rad) * 1.9}
-                    stroke="#FCD116"
-                    strokeWidth="0.35"
-                />
-            );
-        })}
-        <text x="1.5" y="4.2" fontSize="1.6" fill="#FCD116">★</text>
-        <text x="5.2" y="4.2" fontSize="1.6" fill="#FCD116">★</text>
-        <text x="3.3" y="13.2" fontSize="1.6" fill="#FCD116">★</text>
-    </svg>
-);
 
 interface RepresentativeFormProps {
     formData: {
@@ -44,23 +19,6 @@ interface RepresentativeFormProps {
     onChange: (field: string, value: string) => void;
     errors?: Partial<Record<string, string>>;
     submitted?: boolean;
-}
-
-function formatPhDisplay(digits: string): string {
-    const d = digits.replace(/\D/g, "").slice(0, 10);
-    if (d.length <= 3) return d;
-    if (d.length <= 6) return `${d.slice(0, 3)} ${d.slice(3)}`;
-    return `${d.slice(0, 3)} ${d.slice(3, 6)} ${d.slice(6)}`;
-}
-
-function toE164(display: string): string {
-    const digits = display.replace(/\D/g, "").slice(0, 10);
-    return digits ? `+63${digits}` : "";
-}
-
-function fromE164ToDisplay(stored: string): string {
-    const local = stored.startsWith("+63") ? stored.slice(3) : stored;
-    return formatPhDisplay(local.replace(/\D/g, ""));
 }
 
 function validateField(field: string, value: string): string | undefined {
@@ -118,17 +76,6 @@ export const RepresentativeForm = ({
         if (touched[field]) return liveErrors[field];
         if (submitted) return externalErrors[field];
         return undefined;
-    };
-
-    const [phoneDisplay, setPhoneDisplay] = useState(() => fromE164ToDisplay(formData.repPhone));
-
-    const handlePhoneInput = (raw: string) => {
-        let digits = raw.replace(/\D/g, "");
-        if (digits.startsWith("0")) digits = digits.slice(1);
-        digits = digits.slice(0, 10);
-        const display = formatPhDisplay(digits);
-        setPhoneDisplay(display);
-        handleChange("repPhone", toE164(display));
     };
 
     return (
@@ -215,40 +162,20 @@ export const RepresentativeForm = ({
                     <FieldError message={getError("repEmail")} />
                 </div>
 
-                <div>
-                    <label
-                        htmlFor="rep-phone-input"
-                        className="block text-xs font-semibold tracking-wide text-gray-400 mb-1.5 uppercase"
-                    >
-                        Phone Number <span className="text-red-400">*</span>
-                    </label>
-                    <div
-                        className={`flex items-stretch border rounded-xl overflow-hidden transition focus-within:ring-2 ${
-                            getError("repPhone")
-                                ? "border-red-400 focus-within:ring-red-200 bg-red-50"
-                                : "border-gray-300 focus-within:ring-[#74C00F]/20 focus-within:border-[#74C00F]"
-                        }`}
-                    >
-                        <div className="flex items-center gap-1.5 px-3 bg-gray-50 border-r border-gray-200 shrink-0 select-none">
-                            <PHFlag />
-                            <span className="text-sm font-medium text-gray-600">+63</span>
-                        </div>
-                        <input
-                            id="rep-phone-input"
-                            type="tel"
-                            inputMode="numeric"
-                            placeholder="917 123 4567"
-                            value={phoneDisplay}
-                            onChange={(e) => handlePhoneInput(e.target.value)}
-                            onBlur={() => handleBlur("repPhone", formData.repPhone)}
-                            className="flex-1 px-3 py-2.5 outline-none text-black placeholder:text-gray-300 bg-transparent text-sm"
-                            autoComplete="tel-national"
-                            maxLength={13}
-                        />
-                    </div>
-                    <p className="mt-1 text-[11px] text-gray-400">Enter your 10-digit mobile number (e.g. 917 123 4567)</p>
-                    <FieldError message={getError("repPhone")} />
-                </div>
+                <PhPhoneInput
+                    id="rep-phone-input"
+                    label={
+                        <>
+                            Phone Number <span className="text-red-400">*</span>
+                        </>
+                    }
+                    valueE164={formData.repPhone}
+                    onChangeE164={(v) => handleChange("repPhone", v)}
+                    error={getError("repPhone")}
+                    onBlur={() => handleBlur("repPhone", formData.repPhone)}
+                    accent="booking"
+                    labelClassName="block text-xs font-semibold tracking-wide text-gray-400 mb-1.5 uppercase"
+                />
             </div>
 
             <div>

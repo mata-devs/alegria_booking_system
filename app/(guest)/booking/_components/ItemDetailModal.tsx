@@ -5,6 +5,9 @@ import Image from 'next/image';
 import { doc, getDoc } from 'firebase/firestore';
 import { firestore } from '@/app/lib/firebase';
 import { X, MapPin, Star, ChevronLeft, ChevronRight, Users, Clock, Tag } from 'lucide-react';
+import { normalizePackageLocations, formatLocationSummary } from '@/app/lib/package-locations';
+import { normalizePackageImages, packageImageUrl } from '@/app/lib/package-images';
+import { InclusionChipBadges } from '@/app/components/ui/InclusionChipBadges';
 
 interface ItemDetailModalProps {
     itemId: string;
@@ -28,9 +31,10 @@ interface PackageData {
     packageName: string;
     packageDescription: string;
     pricePerPerson: number;
-    packageLocation: string;
+    packageLocations: string[];
     duration: string;
     inclusions: string[];
+    exclusions?: string[];
     packageImages: string[];
     packageTag: string;
     packageRating: number;
@@ -72,11 +76,15 @@ export function ItemDetailModal({ itemId, sourceType, onClose }: ItemDetailModal
     const pkg = isPackage ? (data as PackageData) : null;
     const act = !isPackage ? (data as ActivityData) : null;
 
-    const images = pkg ? (pkg.packageImages ?? []) : (act?.activityImages ?? []);
+    const images = pkg
+      ? normalizePackageImages(pkg.packageImages).map((img) => packageImageUrl(img))
+      : (act?.activityImages ?? []);
     const name = pkg ? pkg.packageName : (act?.activityName ?? '');
     const tag = pkg ? pkg.packageTag : (act?.activityTag ?? '');
     const rating = pkg ? pkg.packageRating : (act?.activityRating ?? 0);
-    const location = pkg ? pkg.packageLocation : (act?.activityLocation ?? '');
+    const location = pkg
+      ? formatLocationSummary(normalizePackageLocations(pkg))
+      : (act?.activityLocation ?? '');
     const price = pkg ? pkg.pricePerPerson : (act?.pricePerGuest ?? 0);
     const description = pkg ? pkg.packageDescription : (act?.activityDetails ?? '');
     const minGuests = pkg ? pkg.minimumNumberOfPeople : act?.minimumNumberOfPeople;
@@ -225,14 +233,7 @@ export function ItemDetailModal({ itemId, sourceType, onClose }: ItemDetailModal
                             {isPackage && pkg?.inclusions && pkg.inclusions.length > 0 && (
                                 <div>
                                     <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">Inclusions</p>
-                                    <ul className="space-y-1.5">
-                                        {pkg.inclusions.map((item, i) => (
-                                            <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
-                                                <span className="mt-0.5 text-[#74C00F] font-black shrink-0">✓</span>
-                                                {item}
-                                            </li>
-                                        ))}
-                                    </ul>
+                                    <InclusionChipBadges chips={pkg.inclusions} variant="inclusion" />
                                 </div>
                             )}
                         </>

@@ -1,6 +1,19 @@
+import type { Timestamp } from 'firebase/firestore';
+
 export type UserRole = 'super_admin' | 'operator' | 'customer';
 
 export type UserStatus = 'active' | 'suspended';
+
+/** Firestore `users/{uid}` operator/admin fields (subset). */
+export interface FirestoreUser {
+  role: 'super_admin' | 'operator';
+  hasDOTQualitySeal: boolean;
+  dotProofUrl: string | null;
+  dotSealGrantedAt: Timestamp | null;
+  dotSealGrantedByUid: string | null;
+  customInclusionChips: string[];
+  customExclusionChips: string[];
+}
 
 export interface UserProfile {
     uid: string;
@@ -10,6 +23,9 @@ export interface UserProfile {
     lastName: string;
     status: UserStatus;
     createdAt: Date | null;
+    hasDOTQualitySeal?: boolean;
+    customInclusionChips?: string[];
+    customExclusionChips?: string[];
 }
 
 export interface OperatorProfile extends UserProfile {
@@ -17,9 +33,14 @@ export interface OperatorProfile extends UserProfile {
     companyName: string;
     phoneNumber: string;
     mobileNumber: string;
+    address: string;
+    lat: number | null;
+    lng: number | null;
     profileImage: string | null;
     applicationApproveDate: Date | null;
     files: OperatorFile[];
+    hasDOTQualitySeal?: boolean;
+    dotProofUrl?: string | null;
 }
 
 export interface OperatorFile {
@@ -38,6 +59,8 @@ export interface OperatorSignUpRequest {
     phoneNumber: string;
     mobileNumber: string;
     address: string;
+    lat: number | null;
+    lng: number | null;
     photoUrl: string | null;
     documents: OperatorFile[];
     status: SignUpRequestStatus;

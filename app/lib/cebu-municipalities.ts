@@ -60,10 +60,16 @@ export function municipalityFromSlug(routeSlug: string): CebuMunicipality | null
  * True when a Firestore location field belongs to the municipality for this route
  * (e.g. `/locations/bantayan` matches `activityLocation` / `packageLocation` "Bantayan" or alias).
  */
-export function matchesMunicipalityRoute(rawLocation: string, routeSlug: string): boolean {
-  const canon = canonicalMunicipalityLabel(String(rawLocation ?? '').trim())
-  if (!canon) return false
-  const official = municipalityFromSlug(routeSlug)
-  if (official) return canon === official
-  return municipalitySlug(canon) === routeSlug.toLowerCase().trim()
+export function matchesMunicipalityRoute(
+  rawLocation: string | string[],
+  routeSlug: string,
+): boolean {
+  const list = Array.isArray(rawLocation) ? rawLocation : [rawLocation]
+  return list.some((loc) => {
+    const canon = canonicalMunicipalityLabel(String(loc ?? '').trim())
+    if (!canon) return false
+    const official = municipalityFromSlug(routeSlug)
+    if (official) return canon === official
+    return municipalitySlug(canon) === routeSlug.toLowerCase().trim()
+  })
 }

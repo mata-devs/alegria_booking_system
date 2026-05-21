@@ -9,6 +9,17 @@ import {
   copyFile,
   extractPathFromUrl,
 } from "../shared/helpers";
+import { sendOperatorSignupApprovedEmail } from "./operatorSignupEmails";
+
+const APP_URL =
+  process.env.APP_URL ||
+  process.env.NEXT_PUBLIC_APP_URL ||
+  "http://localhost:3000";
+
+function readCoord(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  return null;
+}
 
 export const approveOperatorSignup = onCall(
   { region: "us-central1", invoker: "public", cors: true },
@@ -87,6 +98,9 @@ export const approveOperatorSignup = onCall(
       }
     }
 
+    const lat = readCoord(reqData.lat);
+    const lng = readCoord(reqData.lng);
+
     await db.doc(`users/${operatorUid}`).set({
       uid: operatorUid,
       email: reqData.email,
@@ -98,6 +112,7 @@ export const approveOperatorSignup = onCall(
       phoneNumber: reqData.phoneNumber ?? "",
       mobileNumber: reqData.mobileNumber ?? "",
       address: reqData.address ?? "",
+      ...(lat != null && lng != null ? { lat, lng } : {}),
       profileImage: profileImageUrl,
       files,
       status: "active",
@@ -109,6 +124,24 @@ export const approveOperatorSignup = onCall(
       status: "approved",
       reviewedAt: FieldValue.serverTimestamp(),
     });
+
+    const applicantEmail = String(reqData.email ?? "").trim();
+    let passwordResetLink: string | undefined;
+    if (applicantEmail) {
+      try {
+        passwordResetLink = await auth.generatePasswordResetLink(applicantEmail, {
+          url: `${APP_URL}/reset-password`,
+        });
+      } catch (err) {
+        logger.warn("Failed to generate password reset link for approved operator:", err);
+      }
+      await sendOperatorSignupApprovedEmail({
+        to: applicantEmail,
+        applicantName: String(reqData.name ?? ""),
+        companyName: String(reqData.companyName ?? ""),
+        passwordResetLink,
+      });
+    }
 
     logger.info(`Operator ${operatorUid} (${reqData.email}) approved by ${request.auth.uid}`);
 

@@ -13,6 +13,7 @@ import { getDayCapacity } from '@/app/lib/getDayCapacity'
 import { collection, query, where, getDocs, limit } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
 import { ACTIVITY_TAGS } from '@/app/lib/activity-tags'
+import { packageImageUrl } from '@/app/lib/package-images'
 import type { Activity } from '@/app/types'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/app/components/ui/drawer'
 import { SlidersHorizontal, ChevronDown, CalendarDays, ChevronRight } from 'lucide-react'
@@ -315,7 +316,7 @@ function ActivitiesContent() {
             {popularPackages.map((pkg) => (
               <PackageCard
                 key={pkg.id}
-                image={pkg.packageImages[0]}
+                image={packageImageUrl(pkg.packageImages[0])}
                 title={pkg.packageName}
                 description={pkg.packageDescription}
                 price={pkg.pricePerPerson}

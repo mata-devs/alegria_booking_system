@@ -3,6 +3,7 @@ import * as logger from "firebase-functions/logger";
 import { FieldValue } from "firebase-admin/firestore";
 import { db } from "../shared/firebase";
 import { assertSuperAdmin } from "../shared/helpers";
+import { sendOperatorSignupDeclinedEmail } from "./operatorSignupEmails";
 
 export const declineOperatorSignup = onCall(
   { region: "us-central1", invoker: "public", cors: true },
@@ -26,10 +27,21 @@ export const declineOperatorSignup = onCall(
       throw new HttpsError("failed-precondition", "Request has already been processed.");
     }
 
+    const reqData = reqSnap.data()!;
+
     await reqRef.update({
       status: "rejected",
       reviewedAt: FieldValue.serverTimestamp(),
     });
+
+    const applicantEmail = String(reqData.email ?? "").trim();
+    if (applicantEmail) {
+      await sendOperatorSignupDeclinedEmail({
+        to: applicantEmail,
+        applicantName: String(reqData.name ?? ""),
+        companyName: String(reqData.companyName ?? ""),
+      });
+    }
 
     logger.info(`Request ${requestId} declined by ${request.auth.uid}`);
 

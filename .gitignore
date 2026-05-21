@@ -75,6 +75,7 @@ graphify-out
 functions/lib
 .scannerwork
 .sonarrc
-
+app/lib/__tests__
+tasks
 
 

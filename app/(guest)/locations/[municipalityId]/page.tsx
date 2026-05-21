@@ -13,6 +13,7 @@ import SearchBar from '@/app/components/SearchBar'
 import { CategoryFilterCollapsible } from '@/app/components/CategoryFilterCollapsible'
 import { firebaseDb } from '@/app/lib/firebase'
 import { ACTIVITY_TAGS } from '@/app/lib/activity-tags'
+import { packageImageUrl } from '@/app/lib/package-images'
 import {
   countByActivityLocation,
   countByPackageLocation,
@@ -23,6 +24,7 @@ import {
   matchesMunicipalityRoute,
   municipalityFromSlug,
 } from '@/app/lib/cebu-municipalities'
+import { normalizePackageLocations, formatLocationSummary } from '@/app/lib/package-locations'
 import { travelerReviews } from '@/app/data/mockData'
 import type { Activity, Location, TravelerReview } from '@/app/types'
 
@@ -33,7 +35,7 @@ interface FirestorePackageRow {
   pricePerPerson: number
   minimumNumberOfPeople: number
   maximumNumberOfPeople?: number
-  packageLocation: string
+  packageLocations: string[]
   duration: string
   packageTag: string
   packageImages: string[]
@@ -150,7 +152,8 @@ export default function MunicipalityView() {
         const pkgList: FirestorePackageRow[] = []
         pkgSnap.docs.forEach((d) => {
           const data = d.data()
-          if (!matchesMunicipalityRoute(String(data.packageLocation ?? ''), municipalityId)) return
+          const locs = normalizePackageLocations(data)
+          if (!matchesMunicipalityRoute(locs, municipalityId)) return
           pkgList.push({
             id: d.id,
             packageName: data.packageName ?? '',
@@ -158,7 +161,7 @@ export default function MunicipalityView() {
             pricePerPerson: data.pricePerPerson ?? 0,
             minimumNumberOfPeople: data.minimumNumberOfPeople ?? 1,
             maximumNumberOfPeople: data.maximumNumberOfPeople,
-            packageLocation: data.packageLocation ?? '',
+            packageLocations: locs,
             duration: data.duration ?? '',
             packageTag: data.packageTag ?? '',
             packageImages: data.packageImages ?? [],
@@ -300,7 +303,7 @@ export default function MunicipalityView() {
               {filteredPackages.map((pkg) => (
                 <PackageCard
                   key={pkg.id}
-                  image={pkg.packageImages[0] ?? ''}
+                  image={packageImageUrl(pkg.packageImages[0])}
                   title={pkg.packageName}
                   price={pkg.pricePerPerson}
                   pricePrefix="Starting from"
@@ -308,6 +311,7 @@ export default function MunicipalityView() {
                   duration={pkg.duration}
                   rating={pkg.packageRating}
                   minGuests={pkg.minimumNumberOfPeople ?? 1}
+                  location={formatLocationSummary(pkg.packageLocations)}
                   cardKind="tourPackage"
                   href={`/tour-packages/${pkg.slug}`}
                 />

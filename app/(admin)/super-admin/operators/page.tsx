@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { collection, query, where, getDocs, doc, updateDoc, orderBy, Timestamp, onSnapshot, setDoc } from 'firebase/firestore';
-import { firebaseDb, firebaseStorage, firebaseFunctions, firebaseAuth } from '@/app/lib/firebase';
+import { collection, query, where, getDocs, doc, updateDoc, orderBy, Timestamp, onSnapshot, setDoc, serverTimestamp, deleteField } from 'firebase/firestore';
+import { useAuth } from '@/app/context/AuthContext';
+import { DotSealBadge } from '@/app/components/ui/DotSealBadge';
+import { firebaseDb, firebaseStorage, firebaseFunctions } from '@/app/lib/firebase';
 import { httpsCallable } from 'firebase/functions';
-import { sendPasswordResetEmail } from 'firebase/auth';
 import { ref, getDownloadURL } from 'firebase/storage';
 import Image from 'next/image';
 import { Filter, Search, ChevronDown, FileImage, Copy, RefreshCw, ChevronLeft, ChevronRight, X, Send, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -39,7 +40,9 @@ const STATUS_LABEL: Record<SignUpRequestStatus, string> = {
 const ROWS_PER_PAGE = 12;
 
 export default function OperatorsManagementPage() {
+  const { authState } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('operators');
+  const [sealUpdating, setSealUpdating] = useState(false);
   const [operators, setOperators] = useState<OperatorProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -89,9 +92,14 @@ export default function OperatorsManagementPage() {
           createdAt: data.createdAt?.toDate?.() ?? null,
           phoneNumber: data.phoneNumber ?? '',
           mobileNumber: data.mobileNumber ?? '',
+          address: data.address ?? '',
+          lat: typeof data.lat === 'number' ? data.lat : null,
+          lng: typeof data.lng === 'number' ? data.lng : null,
           profileImage: data.profileImage ?? null,
           applicationApproveDate: data.approvedAt?.toDate?.() ?? null,
           files: Array.isArray(data.files) ? data.files : [],
+          hasDOTQualitySeal: data.hasDOTQualitySeal === true,
+          dotProofUrl: typeof data.dotProofUrl === 'string' ? data.dotProofUrl : null,
         };
       });
 
@@ -223,6 +231,8 @@ export default function OperatorsManagementPage() {
           phoneNumber: data.phoneNumber ?? '',
           mobileNumber: data.mobileNumber ?? '',
           address: data.address ?? '',
+          lat: typeof data.lat === 'number' ? data.lat : null,
+          lng: typeof data.lng === 'number' ? data.lng : null,
           photoUrl: data.photoUrl ?? null,
           documents: Array.isArray(data.documents) ? data.documents : [],
           status: data.status ?? 'pending',
@@ -263,11 +273,7 @@ export default function OperatorsManagementPage() {
     try {
       if (newStatus === 'approved') {
         const approve = httpsCallable<{ requestId: string }, { email: string }>(firebaseFunctions, 'approveOperatorSignup');
-        const result = await approve({ requestId });
-        await sendPasswordResetEmail(firebaseAuth, result.data.email, {
-          url: `${window.location.origin}/reset-password`,
-          handleCodeInApp: true,
-        });
+        await approve({ requestId });
       } else {
         const decline = httpsCallable(firebaseFunctions, 'declineOperatorSignup');
         await decline({ requestId });
@@ -309,6 +315,31 @@ export default function OperatorsManagementPage() {
     const dd = String(date.getDate()).padStart(2, '0');
     const yy = String(date.getFullYear()).slice(-2);
     return `${mm} - ${dd} - ${yy}`;
+  }
+
+  async function toggleDotSeal(uid: string, grant: boolean) {
+    if (authState.status !== 'authenticated') return;
+    setSealUpdating(true);
+    try {
+      await updateDoc(doc(firebaseDb, 'users', uid), grant
+        ? {
+            hasDOTQualitySeal: true,
+            dotSealGrantedAt: serverTimestamp(),
+            dotSealGrantedByUid: authState.user.uid,
+          }
+        : {
+            hasDOTQualitySeal: false,
+            dotSealGrantedAt: deleteField(),
+            dotSealGrantedByUid: deleteField(),
+          });
+      setOperators((prev) =>
+        prev.map((op) => (op.uid === uid ? { ...op, hasDOTQualitySeal: grant } : op)),
+      );
+    } catch (error) {
+      console.error('Failed to update DOT seal:', error);
+    } finally {
+      setSealUpdating(false);
+    }
   }
 
   async function updateOperatorStatus(uid: string, newStatus: 'active' | 'suspended') {
@@ -404,11 +435,12 @@ export default function OperatorsManagementPage() {
               </div>
             </div>
 
-            <div className="mt-5 hidden md:grid grid-cols-4 gap-0">
+            <div className="mt-5 hidden md:grid grid-cols-5 gap-0">
               <span className="px-4 text-sm font-bold text-gray-900">Operator ID</span>
               <span className="px-4 text-sm font-bold text-gray-900">Operator Name</span>
               <span className="px-4 text-sm font-bold text-gray-900">Date Joined</span>
               <span className="px-4 text-sm font-bold text-gray-900">Status</span>
+              <span className="px-4 text-sm font-bold text-gray-900">DOT Seal</span>
             </div>
 
             <div className="mt-3 flex flex-col gap-2">
@@ -426,12 +458,15 @@ export default function OperatorsManagementPage() {
                       selectedId === op.uid ? 'bg-green-100 ring-1 ring-green-300' : 'bg-gray-100 hover:bg-gray-200'
                     }`}
                   >
-                    <div className="hidden md:grid grid-cols-4 items-center gap-0">
+                    <div className="hidden md:grid grid-cols-5 items-center gap-0">
                       <span className="border-r border-gray-300 px-4 py-3 text-sm text-gray-700">{op.operatorId}</span>
                       <span className="border-r border-gray-300 px-4 py-3 text-sm text-gray-700">{op.firstName} {op.lastName}</span>
                       <span className="border-r border-gray-300 px-4 py-3 text-sm text-gray-700">{formatDate(op.createdAt)}</span>
-                      <span className={`px-4 py-3 text-sm font-medium ${op.status === 'active' ? 'text-green-600' : 'text-red-500'}`}>
+                      <span className={`border-r border-gray-300 px-4 py-3 text-sm font-medium ${op.status === 'active' ? 'text-green-600' : 'text-red-500'}`}>
                         {op.status === 'active' ? 'Active' : 'Suspended'}
+                      </span>
+                      <span className="px-4 py-3">
+                        <DotSealBadge granted={op.hasDOTQualitySeal === true} size="sm" />
                       </span>
                     </div>
                     <div className="md:hidden px-4 py-3 space-y-1">
@@ -500,6 +535,12 @@ export default function OperatorsManagementPage() {
                   )}
                   <div><p className="text-[11px] text-gray-400">Email</p><p className="text-sm font-bold text-gray-900 truncate">{selectedOperator.email ?? '—'}</p></div>
                   <div><p className="text-[11px] text-gray-400">Phone number</p><p className="text-sm font-bold text-gray-900">{selectedOperator.phoneNumber || '—'}</p></div>
+                  {selectedOperator.address && (
+                    <div><p className="text-[11px] text-gray-400">Address</p><p className="text-sm font-bold text-gray-900">{selectedOperator.address}</p></div>
+                  )}
+                  {selectedOperator.lat != null && selectedOperator.lng != null && (
+                    <div><p className="text-[11px] text-gray-400">Map coordinates</p><p className="text-sm font-bold text-gray-900">{selectedOperator.lat.toFixed(5)}, {selectedOperator.lng.toFixed(5)}</p></div>
+                  )}
                 </div>
               </div>
               <div className="mt-5">
@@ -522,6 +563,30 @@ export default function OperatorsManagementPage() {
               <div className="mt-4 flex gap-6">
                 <div><p className="text-xs text-gray-400">Sign Up Date</p><p className="mt-0.5 text-sm font-semibold text-gray-900">{formatDate(selectedOperator.createdAt)}</p></div>
                 <div><p className="text-xs text-gray-400">Application approve date</p><p className="mt-0.5 text-sm font-semibold text-gray-900">{formatDate(selectedOperator.applicationApproveDate)}</p></div>
+              </div>
+              <div className="mt-5">
+                <p className="text-xs text-gray-400">DOT Quality Seal</p>
+                <div className="mt-1 flex flex-wrap items-center gap-3">
+                  <DotSealBadge granted={selectedOperator.hasDOTQualitySeal === true} size="md" />
+                  <button
+                    type="button"
+                    disabled={sealUpdating}
+                    onClick={() => toggleDotSeal(selectedOperator.uid, !selectedOperator.hasDOTQualitySeal)}
+                    className="rounded-full border border-amber-300 px-4 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-50 disabled:opacity-50"
+                  >
+                    {sealUpdating ? 'Updating…' : selectedOperator.hasDOTQualitySeal ? 'Revoke seal' : 'Grant seal'}
+                  </button>
+                  {selectedOperator.dotProofUrl && (
+                    <a
+                      href={selectedOperator.dotProofUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-[#558B2F] hover:underline"
+                    >
+                      View DOT proof
+                    </a>
+                  )}
+                </div>
               </div>
               <div className="mt-5">
                 <p className="text-sm font-bold text-gray-900">Files</p>
@@ -737,6 +802,9 @@ export default function OperatorsManagementPage() {
                 <div><label className="text-xs font-semibold text-gray-700">Mobile number</label><div className="mt-0.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900">{selectedRequest.mobileNumber || '—'}</div></div>
                 <div><label className="text-xs font-semibold text-gray-700">Email address</label><div className="mt-0.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 truncate">{selectedRequest.email || '—'}</div></div>
                 <div><label className="text-xs font-semibold text-gray-700">Address</label><div className="mt-0.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900">{selectedRequest.address || '—'}</div></div>
+                {selectedRequest.lat != null && selectedRequest.lng != null && (
+                  <div><label className="text-xs font-semibold text-gray-700">Map coordinates</label><div className="mt-0.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900">{selectedRequest.lat.toFixed(5)}, {selectedRequest.lng.toFixed(5)}</div></div>
+                )}
               </div>
               <div className="mt-5">
                 <h3 className="text-sm font-bold text-gray-900">Documents</h3>

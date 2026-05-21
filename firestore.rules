@@ -16,12 +16,23 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == userId;
     }
 
+    // Added 2026-05-20 — ISSUE-001a: dotProofUrl; ISSUE-001c: customInclusionChips/customExclusionChips
     function isAllowedSelfUserUpdate() {
       return request.resource.data.diff(resource.data).changedKeys().hasOnly([
         'firstName',
         'lastName',
-        'paymentMethods'
+        'paymentMethods',
+        'dotProofUrl',
+        'customInclusionChips',
+        'customExclusionChips',
       ]);
+    }
+
+    // Added 2026-05-20 — ISSUE-001a: DOT Quality Seal (display-only; operators cannot self-grant)
+    function operatorSealFieldsUnchanged() {
+      return request.resource.data.get('hasDOTQualitySeal', false) == resource.data.get('hasDOTQualitySeal', false)
+        && request.resource.data.get('dotSealGrantedAt', null) == resource.data.get('dotSealGrantedAt', null)
+        && request.resource.data.get('dotSealGrantedByUid', null) == resource.data.get('dotSealGrantedByUid', null);
     }
 
     function bookingSourceType() {
@@ -48,20 +59,34 @@ service cloud.firestore {
     // create/edit/delete their own activities. Super admins and guests are read-only.
     match /activities/{activityId} {
       allow read: if true;
+      // Added 2026-05-20 — ISSUE-001c: structured inclusions/exclusions must be lists
       allow create: if isOperator()
-        && request.resource.data.operatorId == request.auth.uid;
+        && request.resource.data.operatorId == request.auth.uid
+        && request.resource.data.inclusions is list
+        && request.resource.data.exclusions is list;
       allow update, delete: if isOperator()
-        && resource.data.operatorId == request.auth.uid;
+        && resource.data.operatorId == request.auth.uid
+        && request.resource.data.inclusions is list
+        && request.resource.data.exclusions is list;
     }
     // ── ADDED 2026-04-24 ───────────────────────────────────────────
     // Tour packages: public read for guest catalog. Only the owning operator can
     // create/edit/delete their own packages. Super admins have full write access.
     match /tourPackages/{packageId} {
       allow read: if true;
+      // Added 2026-05-20 — ISSUE-001b: packageLocations (≥1 municipality); ISSUE-001c: inclusions/exclusions lists
       allow create: if isOperator()
-        && request.resource.data.operatorId == request.auth.uid;
+        && request.resource.data.operatorId == request.auth.uid
+        && request.resource.data.packageLocations is list
+        && request.resource.data.packageLocations.size() >= 1
+        && request.resource.data.inclusions is list
+        && request.resource.data.exclusions is list;
       allow update, delete: if isOperator()
-        && resource.data.operatorId == request.auth.uid;
+        && resource.data.operatorId == request.auth.uid
+        && request.resource.data.packageLocations is list
+        && request.resource.data.packageLocations.size() >= 1
+        && request.resource.data.inclusions is list
+        && request.resource.data.exclusions is list;
       allow write: if isSuperAdmin();
     }
 
@@ -116,9 +141,15 @@ service cloud.firestore {
       // ── CHANGED 2026-05-07 ─────────────────────────────────────────
       // Operators can update limited self-service fields from settings page.
       // Operators can update their own profile/payment options only.
+      // Added 2026-05-20 — ISSUE-001a: seal fields locked on self-update; ISSUE-001c: custom chip list shape/cap
       allow update: if isOperator()
         && isOwnUserDoc(userId)
-        && isAllowedSelfUserUpdate();
+        && operatorSealFieldsUnchanged()
+        && isAllowedSelfUserUpdate()
+        && request.resource.data.customInclusionChips is list
+        && request.resource.data.customExclusionChips is list
+        && request.resource.data.customInclusionChips.size() <= 50
+        && request.resource.data.customExclusionChips.size() <= 50;
       // Super admins can read and update any user
       allow read, update: if isSuperAdmin();
 

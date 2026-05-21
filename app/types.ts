@@ -36,7 +36,8 @@ export interface TourPackage {
   theme: string
   duration: string
   inclusions: string[]
-  municipalityId: string
+  exclusions: string[]
+  municipalityIds: string[]
 }
 
 export interface TravelerReview {

@@ -10,6 +10,7 @@ import { Lightbox } from '@/app/components/ui/BentoGallery'
 import { doc, getDoc } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
 import { getApprovedReviewsForItem, type ApprovedReview } from '@/app/lib/reviews-service'
+import { InclusionChipBadges } from '@/app/components/ui/InclusionChipBadges'
 
 interface FirestoreActivity {
   id: string
@@ -23,6 +24,8 @@ interface FirestoreActivity {
   activityTag: string
   activityRating: number
   activityImages: string[]
+  inclusions?: string[]
+  exclusions?: string[]
 }
 
 const STATIC_FAQS = [
@@ -150,7 +153,13 @@ function ActivityDetailInner() {
       try {
         const snap = await getDoc(doc(firebaseDb, 'activities', activityId))
         if (!snap.exists()) { setNotFound(true); setLoading(false); return }
-        const loaded = { id: snap.id, ...snap.data() } as FirestoreActivity
+        const raw = snap.data()
+        const loaded = {
+          id: snap.id,
+          ...raw,
+          inclusions: Array.isArray(raw.inclusions) ? raw.inclusions : [],
+          exclusions: Array.isArray(raw.exclusions) ? raw.exclusions : [],
+        } as FirestoreActivity
         setActivity(loaded)
         if (!searchParams.get('travelers')) {
           setTravelers(Math.max(1, loaded.minimumNumberOfPeople ?? 1))
@@ -389,8 +398,27 @@ function ActivityDetailInner() {
                 </p>
               </SectionBlock>
 
-              {/* 02 Reviews */}
-              <SectionBlock num="02" title={`Reviews · ${avgRating.toFixed(1)}★`}>
+              {((activity.inclusions?.length ?? 0) > 0 || (activity.exclusions?.length ?? 0) > 0) && (
+                <SectionBlock num="02" title="What's included">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                    {(activity.inclusions?.length ?? 0) > 0 && (
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-widest text-green-600 mb-4">Included</p>
+                        <InclusionChipBadges chips={activity.inclusions ?? []} variant="inclusion" />
+                      </div>
+                    )}
+                    {(activity.exclusions?.length ?? 0) > 0 && (
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-widest text-red-500 mb-4">Not included</p>
+                        <InclusionChipBadges chips={activity.exclusions ?? []} variant="exclusion" />
+                      </div>
+                    )}
+                  </div>
+                </SectionBlock>
+              )}
+
+              {/* Reviews */}
+              <SectionBlock num="03" title={`Reviews · ${avgRating.toFixed(1)}★`}>
                 <div className="flex flex-col sm:flex-row gap-8 mb-8">
                   <div className="flex flex-col items-center justify-center shrink-0">
                     <span className="text-6xl font-extrabold text-gray-900 leading-none">{avgRating.toFixed(1)}</span>
@@ -439,8 +467,8 @@ function ActivityDetailInner() {
                 </p>
               </SectionBlock>
 
-              {/* 03 Frequently asked */}
-              <SectionBlock num="03" title="Frequently asked">
+              {/* Frequently asked */}
+              <SectionBlock num="04" title="Frequently asked">
                 <div className="border-t border-gray-100">
                   {STATIC_FAQS.map((faq, i) => (
                     <div key={i} className="border-b border-gray-100">

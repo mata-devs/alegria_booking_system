@@ -6,10 +6,16 @@ import Image from 'next/image'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Footer from '@/app/components/Footer'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/app/components/ui/drawer'
-import { Lightbox } from '@/app/components/ui/BentoGallery'
+import { Lightbox, type LightboxTab } from '@/app/components/ui/BentoGallery'
 import { collection, doc, getDoc, query, where, getDocs, limit } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
 import { getApprovedReviewsForItem, type ApprovedReview } from '@/app/lib/reviews-service'
+import { normalizePackageLocations } from '@/app/lib/package-locations'
+import { normalizePackageImages, packageImageUrl, type PackageImage } from '@/app/lib/package-images'
+import { InclusionChipBadges } from '@/app/components/ui/InclusionChipBadges'
+import { municipalitySlug } from '@/app/lib/cebu-municipalities'
+import { operatorHasSeal } from '@/app/lib/operator-seal'
+import { DotSealBadge } from '@/app/components/ui/DotSealBadge'
 
 interface ItineraryStep {
   itineraryTime: string
@@ -22,12 +28,12 @@ interface FirestorePackage {
   packageName: string
   packageDescription: string
   pricePerPerson: number
-  packageLocation: string
+  packageLocations: string[]
   duration: string
   inclusions: string[]
   exclusions: string[]
   packageItinerary: ItineraryStep[]
-  packageImages: string[]
+  packageImages: PackageImage[]
   packageTag: string
   packageRating: number
   slug: string
@@ -42,6 +48,14 @@ const STATIC_FAQS = [
   { q: 'What should I wear?', a: 'Wear comfortable, breathable clothing suitable for outdoor activities. Bring sunscreen, a hat, and comfortable walking shoes or sandals.' },
   { q: 'Is there a Mactan / airport pickup?', a: 'Hotel pickup is included from Cebu City hotels. Mactan or airport pickup may incur a surcharge — contact the operator to confirm.' },
 ]
+
+function buildMockTravelerPhotos(packageSlug: string): LightboxTab['images'] {
+  return Array.from({ length: 12 }, (_, i) => ({
+    url: `https://picsum.photos/seed/${packageSlug}-traveler-${i + 1}/1200/800`,
+    title: '',
+    description: '',
+  }))
+}
 
 function StarRating({ rating, size = 'sm' }: { rating: number; size?: 'sm' | 'xs' }) {
   const cls = size === 'xs' ? 'w-3 h-3' : 'w-4 h-4'
@@ -152,6 +166,7 @@ function TourPackageDetailInner() {
   const [reviewsVisible, setReviewsVisible] = useState(6)
   const [reviewFilter, setReviewFilter] = useState<'all' | '5' | '4' | '3'>('all')
   const [operatorName, setOperatorName] = useState<string | null>(null)
+  const [operatorDotSeal, setOperatorDotSeal] = useState(false)
   const [openItinerary, setOpenItinerary] = useState<Set<number>>(new Set([0]))
   const [openFaq, setOpenFaq] = useState<number | null>(null)
   const [relatedPackages, setRelatedPackages] = useState<FirestorePackage[]>([])
@@ -164,7 +179,15 @@ function TourPackageDetailInner() {
         const snap = await getDocs(q)
         if (snap.empty) { setNotFound(true); setLoading(false); return }
         const docSnap = snap.docs[0]
-        const loaded = { id: docSnap.id, ...docSnap.data() } as FirestorePackage
+        const raw = docSnap.data()
+        const loaded = {
+          id: docSnap.id,
+          ...raw,
+          packageLocations: normalizePackageLocations(raw),
+          packageImages: normalizePackageImages(raw.packageImages),
+          inclusions: Array.isArray(raw.inclusions) ? raw.inclusions : [],
+          exclusions: Array.isArray(raw.exclusions) ? raw.exclusions : [],
+        } as FirestorePackage
         setPkg(loaded)
         const initTravelers = Math.max(2, loaded.minimumNumberOfPeople ?? 2)
         setAdults(initTravelers)
@@ -191,6 +214,7 @@ function TourPackageDetailInner() {
         if (!snap.exists()) return
         const d = snap.data()
         setOperatorName(d.companyName || `${d.firstName ?? ''} ${d.lastName ?? ''}`.trim() || null)
+        setOperatorDotSeal(operatorHasSeal({ hasDOTQualitySeal: d.hasDOTQualitySeal === true }))
       })
       .catch(() => {})
   }, [pkg?.operatorId])
@@ -201,7 +225,14 @@ function TourPackageDetailInner() {
         const q = query(collection(firebaseDb, 'tourPackages'), limit(6))
         const snap = await getDocs(q)
         const all = snap.docs
-          .map((d) => ({ id: d.id, ...d.data() }) as FirestorePackage)
+          .map((d) => {
+            const data = d.data()
+            return {
+              id: d.id,
+              ...data,
+              packageImages: normalizePackageImages(data.packageImages),
+            } as FirestorePackage
+          })
           .filter((p) => p.slug !== slug)
           .slice(0, 2)
         setRelatedPackages(all)
@@ -248,6 +279,10 @@ function TourPackageDetailInner() {
     : reviews.filter((r) => Math.round(((r as ApprovedReview & { rating?: number }).rating ?? 5)) === parseInt(reviewFilter))
 
   const heroImages = pkg.packageImages.slice(0, 3)
+  const galleryTabs: LightboxTab[] = [
+    { id: 'operator', label: 'Official photos', images: pkg.packageImages },
+    { id: 'traveler', label: 'Traveler photos', images: buildMockTravelerPhotos(pkg.slug) },
+  ]
 
   const handleBook = () => {
     const qs = new URLSearchParams({
@@ -284,7 +319,14 @@ function TourPackageDetailInner() {
               <span className="shrink-0">›</span>
               <Link href="/tour-packages" className="hover:text-green-600 shrink-0">Tour Packages</Link>
               <span className="shrink-0">›</span>
-              <Link href="/locations" className="hover:text-green-600 shrink-0">{pkg.packageLocation}</Link>
+              <span className="hover:text-green-600 shrink-0 truncate">
+                {pkg.packageLocations.map((loc, i) => (
+                  <span key={loc}>
+                    {i > 0 && ', '}
+                    <Link href={`/locations/${municipalitySlug(loc)}`} className="hover:text-green-600">{loc}</Link>
+                  </span>
+                ))}
+              </span>
               <span className="shrink-0">›</span>
               <span className="text-gray-600 font-medium truncate">{pkg.packageName}</span>
             </nav>
@@ -318,6 +360,20 @@ function TourPackageDetailInner() {
                 </p>
 
                 {/* Meta row */}
+                {pkg.packageLocations.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {pkg.packageLocations.map((loc) => (
+                      <Link
+                        key={loc}
+                        href={`/locations/${municipalitySlug(loc)}`}
+                        className="rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-800 ring-1 ring-green-100 hover:bg-green-100"
+                      >
+                        {loc}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+
                 <div className="flex flex-wrap items-center gap-5 text-sm text-gray-500">
                   <div className="flex items-center gap-1.5">
                     <StarRating rating={pkg.packageRating} />
@@ -356,12 +412,14 @@ function TourPackageDetailInner() {
                     className="absolute top-7 right-0 z-[1] w-[255px] h-[255px] sm:w-[275px] sm:h-[275px] rounded-[22px] overflow-hidden shadow-lg bg-gray-200 [transform:rotate(-5deg)] hover:z-[10] hover:scale-105 hover:shadow-2xl transition-all duration-300 cursor-zoom-in"
                   >
                     {heroImages[0] && (
-                      <Image src={heroImages[0]} alt="" fill className="object-cover" sizes="275px" />
+                      <Image src={packageImageUrl(heroImages[0])} alt="" fill className="object-cover" sizes="275px" />
                     )}
                     <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors duration-200" />
-                    <div className="absolute bottom-3 left-3 bg-gray-900/70 text-white text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide max-w-[80%] truncate">
-                      {(pkg.packageItinerary[0]?.itineraryTitle ?? pkg.packageLocation).toUpperCase()}
-                    </div>
+                    {heroImages[0]?.title && (
+                      <div className="absolute bottom-3 left-3 bg-gray-900/70 text-white text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide max-w-[80%] truncate">
+                        {heroImages[0].title.toUpperCase()}
+                      </div>
+                    )}
                   </button>
 
                   {/* Card 2 — front large */}
@@ -371,12 +429,14 @@ function TourPackageDetailInner() {
                     className="absolute bottom-8 left-0 z-[2] w-[248px] h-[248px] sm:w-[265px] sm:h-[265px] rounded-[22px] overflow-hidden shadow-xl bg-gray-200 hover:z-[10] hover:scale-105 hover:shadow-2xl transition-all duration-300 cursor-zoom-in"
                   >
                     {heroImages[1] && (
-                      <Image src={heroImages[1]} alt="" fill className="object-cover" sizes="265px" />
+                      <Image src={packageImageUrl(heroImages[1])} alt="" fill className="object-cover" sizes="265px" />
                     )}
                     <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors duration-200" />
-                    <div className="absolute bottom-3 left-3 bg-gray-900/70 text-white text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide max-w-[80%] truncate">
-                      {(pkg.packageItinerary[1]?.itineraryTitle ?? pkg.packageLocation).toUpperCase()}
-                    </div>
+                    {heroImages[1]?.title && (
+                      <div className="absolute bottom-3 left-3 bg-gray-900/70 text-white text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide max-w-[80%] truncate">
+                        {heroImages[1].title.toUpperCase()}
+                      </div>
+                    )}
                   </button>
 
                   {/* Card 3 — small bottom-right */}
@@ -386,14 +446,14 @@ function TourPackageDetailInner() {
                     className="absolute bottom-0 right-4 z-[3] w-[140px] h-[140px] sm:w-[155px] sm:h-[155px] rounded-[18px] overflow-hidden shadow-xl bg-gray-200 hover:z-[10] hover:scale-110 hover:shadow-2xl transition-all duration-300 cursor-zoom-in"
                   >
                     {heroImages[2] && (
-                      <Image src={heroImages[2]} alt="" fill className="object-cover" sizes="155px" />
+                      <Image src={packageImageUrl(heroImages[2])} alt="" fill className="object-cover" sizes="155px" />
                     )}
                     <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors duration-200" />
-                    <div className="absolute bottom-3 left-3 bg-gray-900/70 text-white text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide max-w-[90%] truncate">
-                      {pkg.packageItinerary[2]
-                        ? pkg.packageItinerary[2].itineraryTitle.toUpperCase()
-                        : `${stepsCount} STEPS`}
-                    </div>
+                    {heroImages[2]?.title && (
+                      <div className="absolute bottom-3 left-3 bg-gray-900/70 text-white text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide max-w-[90%] truncate">
+                        {heroImages[2].title.toUpperCase()}
+                      </div>
+                    )}
                   </button>
                 </div>
               </div>
@@ -438,6 +498,7 @@ function TourPackageDetailInner() {
                       <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
                     </svg>
                     {operatorName}
+                    <DotSealBadge granted={operatorDotSeal} size="sm" showLabel={false} />
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
@@ -451,16 +512,7 @@ function TourPackageDetailInner() {
               {/* 02 Highlights */}
               {pkg.inclusions.length > 0 && (
                 <SectionBlock num="02" title="Highlights">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-3.5">
-                    {pkg.inclusions.map((item, i) => (
-                      <div key={i} className="flex items-start gap-2.5">
-                        <svg className="w-4 h-4 text-green-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                        </svg>
-                        <span className="text-sm text-gray-700">{item}</span>
-                      </div>
-                    ))}
-                  </div>
+                  <InclusionChipBadges chips={pkg.inclusions} variant="inclusion" />
                 </SectionBlock>
               )}
 
@@ -515,31 +567,13 @@ function TourPackageDetailInner() {
                     {pkg.inclusions.length > 0 && (
                       <div>
                         <p className="text-xs font-bold uppercase tracking-widest text-green-600 mb-4">Included</p>
-                        <ul className="space-y-3">
-                          {pkg.inclusions.map((item, i) => (
-                            <li key={i} className="flex items-center gap-2.5 text-sm text-gray-700">
-                              <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                              </svg>
-                              {item}
-                            </li>
-                          ))}
-                        </ul>
+                        <InclusionChipBadges chips={pkg.inclusions} variant="inclusion" />
                       </div>
                     )}
                     {pkg.exclusions.length > 0 && (
                       <div>
                         <p className="text-xs font-bold uppercase tracking-widest text-red-500 mb-4">Not included</p>
-                        <ul className="space-y-3">
-                          {pkg.exclusions.map((item, i) => (
-                            <li key={i} className="flex items-center gap-2.5 text-sm text-gray-700">
-                              <svg className="w-4 h-4 text-red-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                              {item}
-                            </li>
-                          ))}
-                        </ul>
+                        <InclusionChipBadges chips={pkg.exclusions} variant="exclusion" />
                       </div>
                     )}
                   </div>
@@ -789,7 +823,7 @@ function TourPackageDetailInner() {
                         >
                           <div className="relative w-11 h-11 rounded-xl overflow-hidden shrink-0 bg-gray-100">
                             {rp.packageImages[0] && (
-                              <Image src={rp.packageImages[0]} alt={rp.packageName} fill className="object-cover" sizes="44px" />
+                              <Image src={packageImageUrl(rp.packageImages[0])} alt={rp.packageName} fill className="object-cover" sizes="44px" />
                             )}
                           </div>
                           <p className="text-xs font-medium text-gray-700 group-hover:text-green-600 leading-snug transition-colors line-clamp-2">
@@ -837,6 +871,8 @@ function TourPackageDetailInner() {
           idx={lightboxIdx}
           onClose={() => setLightboxIdx(null)}
           onChange={setLightboxIdx}
+          loop
+          tabs={galleryTabs}
         />
       )}
 

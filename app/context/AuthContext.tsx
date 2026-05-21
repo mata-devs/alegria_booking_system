@@ -89,6 +89,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         lastName: data.lastName ?? '',
         status: data.status ?? 'active',
         createdAt: data.createdAt?.toDate?.() ?? null,
+        hasDOTQualitySeal: data.hasDOTQualitySeal === true,
+        customInclusionChips: Array.isArray(data.customInclusionChips) ? data.customInclusionChips : [],
+        customExclusionChips: Array.isArray(data.customExclusionChips) ? data.customExclusionChips : [],
       };
 
       try { sessionStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify({ uid: firebaseUser.uid, profile })); } catch {}

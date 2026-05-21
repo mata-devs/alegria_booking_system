@@ -7,6 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:rules": "vitest run --config vitest.rules.config.ts",
+    "test:storage-rules": "vitest run --config vitest.storage-rules.config.ts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "scan:sonar": "sonar",
@@ -46,17 +50,22 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",
+    "@firebase/rules-unit-testing": "^5.0.1",
     "@next/eslint-plugin-next": "^15.5.18",
     "@playwright/test": "^1.59.1",
     "@sonar/scan": "^4.3.6",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^20",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.1",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.39.4",
     "eslint-config-next": "^15.5.18",
+    "jsdom": "^29.1.1",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.7"
   }
 }

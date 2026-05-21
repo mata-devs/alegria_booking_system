@@ -8,6 +8,9 @@ import Footer from '@/app/components/Footer'
 import SearchBar from '@/app/components/SearchBar'
 import PackageCard from '@/app/components/ui/PackageCard'
 import { collection, query, where, getDocs, limit } from 'firebase/firestore'
+import { normalizePackageLocations, formatLocationSummary } from '@/app/lib/package-locations'
+import { packageImageUrl } from '@/app/lib/package-images'
+import { canonicalMunicipalityLabel } from '@/app/lib/cebu-municipalities'
 import { firebaseDb } from '@/app/lib/firebase'
 import { CategoryFilterCollapsible } from '@/app/components/CategoryFilterCollapsible'
 import { ACTIVITY_TAGS } from '@/app/lib/activity-tags'
@@ -22,7 +25,8 @@ interface FirestorePackage {
   pricePerPerson: number
   minimumNumberOfPeople: number
   maximumNumberOfPeople?: number
-  packageLocation: string
+  packageLocations: string[]
+  operatorId?: string
   duration: string
   packageTag: string
   packageImages: string[]
@@ -74,7 +78,14 @@ function TourPackagesContent() {
       collection(firebaseDb, 'tourPackages'),
       where('status', '==', 'active'),
     )).then((snap) => {
-      setPackages(snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirestorePackage)))
+      setPackages(snap.docs.map((d) => {
+        const data = d.data()
+        return {
+          id: d.id,
+          ...data,
+          packageLocations: normalizePackageLocations(data),
+        } as FirestorePackage
+      }))
       setLoading(false)
     }).catch(() => setLoading(false))
 
@@ -107,7 +118,10 @@ function TourPackagesContent() {
     const term = searchWhere.trim().toLowerCase()
     const matchesSearch = !term ||
       p.packageName.toLowerCase().includes(term) ||
-      p.packageLocation.toLowerCase().includes(term)
+      p.packageLocations.some((loc) => loc.toLowerCase().includes(term))
+    const filterMuni = searchWhere.trim()
+    const matchesLocation = !filterMuni ||
+      p.packageLocations.some((loc) => canonicalMunicipalityLabel(loc) === canonicalMunicipalityLabel(filterMuni))
     const requestedTravelers = Math.max(1, Number.parseInt(searchTravelers || '1', 10) || 1)
     const slotsAvailable = dayCapacity[p.id]
     const fallbackCapacity = Math.max(
@@ -116,7 +130,7 @@ function TourPackagesContent() {
     )
     const effectiveCapacity = slotsAvailable ?? fallbackCapacity
     const matchesAvailability = !searchDate || effectiveCapacity >= requestedTravelers
-    return matchesTag && matchesSearch && matchesAvailability
+    return matchesTag && matchesSearch && matchesLocation && matchesAvailability
   }), [packages, activeFilter, searchWhere, searchDate, searchTravelers, dayCapacity])
 
   const visible = filtered.slice(0, visibleCount)
@@ -229,7 +243,7 @@ function TourPackagesContent() {
             {visible.map((pkg) => (
               <PackageCard
                 key={pkg.id}
-                image={pkg.packageImages[0]}
+                image={packageImageUrl(pkg.packageImages[0])}
                 title={pkg.packageName}
                 price={pkg.pricePerPerson}
                 pricePrefix="Starting from"
@@ -237,6 +251,7 @@ function TourPackagesContent() {
                 duration={pkg.duration}
                 rating={pkg.packageRating}
                 minGuests={pkg.minimumNumberOfPeople ?? 1}
+                location={formatLocationSummary(pkg.packageLocations)}
                 cardKind="tourPackage"
                 href={(() => {
                   const params = new URLSearchParams()

@@ -57,6 +57,16 @@ service firebase.storage {
                    && request.resource.contentType.matches('image/.*');
     }
 
+    // Added 2026-05-20 — ISSUE-001a: DOT proof upload (operators/{uid}/dot-proof, PDF/JPEG/PNG, 5MB)
+    match /operators/{uid}/dot-proof/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+                   && (request.auth.uid == uid || isSuperAdmin())
+                   && request.resource != null
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('application/pdf|image/jpeg|image/png');
+    }
+
     match /signup-requests/{requestId}/{allPaths=**} {
       allow read: if true;
       allow write: if request.resource != null

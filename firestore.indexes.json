@@ -53,6 +53,15 @@
       "density": "SPARSE_ALL"
     },
     {
+      "collectionGroup": "tourPackages",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "packageLocations", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "timeslots",
       "queryScope": "COLLECTION",
       "fields": [
