@@ -337,7 +337,7 @@ export default function BookingDetailsCard({
               </div>
 
               <div className="flex items-center justify-between gap-4">
-                <span className="text-lg font-semibold text-neutral-800">Service charge</span>
+                <span className="text-lg font-semibold text-neutral-800">Convenience fee</span>
                 <span className="text-lg font-semibold text-neutral-800">
                 {peso(booking.payment.serviceCharge)}
               </span>
@@ -497,7 +497,7 @@ export default function BookingDetailsCard({
                         </div>
 
                         <div className="flex items-center justify-between gap-4">
-                          <span className="font-medium">Service charge</span>
+                          <span className="font-medium">Convenience fee</span>
                           <span className="font-medium">{peso(booking.payment.serviceCharge)}</span>
                         </div>
 
