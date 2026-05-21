@@ -109,7 +109,7 @@ export default function SuperAdminNotificationsPage() {
                   )}
                   {n.kind === 'booking_paid' && (
                     <p className="text-xs font-medium text-[#558B2F] mt-1">
-                      Payment received — confirm and prepare →
+                      Payment received. Confirm and prepare →
                     </p>
                   )}
 

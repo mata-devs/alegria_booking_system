@@ -472,7 +472,7 @@ export default function OperatorProfilePage() {
         ) : (activities.length > 0 || packages.length > 0) ? (
           <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
             <h2 className="text-base font-semibold text-gray-700 mb-2">Guest Reviews</h2>
-            <p className="text-sm text-gray-400">No reviews yet — be one of the first to explore and share your experience!</p>
+            <p className="text-sm text-gray-400">No reviews yet. Be the first to explore and share your experience!</p>
           </section>
         ) : null}
       </main>

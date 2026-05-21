@@ -46,7 +46,7 @@ const STATIC_FAQS = [
   { q: 'How long is the tour?', a: 'Duration is listed near the top of the page. Check the itinerary section for a detailed step-by-step breakdown and timing.' },
   { q: 'Is lunch included?', a: 'Inclusions and exclusions are listed in the "What\'s included" section. Check there for meal information specific to this package.' },
   { q: 'What should I wear?', a: 'Wear comfortable, breathable clothing suitable for outdoor activities. Bring sunscreen, a hat, and comfortable walking shoes or sandals.' },
-  { q: 'Is there a Mactan / airport pickup?', a: 'Hotel pickup is included from Cebu City hotels. Mactan or airport pickup may incur a surcharge — contact the operator to confirm.' },
+  { q: 'Is there a Mactan / airport pickup?', a: 'Hotel pickup is included from Cebu City hotels. Mactan or airport pickup may incur a surcharge. Contact the operator to confirm.' },
 ]
 
 function buildMockTravelerPhotos(packageSlug: string): LightboxTab['images'] {

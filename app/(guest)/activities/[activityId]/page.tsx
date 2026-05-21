@@ -449,7 +449,7 @@ function ActivityDetailInner() {
                 </div>
 
                 {filteredReviews.length === 0 ? (
-                  <p className="text-sm text-gray-400 italic">No reviews yet — be one of the first!</p>
+                  <p className="text-sm text-gray-400 italic">No reviews yet. Be the first!</p>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {filteredReviews.slice(0, reviewsVisible).map((review) => (
@@ -643,7 +643,7 @@ function ActivityDetailInner() {
             >
               Confirm & Continue →
             </button>
-            <p className="text-center text-xs text-gray-400">No charges yet — review before paying</p>
+            <p className="text-center text-xs text-gray-400">No charges yet. Review before paying.</p>
           </div>
         </DrawerContent>
       </Drawer>

@@ -266,7 +266,7 @@ export default function AccommodationsPage() {
             </div>
             <p className="text-base font-semibold text-gray-700">No accommodations listed yet</p>
             <p className="mt-1 text-sm text-gray-400">
-              {search || activeType ? 'Try adjusting your search or filters.' : 'Check back soon — listings are coming.'}
+              {search || activeType ? 'Try adjusting your search or filters.' : 'Check back soon. Listings are coming.'}
             </p>
           </div>
         ) : (
