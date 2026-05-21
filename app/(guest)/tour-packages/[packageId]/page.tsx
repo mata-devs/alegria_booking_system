@@ -136,9 +136,10 @@ function ReviewCard({ review }: { review: ApprovedReview }) {
   )
 }
 
-function SectionBlock({ num, title, children }: { num: string; title: string; children: React.ReactNode }) {
+function SectionBlock({ num, title, top, children }: { num: string; title: string; top?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="py-10 border-b border-gray-100 last:border-b-0">
+      {top}
       <div className="flex items-baseline gap-4 mb-6">
         <span className="text-4xl font-extrabold text-gray-100 leading-none select-none">{num}</span>
         <h2 className="text-xl sm:text-2xl font-extrabold text-gray-900">{title}</h2>
@@ -488,22 +489,25 @@ function TourPackageDetailInner() {
             <div className="flex-1 min-w-0">
 
               {/* 01 The day, in short */}
-              <SectionBlock num="01" title="The day, in short">
-                {operatorName && pkg.operatorId && (
-                  <Link
-                    href={`/operators/${pkg.operatorId}`}
-                    className="inline-flex items-center gap-1.5 text-sm text-green-600 font-medium hover:underline mb-5"
-                  >
-                    <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                    </svg>
-                    {operatorName}
-                    <DotSealBadge granted={operatorDotSeal} size="sm" showLabel={false} />
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </Link>
-                )}
+              <SectionBlock
+                num="01"
+                title="The day, in short"
+                top={operatorName && pkg.operatorId ? (
+                  <p className="text-sm text-gray-500 mb-4">
+                    By{' '}
+                    <Link
+                      href={`/operators/${pkg.operatorId}`}
+                      className="inline-flex items-center gap-1 text-green-600 font-medium hover:underline"
+                    >
+                      {operatorName}
+                      <DotSealBadge granted={operatorDotSeal} size="sm" showLabel={false} />
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </Link>
+                  </p>
+                ) : undefined}
+              >
                 <p className="text-gray-600 leading-relaxed text-sm sm:text-base whitespace-pre-wrap">
                   {pkg.packageDescription}
                 </p>

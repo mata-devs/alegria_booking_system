@@ -16,7 +16,7 @@ const CARD_KIND_COPY: Record<
   activity: {
     label: 'Activity',
     Icon: Sparkle,
-    tip: 'Unique experience booking',
+    tip: 'Unique travel experience',
   },
   tourPackage: {
     label: 'Tour package',

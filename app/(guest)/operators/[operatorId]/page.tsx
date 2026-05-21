@@ -74,6 +74,10 @@ function RatingBar({ star, count, total }: { star: number; count: number; total:
   )
 }
 
+function scrollToSection(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
 export default function OperatorProfilePage() {
   const params = useParams()
   const operatorId = params.operatorId as string
@@ -326,15 +330,36 @@ export default function OperatorProfilePage() {
               <p className="text-xs text-gray-400 mt-2">Member since {operator.memberSince}</p>
             )}
 
-            <Link
-              href="/activities"
-              className="mt-4 inline-flex items-center gap-2 rounded-full bg-green-500 px-5 py-2 text-sm font-semibold text-white hover:bg-green-600 transition-colors"
-            >
-              Book an Activity
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </Link>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Link
+                href={activities.length > 0 ? '#operator-activities' : '/activities'}
+                onClick={(e) => {
+                  if (activities.length === 0) return
+                  e.preventDefault()
+                  scrollToSection('operator-activities')
+                }}
+                className="inline-flex items-center gap-2 rounded-full border border-green-500 px-5 py-2 text-sm font-semibold text-green-600 hover:bg-green-50 transition-colors"
+              >
+                Book an Activity
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+              <Link
+                href={packages.length > 0 ? '#operator-tour-packages' : '/tour-packages'}
+                onClick={(e) => {
+                  if (packages.length === 0) return
+                  e.preventDefault()
+                  scrollToSection('operator-tour-packages')
+                }}
+                className="inline-flex items-center gap-2 rounded-full border border-green-500 px-5 py-2 text-sm font-semibold text-green-600 hover:bg-green-50 transition-colors"
+              >
+                Book Tour Package
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
           </div>
 
           {/* Stats column */}
@@ -385,9 +410,9 @@ export default function OperatorProfilePage() {
 
         {/* Activities */}
         {activities.length > 0 && (
-          <section>
+          <section id="operator-activities" className="scroll-mt-24">
             <h2 className="text-xl font-bold text-gray-900 mb-6">
-              Activities by {operator.companyName}
+              Offered Activities by {operator.companyName}
             </h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
               {activities.map((act) => (
@@ -399,9 +424,9 @@ export default function OperatorProfilePage() {
 
         {/* Tour Packages */}
         {packages.length > 0 && (
-          <section>
+          <section id="operator-tour-packages" className="scroll-mt-24">
             <h2 className="text-xl font-bold text-gray-900 mb-6">
-              Tour Packages by {operator.companyName}
+              Offered Tour Packages by {operator.companyName}
             </h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
               {packages.map((pkg) => (
