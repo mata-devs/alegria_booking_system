@@ -170,7 +170,7 @@ export function BookingSummary({
                             </span>
                         </div>
                         <div className="flex items-baseline justify-between gap-4">
-                            <span className="font-semibold text-gray-900">Service charge</span>
+                            <span className="font-semibold text-gray-900">Convenience fee</span>
                             <span className="font-mono text-sm font-bold text-gray-900">
                                 {pricing ? peso(pricing.serviceCharge) : "—"}
                             </span>
