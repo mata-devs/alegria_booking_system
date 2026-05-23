@@ -10,6 +10,7 @@ import { ref, getDownloadURL } from 'firebase/storage';
 import Image from 'next/image';
 import { Filter, Search, ChevronDown, FileImage, Copy, RefreshCw, ChevronLeft, ChevronRight, X, Send, CheckCircle2, AlertCircle } from 'lucide-react';
 import type { OperatorProfile, OperatorSignUpRequest, SignUpRequestStatus } from '@/app/lib/types';
+import { getAppBaseUrl } from '@/app/lib/app-url';
 
 type Tab = 'operators' | 'signup-requests';
 type SearchField = 'name' | 'id';
@@ -153,7 +154,7 @@ export default function OperatorsManagementPage() {
   }, []);
 
   function getSignupUrl(token: string) {
-    const base = typeof window !== 'undefined' ? window.location.origin : '';
+    const base = getAppBaseUrl();
     return `${base}/operator-signup?token=${token}`;
   }
 
