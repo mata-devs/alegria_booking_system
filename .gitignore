@@ -78,4 +78,8 @@ functions/lib
 app/lib/__tests__
 tasks
 
+docs/Operators.md
+docs/operator-inboxes.csv
+docs/scripts/
+
 

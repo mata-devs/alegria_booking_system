@@ -17,15 +17,32 @@ service cloud.firestore {
     }
 
     // Added 2026-05-20 — ISSUE-001a: dotProofUrl; ISSUE-001c: customInclusionChips/customExclusionChips
+    // Updated 2026-05-22 — ISSUE-007: include phoneNumber/mobileNumber written by operator settings page
     function isAllowedSelfUserUpdate() {
-      return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
         'firstName',
         'lastName',
+        'phoneNumber',
+        'mobileNumber',
         'paymentMethods',
         'dotProofUrl',
         'customInclusionChips',
         'customExclusionChips',
       ]);
+    }
+
+    // Updated 2026-05-22 — ISSUE-007: only validate chip shape when the chip field is actually changing,
+    // so updates that don't touch the chip arrays don't fail when the existing doc has no chips set.
+    function customInclusionChipsShapeOk() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['customInclusionChips'])
+        || (request.resource.data.customInclusionChips is list
+            && request.resource.data.customInclusionChips.size() <= 50);
+    }
+
+    function customExclusionChipsShapeOk() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['customExclusionChips'])
+        || (request.resource.data.customExclusionChips is list
+            && request.resource.data.customExclusionChips.size() <= 50);
     }
 
     // Added 2026-05-20 — ISSUE-001a: DOT Quality Seal (display-only; operators cannot self-grant)
@@ -64,10 +81,13 @@ service cloud.firestore {
         && request.resource.data.operatorId == request.auth.uid
         && request.resource.data.inclusions is list
         && request.resource.data.exclusions is list;
-      allow update, delete: if isOperator()
+      // Updated 2026-05-22 — ISSUE-007: split update/delete so delete doesn't reference request.resource
+      allow update: if isOperator()
         && resource.data.operatorId == request.auth.uid
         && request.resource.data.inclusions is list
         && request.resource.data.exclusions is list;
+      allow delete: if isOperator()
+        && resource.data.operatorId == request.auth.uid;
     }
     // ── ADDED 2026-04-24 ───────────────────────────────────────────
     // Tour packages: public read for guest catalog. Only the owning operator can
@@ -81,12 +101,15 @@ service cloud.firestore {
         && request.resource.data.packageLocations.size() >= 1
         && request.resource.data.inclusions is list
         && request.resource.data.exclusions is list;
-      allow update, delete: if isOperator()
+      // Updated 2026-05-22 — ISSUE-007: split update/delete so delete doesn't reference request.resource
+      allow update: if isOperator()
         && resource.data.operatorId == request.auth.uid
         && request.resource.data.packageLocations is list
         && request.resource.data.packageLocations.size() >= 1
         && request.resource.data.inclusions is list
         && request.resource.data.exclusions is list;
+      allow delete: if isOperator()
+        && resource.data.operatorId == request.auth.uid;
       allow write: if isSuperAdmin();
     }
 
@@ -142,14 +165,13 @@ service cloud.firestore {
       // Operators can update limited self-service fields from settings page.
       // Operators can update their own profile/payment options only.
       // Added 2026-05-20 — ISSUE-001a: seal fields locked on self-update; ISSUE-001c: custom chip list shape/cap
+      // Updated 2026-05-22 — ISSUE-007: chip shape only checked when those fields are actually being changed
       allow update: if isOperator()
         && isOwnUserDoc(userId)
         && operatorSealFieldsUnchanged()
         && isAllowedSelfUserUpdate()
-        && request.resource.data.customInclusionChips is list
-        && request.resource.data.customExclusionChips is list
-        && request.resource.data.customInclusionChips.size() <= 50
-        && request.resource.data.customExclusionChips.size() <= 50;
+        && customInclusionChipsShapeOk()
+        && customExclusionChipsShapeOk();
       // Super admins can read and update any user
       allow read, update: if isSuperAdmin();
 
@@ -204,6 +226,14 @@ service cloud.firestore {
     match /homepage_cms/{docId} {
       allow read: if true;
       allow write: if isSuperAdmin();
+    }
+
+    // ── ADDED 2026-05-22 — ISSUE-007 ──────────────────────────────
+    // Payments: only the Functions admin SDK writes here. Make intent explicit
+    // and protect against future client code drift.
+    match /payments/{paymentId} {
+      allow read: if isSuperAdmin();
+      allow write: if false;
     }
 
     // ── Bookings ──────────────────────────────────────────────────

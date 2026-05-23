@@ -10,11 +10,7 @@ import {
   extractPathFromUrl,
 } from "../shared/helpers";
 import { sendOperatorSignupApprovedEmail } from "./operatorSignupEmails";
-
-const APP_URL =
-  process.env.APP_URL ||
-  process.env.NEXT_PUBLIC_APP_URL ||
-  "http://localhost:3000";
+import { getAppUrl } from "../shared/appUrl";
 
 function readCoord(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -130,7 +126,7 @@ export const approveOperatorSignup = onCall(
     if (applicantEmail) {
       try {
         passwordResetLink = await auth.generatePasswordResetLink(applicantEmail, {
-          url: `${APP_URL}/reset-password`,
+          url: `${getAppUrl()}/reset-password`,
         });
       } catch (err) {
         logger.warn("Failed to generate password reset link for approved operator:", err);

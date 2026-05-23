@@ -1,10 +1,7 @@
 import * as logger from "firebase-functions/logger";
 import { createTransporter, getFromAddress } from "../shared/mailer";
 
-const APP_URL =
-  process.env.APP_URL ||
-  process.env.NEXT_PUBLIC_APP_URL ||
-  "http://localhost:3000";
+import { getAppUrl } from "../shared/appUrl";
 
 function escapeHtml(text: string): string {
   return text
@@ -34,7 +31,7 @@ export async function sendOperatorSignupApprovedEmail(params: {
   const { to, applicantName, companyName, passwordResetLink } = params;
   const name = escapeHtml(applicantName.trim() || "there");
   const company = escapeHtml(companyName.trim() || "your business");
-  const loginUrl = `${APP_URL}/login`;
+  const loginUrl = `${getAppUrl()}/login`;
 
   const setPasswordBlock = passwordResetLink
     ? `

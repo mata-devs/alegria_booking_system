@@ -4,6 +4,7 @@ import * as logger from "firebase-functions/logger";
 import { defineString, defineInt } from "firebase-functions/params";
 import { db } from "../shared/firebase";
 import { assertSuperAdmin } from "../shared/helpers";
+import { buildOperatorSignupUrl } from "../shared/appUrl";
 
 const smtpHost = defineString("SMTP_HOST");
 const smtpPort = defineInt("SMTP_PORT");
@@ -14,6 +15,7 @@ const smtpFrom = defineString("SMTP_FROM");
 export const sendSignupLinkEmail = onCall(
   {
     region: "us-central1",
+    invoker: "public",
     cors: true,
   },
   async (request) => {
@@ -42,6 +44,12 @@ export const sendSignupLinkEmail = onCall(
       );
     }
 
+    const token = snap.data()?.token;
+    if (typeof token !== "string" || !token) {
+      throw new HttpsError("not-found", "Signup link token is missing.");
+    }
+    const emailSignupUrl = buildOperatorSignupUrl(token);
+
     const transporter = nodemailer.createTransport({
       host: smtpHost.value(),
       port: smtpPort.value(),
@@ -61,11 +69,11 @@ export const sendSignupLinkEmail = onCall(
           <h2 style="color:#558B2F">Operator Registration</h2>
           <p>You have been invited to register as an operator on the Management Portal.</p>
           <p>Click the button below to complete your registration. This link can only be used <strong>once</strong>.</p>
-          <a href="${signupUrl}"
+          <a href="${emailSignupUrl}"
              style="display:inline-block;margin:16px 0;padding:12px 24px;background:#558B2F;color:#fff;text-decoration:none;border-radius:8px;font-weight:600">
             Complete Registration
           </a>
-          <p style="color:#888;font-size:12px">If the button doesn't work, copy this link: ${signupUrl}</p>
+          <p style="color:#888;font-size:12px">If the button doesn't work, copy this link: ${emailSignupUrl}</p>
         </div>
       `,
     });
