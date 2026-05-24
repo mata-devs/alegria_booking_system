@@ -35,6 +35,9 @@ export default function ToastItem({
           {kind === 'booking_new' && (
             <p className="text-[10px] font-medium text-[#558B2F] mt-1">Tap bell to review →</p>
           )}
+          {kind === 'operator_signup_new' && (
+            <p className="text-[10px] font-medium text-[#558B2F] mt-1">Review signup request →</p>
+          )}
         </div>
         <button
           type="button"

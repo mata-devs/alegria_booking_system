@@ -1,7 +1,6 @@
 import * as logger from "firebase-functions/logger";
 import { createTransporter, getFromAddress } from "../shared/mailer";
-
-import { getAppUrl } from "../shared/appUrl";
+import { buildAppLoginUrl } from "../shared/appUrl";
 
 function escapeHtml(text: string): string {
   return text
@@ -9,6 +8,10 @@ function escapeHtml(text: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function escapeHtmlAttr(text: string): string {
+  return escapeHtml(text);
 }
 
 const emailShell = (title: string, bodyHtml: string) => `
@@ -22,60 +25,87 @@ const emailShell = (title: string, bodyHtml: string) => `
   </div>
 `;
 
+const buttonPrimary = (href: string, label: string) => `
+  <a href="${escapeHtmlAttr(href)}"
+     style="display:inline-block;padding:14px 32px;background:#558B2F;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px">
+    ${label}
+  </a>
+`;
+
+const buttonOutline = (href: string, label: string) => `
+  <a href="${escapeHtmlAttr(href)}"
+     style="display:inline-block;padding:12px 28px;border:2px solid #558B2F;color:#558B2F;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px">
+    ${label}
+  </a>
+`;
+
 export async function sendOperatorSignupApprovedEmail(params: {
   to: string;
   applicantName: string;
   companyName: string;
-  passwordResetLink?: string;
+  setPasswordUrl?: string;
 }): Promise<void> {
-  const { to, applicantName, companyName, passwordResetLink } = params;
+  const { to, applicantName, companyName, setPasswordUrl } = params;
   const name = escapeHtml(applicantName.trim() || "there");
   const company = escapeHtml(companyName.trim() || "your business");
-  const loginUrl = `${getAppUrl()}/login`;
+  const loginUrl = buildAppLoginUrl();
+  const loginUrlDisplay = escapeHtml(loginUrl);
 
-  const setPasswordBlock = passwordResetLink
+  const setupSteps = setPasswordUrl
     ? `
-      <p>Click the button below to set your password and sign in to the operator portal:</p>
-      <div style="text-align:center;margin:28px 0">
-        <a href="${passwordResetLink}"
-           style="display:inline-block;padding:14px 32px;background:#558B2F;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px">
-          Set password &amp; sign in
-        </a>
-      </div>
-      <p style="color:#888;font-size:12px">If the button doesn&apos;t work, copy this link:<br>
-        <a href="${passwordResetLink}" style="color:#558B2F;word-break:break-all">${passwordResetLink}</a>
-      </p>
+      <ol style="margin:0;padding-left:20px;color:#4b5563;line-height:1.6">
+        <li style="margin-bottom:6px">Set your password using the button below.</li>
+        <li>Sign in to the operator portal to manage listings and bookings.</li>
+      </ol>
     `
     : `
-      <p>Sign in at <a href="${loginUrl}" style="color:#558B2F">${loginUrl}</a> and use
-        <strong>Forgot password</strong> with this email address to set your password.</p>
+      <p style="margin:0;color:#4b5563;line-height:1.6">
+        Use <strong>Forgot password</strong> on the sign-in page with this email address to set your password,
+        then sign in to the operator portal.
+      </p>
     `;
 
-  try {
-    const transporter = createTransporter();
-    await transporter.sendMail({
-      from: getFromAddress(),
-      to,
-      subject: "Your operator application has been approved",
-      html: emailShell(
-        "Application approved",
-        `
-          <p style="margin-top:0">Hi <strong>${name}</strong>,</p>
-          <p>Good news — your operator registration for <strong>${company}</strong> has been
-            <strong>approved</strong>.</p>
-          <p>You can now access the operator dashboard to manage your listings and bookings.</p>
-          ${setPasswordBlock}
-          <p style="color:#888;font-size:12px;margin-bottom:0">
-            After setting your password, sign in at
-            <a href="${loginUrl}" style="color:#558B2F">${loginUrl}</a>.
+  const setPasswordButton = setPasswordUrl
+    ? `
+      <div style="text-align:center;margin:0 0 16px">
+        ${buttonOutline(setPasswordUrl, "Set your password")}
+      </div>
+    `
+    : "";
+
+  const transporter = createTransporter();
+  await transporter.sendMail({
+    from: getFromAddress(),
+    to,
+    subject: "Your operator application has been approved",
+    html: emailShell(
+      "Application approved",
+      `
+          <p style="margin-top:0;line-height:1.6">Hi <strong>${name}</strong>,</p>
+          <p style="line-height:1.6">
+            Great news — your operator registration for <strong>${company}</strong> has been
+            <strong>approved</strong>. Welcome to the VisitCebu operator portal.
+          </p>
+
+          <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px 18px;margin:22px 0">
+            <p style="margin:0 0 10px;font-weight:600;color:#111827">Get started</p>
+            ${setupSteps}
+          </div>
+
+          ${setPasswordButton}
+
+          <div style="text-align:center;margin:28px 0 20px">
+            ${buttonPrimary(loginUrl, "Sign in to operator portal")}
+          </div>
+
+          <p style="color:#888;font-size:12px;line-height:1.5;margin:0;text-align:center">
+            Operator portal:
+            <a href="${escapeHtmlAttr(loginUrl)}" style="color:#558B2F">${loginUrlDisplay}</a>
           </p>
         `
-      ),
-    });
-    logger.info(`Operator approval email sent to ${to}`);
-  } catch (err) {
-    logger.error(`Failed to send operator approval email to ${to}`, err);
-  }
+    ),
+  });
+  logger.info(`Operator approval email sent to ${to}`);
 }
 
 export async function sendOperatorSignupDeclinedEmail(params: {
@@ -87,15 +117,14 @@ export async function sendOperatorSignupDeclinedEmail(params: {
   const name = escapeHtml(applicantName.trim() || "there");
   const company = escapeHtml(companyName.trim() || "your business");
 
-  try {
-    const transporter = createTransporter();
-    await transporter.sendMail({
-      from: getFromAddress(),
-      to,
-      subject: "Update on your operator application",
-      html: emailShell(
-        "Application not approved",
-        `
+  const transporter = createTransporter();
+  await transporter.sendMail({
+    from: getFromAddress(),
+    to,
+    subject: "Update on your operator application",
+    html: emailShell(
+      "Application not approved",
+      `
           <p style="margin-top:0">Hi <strong>${name}</strong>,</p>
           <p>Thank you for applying to register <strong>${company}</strong> on our platform.</p>
           <p>After review, we are unable to approve your application at this time.</p>
@@ -103,10 +132,7 @@ export async function sendOperatorSignupDeclinedEmail(params: {
             please reply to this email or contact our support team.</p>
           <p style="color:#888;font-size:12px;margin-bottom:0">We appreciate your interest in partnering with us.</p>
         `
-      ),
-    });
-    logger.info(`Operator decline email sent to ${to}`);
-  } catch (err) {
-    logger.error(`Failed to send operator decline email to ${to}`, err);
-  }
+    ),
+  });
+  logger.info(`Operator decline email sent to ${to}`);
 }

@@ -24,7 +24,8 @@ export type NotificationKind =
   | 'payout_processed'
   | 'admin_announcement'
   | 'cancellation_request'
-  | 'tour_starts_today';
+  | 'tour_starts_today'
+  | 'operator_signup_new';
 
 export interface NotificationRow {
   id: string;
@@ -37,6 +38,7 @@ export interface NotificationRow {
   imageUrl: string | null;
   bookingId: string | null;
   activityName: string | null;
+  signupRequestId: string | null;
 }
 
 export function useNotifications(uid: string | undefined, listLimit = 10) {
@@ -74,7 +76,13 @@ export function useNotifications(uid: string | undefined, listLimit = 10) {
             createdAt: created instanceof Timestamp ? created.toDate() : null,
             imageUrl: typeof data.imageUrl === 'string' && data.imageUrl ? data.imageUrl : null,
             bookingId: typeof meta.bookingId === 'string' ? meta.bookingId : null,
-            activityName: typeof meta.activityName === 'string' ? meta.activityName : null,
+            activityName:
+              typeof meta.activityName === 'string'
+                ? meta.activityName
+                : typeof meta.companyName === 'string'
+                  ? meta.companyName
+                  : null,
+            signupRequestId: typeof meta.requestId === 'string' ? meta.requestId : null,
           };
         });
         setItems(rows);

@@ -67,11 +67,17 @@ service firebase.storage {
                    && request.resource.contentType.matches('application/pdf|image/jpeg|image/png');
     }
 
+    // Operator signup compliance docs (copied on approval). Owner + super admin read; server-only write.
+    match /operator-documents/{operatorUid}/{fileName} {
+      allow read: if request.auth != null
+                   && (request.auth.uid == operatorUid || isSuperAdmin());
+      allow write: if false;
+    }
+
     // Updated 2026-05-22 — ISSUE-007: signup-request uploads contain DOT certs + business
     // permits (PII). Public read leaked these. Restrict read to super admins; writes remain
-    // public so unauthenticated applicants can submit. Admin UI uses long-lived
-    // getDownloadURL tokens stored on the Firestore signup-request doc, which keep working
-    // regardless of these rules.
+    // public so unauthenticated applicants can submit. Store storage paths on the Firestore doc
+    // (not download URLs — getDownloadURL requires read). Super admins resolve paths client-side.
     match /signup-requests/{requestId}/{allPaths=**} {
       allow read: if isSuperAdmin();
       allow write: if request.resource != null

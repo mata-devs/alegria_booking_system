@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { collection, query, where, getDocs, doc, updateDoc, orderBy, Timestamp, onSnapshot, setDoc, serverTimestamp, deleteField } from 'firebase/firestore';
 import { useAuth } from '@/app/context/AuthContext';
 import { DotSealBadge } from '@/app/components/ui/DotSealBadge';
@@ -8,13 +9,14 @@ import { firebaseDb, firebaseStorage, firebaseFunctions } from '@/app/lib/fireba
 import { httpsCallable } from 'firebase/functions';
 import { ref, getDownloadURL } from 'firebase/storage';
 import Image from 'next/image';
-import { Filter, Search, ChevronDown, FileImage, Copy, RefreshCw, ChevronLeft, ChevronRight, X, Send, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Filter, Search, ChevronDown, FileImage, Copy, RefreshCw, ChevronLeft, ChevronRight, X, Send, CheckCircle2, AlertCircle, Eye } from 'lucide-react';
 import type { OperatorProfile, OperatorSignUpRequest, SignUpRequestStatus } from '@/app/lib/types';
 import { getAppBaseUrl } from '@/app/lib/app-url';
+import { DocumentPreviewDrawer, type PreviewDocument } from '@/app/components/admin/DocumentPreviewDrawer';
 
 type Tab = 'operators' | 'signup-requests';
 type SearchField = 'name' | 'id';
-type RequestSearchField = 'name' | 'id';
+type RequestSearchField = 'companyName' | 'id';
 
 const SEARCH_FIELD_LABELS: Record<SearchField, string> = {
   name: 'Operator Name',
@@ -22,7 +24,7 @@ const SEARCH_FIELD_LABELS: Record<SearchField, string> = {
 };
 
 const REQUEST_SEARCH_LABELS: Record<RequestSearchField, string> = {
-  name: 'Name',
+  companyName: 'Operator Name',
   id: 'Applicant ID',
 };
 
@@ -40,7 +42,41 @@ const STATUS_LABEL: Record<SignUpRequestStatus, string> = {
 
 const ROWS_PER_PAGE = 12;
 
+type SignupActionFeedback = {
+  tone: 'success' | 'warning' | 'error';
+  message: string;
+};
+
+type SignupActionResult = {
+  success?: boolean;
+  emailSent?: boolean;
+  emailError?: string;
+};
+
+function callableErrorMessage(error: unknown): string {
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = String((error as { message?: unknown }).message ?? '').trim();
+    if (message) return message;
+  }
+  return 'Something went wrong. Please try again.';
+}
+
 export default function OperatorsManagementPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[40vh] items-center justify-center text-sm text-gray-500">
+          Loading operators…
+        </div>
+      }
+    >
+      <OperatorsManagementPageInner />
+    </Suspense>
+  );
+}
+
+function OperatorsManagementPageInner() {
+  const searchParams = useSearchParams();
   const { authState } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('operators');
   const [sealUpdating, setSealUpdating] = useState(false);
@@ -57,10 +93,11 @@ export default function OperatorsManagementPage() {
   const [requests, setRequests] = useState<OperatorSignUpRequest[]>([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [requestSearchQuery, setRequestSearchQuery] = useState('');
-  const [requestSearchField, setRequestSearchField] = useState<RequestSearchField>('name');
+  const [requestSearchField, setRequestSearchField] = useState<RequestSearchField>('companyName');
   const [requestDropdownOpen, setRequestDropdownOpen] = useState(false);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [requestUpdating, setRequestUpdating] = useState<'approved' | 'rejected' | null>(null);
+  const [requestActionFeedback, setRequestActionFeedback] = useState<SignupActionFeedback | null>(null);
   const [requestPage, setRequestPage] = useState(1);
   const [pendingCount, setPendingCount] = useState(0);
 
@@ -71,6 +108,12 @@ export default function OperatorsManagementPage() {
   const [sendLinkEmail, setSendLinkEmail] = useState('');
   const [sendLinkStatus, setSendLinkStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [sendLinkError, setSendLinkError] = useState<string | null>(null);
+  const [resolvedRequestPhotoUrl, setResolvedRequestPhotoUrl] = useState<string | null>(null);
+  const [photoLoading, setPhotoLoading] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<PreviewDocument | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const docUrlCacheRef = useRef<Map<string, string>>(new Map());
 
   async function fetchOperators() {
     try {
@@ -235,6 +278,7 @@ export default function OperatorsManagementPage() {
           lat: typeof data.lat === 'number' ? data.lat : null,
           lng: typeof data.lng === 'number' ? data.lng : null,
           photoUrl: data.photoUrl ?? null,
+          photoPath: typeof data.photoPath === 'string' ? data.photoPath : null,
           documents: Array.isArray(data.documents) ? data.documents : [],
           status: data.status ?? 'pending',
           submittedAt: data.submittedAt instanceof Timestamp ? data.submittedAt.toDate() : null,
@@ -250,11 +294,26 @@ export default function OperatorsManagementPage() {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    setRequestActionFeedback(null);
+  }, [selectedRequestId]);
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    const requestId = searchParams.get('requestId');
+    if (tab === 'signup-requests') {
+      setActiveTab('signup-requests');
+    }
+    if (requestId) {
+      setSelectedRequestId(requestId);
+    }
+  }, [searchParams]);
+
   const filteredRequests = useMemo(() => {
     if (!requestSearchQuery.trim()) return requests;
     const q = requestSearchQuery.toLowerCase();
     return requests.filter((r) => {
-      if (requestSearchField === 'name') return r.name.toLowerCase().includes(q);
+      if (requestSearchField === 'companyName') return r.companyName.toLowerCase().includes(q);
       return r.applicantId.toLowerCase().includes(q);
     });
   }, [requests, requestSearchQuery, requestSearchField]);
@@ -269,21 +328,134 @@ export default function OperatorsManagementPage() {
 
   const selectedRequest = requests.find((r) => r.id === selectedRequestId) ?? null;
 
+  async function openDocumentPreview(file: { name: string; path?: string; url?: string }) {
+    if (!file.path && !file.url) return;
+
+    if (file.path) {
+      const cached = docUrlCacheRef.current.get(file.path);
+      if (cached) {
+        setPreviewDoc({ name: file.name, url: cached });
+        setPreviewOpen(true);
+        return;
+      }
+    } else if (file.url) {
+      setPreviewDoc({ name: file.name, url: file.url });
+      setPreviewOpen(true);
+      return;
+    }
+
+    setPreviewDoc({ name: file.name, url: '' });
+    setPreviewOpen(true);
+    setPreviewLoading(true);
+
+    try {
+      let url = file.url ?? '';
+      if (file.path) {
+        const cached = docUrlCacheRef.current.get(file.path);
+        if (cached) {
+          url = cached;
+        } else {
+          url = await getDownloadURL(ref(firebaseStorage, file.path));
+          docUrlCacheRef.current.set(file.path, url);
+        }
+      }
+      if (!url) {
+        setPreviewOpen(false);
+        setPreviewDoc(null);
+        return;
+      }
+      setPreviewDoc({ name: file.name, url });
+    } catch (error) {
+      console.error('Failed to load document:', error);
+      setPreviewOpen(false);
+      setPreviewDoc(null);
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!selectedRequest) {
+      setResolvedRequestPhotoUrl(null);
+      setPhotoLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setPhotoLoading(true);
+
+    (async () => {
+      try {
+        let photoUrl = selectedRequest.photoUrl;
+        if (selectedRequest.photoPath) {
+          photoUrl = await getDownloadURL(ref(firebaseStorage, selectedRequest.photoPath));
+        }
+        if (!cancelled) {
+          setResolvedRequestPhotoUrl(photoUrl);
+        }
+      } catch (error) {
+        console.error('Failed to resolve signup request photo:', error);
+        if (!cancelled) {
+          setResolvedRequestPhotoUrl(selectedRequest.photoUrl);
+        }
+      } finally {
+        if (!cancelled) setPhotoLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedRequest]);
+
   async function updateRequestStatus(requestId: string, newStatus: 'approved' | 'rejected') {
     setRequestUpdating(newStatus);
+    setRequestActionFeedback(null);
     try {
       if (newStatus === 'approved') {
-        const approve = httpsCallable<{ requestId: string }, { email: string }>(firebaseFunctions, 'approveOperatorSignup');
-        await approve({ requestId });
-      } else {
-        const decline = httpsCallable(firebaseFunctions, 'declineOperatorSignup');
-        await decline({ requestId });
-      }
-      if (newStatus === 'approved') {
+        const approve = httpsCallable<{ requestId: string }, SignupActionResult>(
+          firebaseFunctions,
+          'approveOperatorSignup',
+        );
+        const result = await approve({ requestId });
+        const data = result.data;
+        if (data.emailSent) {
+          setRequestActionFeedback({
+            tone: 'success',
+            message: 'Operator approved. Approval email sent to the applicant.',
+          });
+        } else {
+          setRequestActionFeedback({
+            tone: 'warning',
+            message: `Operator approved, but the approval email failed${data.emailError ? `: ${data.emailError}` : '.'} The applicant can use Forgot password on the login page.`,
+          });
+        }
         await fetchOperators();
+      } else {
+        const decline = httpsCallable<{ requestId: string }, SignupActionResult>(
+          firebaseFunctions,
+          'declineOperatorSignup',
+        );
+        const result = await decline({ requestId });
+        const data = result.data;
+        if (data.emailSent) {
+          setRequestActionFeedback({
+            tone: 'success',
+            message: 'Request declined. Notification email sent to the applicant.',
+          });
+        } else {
+          setRequestActionFeedback({
+            tone: 'warning',
+            message: `Request declined, but the notification email failed${data.emailError ? `: ${data.emailError}` : '.'}`,
+          });
+        }
       }
     } catch (error) {
       console.error('Failed to update request status:', error);
+      setRequestActionFeedback({
+        tone: 'error',
+        message: callableErrorMessage(error),
+      });
     } finally {
       setRequestUpdating(null);
     }
@@ -294,7 +466,7 @@ export default function OperatorsManagementPage() {
     const q = searchQuery.toLowerCase();
     return operators.filter((op) => {
       if (searchField === 'name') {
-        return `${op.firstName} ${op.lastName}`.toLowerCase().includes(q);
+        return op.companyName.toLowerCase().includes(q);
       }
       return op.operatorId.toLowerCase().includes(q);
     });
@@ -461,7 +633,7 @@ export default function OperatorsManagementPage() {
                   >
                     <div className="hidden md:grid grid-cols-5 items-center gap-0">
                       <span className="border-r border-gray-300 px-4 py-3 text-sm text-gray-700">{op.operatorId}</span>
-                      <span className="border-r border-gray-300 px-4 py-3 text-sm text-gray-700">{op.firstName} {op.lastName}</span>
+                      <span className="border-r border-gray-300 px-4 py-3 text-sm text-gray-700 truncate">{op.companyName || '—'}</span>
                       <span className="border-r border-gray-300 px-4 py-3 text-sm text-gray-700">{formatDate(op.createdAt)}</span>
                       <span className={`border-r border-gray-300 px-4 py-3 text-sm font-medium ${op.status === 'active' ? 'text-green-600' : 'text-red-500'}`}>
                         {op.status === 'active' ? 'Active' : 'Suspended'}
@@ -472,7 +644,7 @@ export default function OperatorsManagementPage() {
                     </div>
                     <div className="md:hidden px-4 py-3 space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-gray-900">{op.firstName} {op.lastName}</span>
+                        <span className="text-sm font-semibold text-gray-900 truncate">{op.companyName || '—'}</span>
                         <span className={`text-xs font-medium ${op.status === 'active' ? 'text-green-600' : 'text-red-500'}`}>
                           {op.status === 'active' ? 'Active' : 'Suspended'}
                         </span>
@@ -596,10 +768,17 @@ export default function OperatorsManagementPage() {
                     <p className="px-4 py-3 text-sm text-gray-400">No files uploaded.</p>
                   ) : (
                     selectedOperator.files.map((file) => (
-                      <a key={file.name} href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <button
+                        key={file.name}
+                        type="button"
+                        disabled={!file.url}
+                        onClick={() => openDocumentPreview(file)}
+                        className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                      >
                         <FileImage size={18} className="shrink-0 text-teal-600" />
-                        {file.name}
-                      </a>
+                        <span className="min-w-0 flex-1 truncate">{file.name}</span>
+                        <Eye size={14} className="shrink-0 text-gray-400" />
+                      </button>
                     ))
                   )}
                 </div>
@@ -640,7 +819,7 @@ export default function OperatorsManagementPage() {
 
               <div className="mt-5 hidden md:grid grid-cols-4 gap-0">
                 <span className="px-4 text-sm font-bold text-gray-900">Applicant ID</span>
-                <span className="px-4 text-sm font-bold text-gray-900">Name</span>
+                <span className="px-4 text-sm font-bold text-gray-900">Operator Name</span>
                 <span className="px-4 text-sm font-bold text-gray-900">Date</span>
                 <span className="px-4 text-sm font-bold text-gray-900">Status</span>
               </div>
@@ -655,7 +834,7 @@ export default function OperatorsManagementPage() {
                     <button key={req.id} type="button" onClick={() => setSelectedRequestId(req.id)} className={`rounded-lg text-left transition-colors ${selectedRequestId === req.id ? 'bg-green-100 ring-1 ring-green-300' : 'bg-gray-100 hover:bg-gray-200'}`}>
                       <div className="hidden md:grid grid-cols-4 items-center gap-0">
                         <span className="border-r border-gray-300 px-4 py-3 text-sm text-gray-700">{req.applicantId}</span>
-                        <span className="border-r border-gray-300 px-4 py-3 text-sm text-gray-700 truncate">{req.name}</span>
+                        <span className="border-r border-gray-300 px-4 py-3 text-sm text-gray-700 truncate">{req.companyName || '—'}</span>
                         <span className="border-r border-gray-300 px-4 py-3 text-sm text-gray-700">{formatDate(req.submittedAt)}</span>
                         <span className="flex items-center gap-2 px-4 py-3 text-sm text-gray-700">
                           <span className={`h-2.5 w-2.5 rounded-full ${STATUS_DOT[req.status]}`} />
@@ -664,7 +843,7 @@ export default function OperatorsManagementPage() {
                       </div>
                       <div className="md:hidden px-4 py-3 space-y-1">
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-semibold text-gray-900 truncate">{req.name}</span>
+                          <span className="text-sm font-semibold text-gray-900 truncate">{req.companyName || '—'}</span>
                           <span className="flex items-center gap-1.5 text-xs text-gray-600 shrink-0 ml-2">
                             <span className={`h-2 w-2 rounded-full ${STATUS_DOT[req.status]}`} />
                             {STATUS_LABEL[req.status]}
@@ -785,8 +964,10 @@ export default function OperatorsManagementPage() {
               </div>
               <div className="flex gap-4">
                 <div className="h-28 w-28 shrink-0 overflow-hidden rounded-md bg-lime-100">
-                  {selectedRequest.photoUrl ? (
-                    <Image src={selectedRequest.photoUrl} alt={selectedRequest.name} className="h-full w-full object-cover" width={112} height={112} />
+                  {resolvedRequestPhotoUrl ? (
+                    <Image src={resolvedRequestPhotoUrl} alt={selectedRequest.name} className="h-full w-full object-cover" width={112} height={112} />
+                  ) : photoLoading ? (
+                    <div className="flex h-full w-full items-center justify-center text-xs text-gray-400">Loading…</div>
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-sm font-medium text-gray-500">Photo</div>
                   )}
@@ -814,17 +995,38 @@ export default function OperatorsManagementPage() {
                     <p className="px-4 py-3 text-sm text-gray-400">No documents uploaded.</p>
                   ) : (
                     selectedRequest.documents.map((file) => (
-                      <a key={file.name} href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                        <div className="flex items-center gap-3 min-w-0">
+                      <button
+                        key={file.name}
+                        type="button"
+                        disabled={!file.path && !file.url}
+                        onClick={() => openDocumentPreview(file)}
+                        className="flex w-full items-center justify-between px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
                           <FileImage size={18} className="shrink-0 text-teal-600" />
                           <span className="truncate">{file.name}</span>
                         </div>
-                        <span className="ml-2 flex h-6 w-6 shrink-0 items-center justify-center rounded bg-red-100 text-red-500"><FileImage size={12} /></span>
-                      </a>
+                        <span className="ml-2 flex h-6 w-6 shrink-0 items-center justify-center rounded bg-teal-50 text-teal-600">
+                          <Eye size={12} />
+                        </span>
+                      </button>
                     ))
                   )}
                 </div>
               </div>
+              {requestActionFeedback && (
+                <div
+                  className={`mt-5 rounded-lg border px-4 py-3 text-sm ${
+                    requestActionFeedback.tone === 'success'
+                      ? 'border-green-200 bg-green-50 text-green-800'
+                      : requestActionFeedback.tone === 'warning'
+                        ? 'border-amber-200 bg-amber-50 text-amber-900'
+                        : 'border-red-200 bg-red-50 text-red-800'
+                  }`}
+                >
+                  {requestActionFeedback.message}
+                </div>
+              )}
               {selectedRequest.status === 'pending' && (
                 <div className="mt-6 flex gap-3">
                   <button disabled={!!requestUpdating} onClick={() => updateRequestStatus(selectedRequest.id, 'approved')} className="flex-1 rounded-lg bg-[#558B2F] py-2.5 text-sm font-semibold text-white hover:bg-[#4a7a28] transition-colors disabled:opacity-50">
@@ -839,6 +1041,12 @@ export default function OperatorsManagementPage() {
           )}
         </div>
       )}
+      <DocumentPreviewDrawer
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        document={previewDoc}
+        loading={previewLoading}
+      />
     </div>
   );
 }

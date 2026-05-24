@@ -5,6 +5,11 @@ import { db } from "../shared/firebase";
 import { assertSuperAdmin } from "../shared/helpers";
 import { sendOperatorSignupDeclinedEmail } from "./operatorSignupEmails";
 
+function emailFailureMessage(err: unknown): string {
+  if (err instanceof Error && err.message.trim()) return err.message.trim();
+  return "Unknown SMTP error";
+}
+
 export const declineOperatorSignup = onCall(
   { region: "us-central1", invoker: "public", cors: true },
   async (request) => {
@@ -35,16 +40,27 @@ export const declineOperatorSignup = onCall(
     });
 
     const applicantEmail = String(reqData.email ?? "").trim();
+    let emailSent = false;
+    let emailError: string | undefined;
+
     if (applicantEmail) {
-      await sendOperatorSignupDeclinedEmail({
-        to: applicantEmail,
-        applicantName: String(reqData.name ?? ""),
-        companyName: String(reqData.companyName ?? ""),
-      });
+      try {
+        await sendOperatorSignupDeclinedEmail({
+          to: applicantEmail,
+          applicantName: String(reqData.name ?? ""),
+          companyName: String(reqData.companyName ?? ""),
+        });
+        emailSent = true;
+      } catch (err) {
+        emailError = emailFailureMessage(err);
+        logger.error(`Failed to send operator decline email to ${applicantEmail}`, err);
+      }
+    } else {
+      emailError = "Applicant email is missing on the signup request.";
     }
 
     logger.info(`Request ${requestId} declined by ${request.auth.uid}`);
 
-    return { success: true };
+    return { success: true, emailSent, emailError };
   }
 );

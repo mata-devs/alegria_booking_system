@@ -3,7 +3,7 @@
 import { Suspense, useState, useEffect, useRef, type ChangeEvent, type FormEvent } from 'react';
 import dynamic from 'next/dynamic';
 import { collection, addDoc, serverTimestamp, doc, getDoc, deleteDoc, query, where, getDocs } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes } from 'firebase/storage';
 import { firebaseDb, firebaseStorage } from '@/app/lib/firebase';
 import { Upload, X, FileImage, ArrowLeft, ShieldX, Check, ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
 import Link from 'next/link';
@@ -13,6 +13,10 @@ import { PhLandlineInput } from '@/app/components/ui/PhLandlineInput';
 import { isValidPhE164, PH_PHONE_INVALID_MSG } from '@/app/lib/ph-phone';
 import { isValidLandlineE164, PH_LANDLINE_INVALID_MSG } from '@/app/lib/ph-landline';
 import { blurUnlessPhoneSibling } from '@/app/lib/phone-field-blur';
+import {
+  DOT_CERT_LABEL,
+  OPERATOR_COMPLIANCE_DOCUMENT_LABELS,
+} from '@/app/lib/operator-signup-documents';
 
 const LocationPicker = dynamic(() => import('@/app/components/LocationPicker'), { ssr: false });
 
@@ -33,10 +37,10 @@ const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024;
 const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 const DOCUMENT_SLOTS = [
-  { id: 'validId', label: 'Valid ID (Government-issued)' },
-  { id: 'businessPermit', label: 'Business Permit / Registration' },
-  { id: 'proofOfAddress', label: 'Proof of Address' },
-  { id: 'tin', label: 'Tax Identification Certificate' },
+  { id: 'validId', label: OPERATOR_COMPLIANCE_DOCUMENT_LABELS[0] },
+  { id: 'businessPermit', label: OPERATOR_COMPLIANCE_DOCUMENT_LABELS[1] },
+  { id: 'proofOfAddress', label: OPERATOR_COMPLIANCE_DOCUMENT_LABELS[2] },
+  { id: 'tin', label: OPERATOR_COMPLIANCE_DOCUMENT_LABELS[3] },
 ] as const;
 
 type DocSlotId = (typeof DOCUMENT_SLOTS)[number]['id'];
@@ -48,7 +52,6 @@ const INITIAL_DOC_SLOTS: Record<DocSlotId, File | null> = {
   tin: null,
 };
 
-const DOT_CERT_LABEL = 'DOT Accreditation Certificate (optional)';
 const DOT_ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png'];
 const DOT_MAX_SIZE = 5 * 1024 * 1024;
 
@@ -404,26 +407,35 @@ function OperatorSignUpContent() {
     try {
       const tempId = crypto.randomUUID();
 
-      let photoUrl: string | null = null;
-      if (photo) {
-        const photoRef = ref(firebaseStorage, `signup-requests/${tempId}/photo.jpg`);
-        await uploadBytes(photoRef, photo);
-        photoUrl = await getDownloadURL(photoRef);
+      async function uploadSignupFile(storagePath: string, file: File) {
+        const fileRef = ref(firebaseStorage, storagePath);
+        await uploadBytes(fileRef, file, { contentType: file.type });
+        return storagePath;
       }
 
-      const uploadedDocs: { name: string; url: string }[] = [];
+      let photoPath: string | null = null;
+      if (photo) {
+        photoPath = await uploadSignupFile(`signup-requests/${tempId}/photo.jpg`, photo);
+      }
+
+      const uploadedDocs: { name: string; path: string }[] = [];
 
       if (dotCert) {
-        const dotRef = ref(firebaseStorage, `signup-requests/${tempId}/documents/${dotCert.name}`);
-        await uploadBytes(dotRef, dotCert);
-        uploadedDocs.push({ name: DOT_CERT_LABEL, url: await getDownloadURL(dotRef) });
+        uploadedDocs.push({
+          name: DOT_CERT_LABEL,
+          path: await uploadSignupFile(`signup-requests/${tempId}/documents/${dotCert.name}`, dotCert),
+        });
       }
 
       for (const slot of DOCUMENT_SLOTS) {
         const file = docSlots[slot.id]!;
-        const docRef = ref(firebaseStorage, `signup-requests/${tempId}/documents/${slot.id}-${file.name}`);
-        await uploadBytes(docRef, file);
-        uploadedDocs.push({ name: slot.label, url: await getDownloadURL(docRef) });
+        uploadedDocs.push({
+          name: slot.label,
+          path: await uploadSignupFile(
+            `signup-requests/${tempId}/documents/${slot.id}-${file.name}`,
+            file,
+          ),
+        });
       }
 
       await addDoc(collection(firebaseDb, 'operator_signup_requests'), {
@@ -435,7 +447,7 @@ function OperatorSignUpContent() {
         mobileNumber: form.mobileNumber,
         address: form.address,
         ...(form.lat != null && form.lng != null ? { lat: form.lat, lng: form.lng } : {}),
-        photoUrl,
+        photoPath,
         documents: uploadedDocs,
         status: 'pending',
         submittedAt: serverTimestamp(),

@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
-import { Camera, Check, Loader2, TriangleAlert, User } from 'lucide-react';
+import { Camera, Check, Eye, Loader2, TriangleAlert, User } from 'lucide-react';
 import {
   EmailAuthProvider,
   reauthenticateWithCredential,
@@ -22,6 +22,12 @@ import {
   normalizeStoredLandlineE164,
 } from '@/app/lib/ph-landline';
 import { blurUnlessPhoneSibling } from '@/app/lib/phone-field-blur';
+import { DocumentPreviewDrawer, type PreviewDocument } from '@/app/components/admin/DocumentPreviewDrawer';
+import {
+  DOT_CERT_LABEL,
+  isDotCertDocumentName,
+  sortComplianceDocuments,
+} from '@/app/lib/operator-signup-documents';
 
 type Status =
   | { type: 'idle' }
@@ -67,6 +73,8 @@ type StoredPaymentMethod = {
 };
 
 const LABEL = 'block text-[11px] font-semibold uppercase tracking-wide text-gray-500';
+const READONLY_INPUT =
+  'mt-1.5 h-10 w-full cursor-not-allowed rounded-md border border-gray-200 bg-gray-100 px-3 text-sm text-gray-500 outline-none';
 const INPUT =
   'mt-1.5 h-10 w-full rounded-md border border-gray-200 bg-gray-50 px-3 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-[#558B2F] focus:bg-white focus:ring-1 focus:ring-[#558B2F] disabled:cursor-not-allowed disabled:opacity-60';
 const BTN_PRIMARY =
@@ -138,6 +146,8 @@ function fromStoredPaymentMethods(stored: StoredPaymentMethod[] | undefined): Pa
   });
 }
 
+type OperatorFile = { name: string; url: string };
+
 export default function OperatorSettingsPage() {
   const { authState } = useAuth();
   const photoFileRef = useRef<HTMLInputElement | null>(null);
@@ -172,6 +182,16 @@ export default function OperatorSettingsPage() {
   const [customExclusionChips, setCustomExclusionChips] = useState<string[]>([]);
   const [chipsStatus, setChipsStatus] = useState<Status>({ type: 'idle' });
 
+  const [businessLocation, setBusinessLocation] = useState({
+    address: '',
+    lat: null as number | null,
+    lng: null as number | null,
+  });
+  const [complianceFiles, setComplianceFiles] = useState<OperatorFile[]>([]);
+  const [dotProofUrl, setDotProofUrl] = useState<string | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<PreviewDocument | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+
   useEffect(() => {
     if (authState.status !== 'authenticated') return;
     setProfile((prev) => ({
@@ -180,9 +200,11 @@ export default function OperatorSettingsPage() {
       lastName: authState.profile.lastName ?? '',
       email: authState.profile.email ?? '',
     }));
-    if (authState.user.photoURL) setPhotoPreview(authState.user.photoURL);
+    if (authState.user.photoURL) {
+      setPhotoPreview(authState.user.photoURL);
+    }
 
-    getDoc(doc(firebaseDb, 'users', authState.user.uid)).then((snap) => {
+    getDoc(doc(firebaseDb, 'users', authState.user.uid)).then(async (snap) => {
       if (!snap.exists()) return;
       const data = snap.data() as {
         companyName?: string;
@@ -191,6 +213,12 @@ export default function OperatorSettingsPage() {
         paymentMethods?: StoredPaymentMethod[];
         customInclusionChips?: string[];
         customExclusionChips?: string[];
+        profileImage?: string;
+        address?: string;
+        lat?: number;
+        lng?: number;
+        files?: OperatorFile[];
+        dotProofUrl?: string | null;
       };
 
       setProfile((prev) => ({
@@ -203,8 +231,55 @@ export default function OperatorSettingsPage() {
       setPaymentOptions(fromStoredPaymentMethods(data.paymentMethods));
       setCustomInclusionChips(Array.isArray(data.customInclusionChips) ? data.customInclusionChips : []);
       setCustomExclusionChips(Array.isArray(data.customExclusionChips) ? data.customExclusionChips : []);
+
+      setBusinessLocation({
+        address: data.address ?? '',
+        lat: typeof data.lat === 'number' ? data.lat : null,
+        lng: typeof data.lng === 'number' ? data.lng : null,
+      });
+
+      const rawFiles = Array.isArray(data.files)
+        ? data.files.filter(
+            (f): f is OperatorFile =>
+              f != null && typeof f === 'object' && typeof f.name === 'string',
+          )
+        : [];
+      setComplianceFiles(
+        sortComplianceDocuments(rawFiles.filter((f) => !isDotCertDocumentName(f.name))),
+      );
+      const dotFromFiles = rawFiles.find((f) => isDotCertDocumentName(f.name))?.url;
+      const resolvedDot =
+        typeof data.dotProofUrl === 'string' && data.dotProofUrl.startsWith('http')
+          ? data.dotProofUrl
+          : typeof dotFromFiles === 'string' && dotFromFiles.startsWith('http')
+            ? dotFromFiles
+            : null;
+      setDotProofUrl(resolvedDot);
+
+      if (authState.user.photoURL) return;
+
+      if (typeof data.profileImage === 'string' && data.profileImage.startsWith('http')) {
+        setPhotoPreview(data.profileImage);
+        return;
+      }
+
+      const uid = authState.user.uid;
+      for (const path of [`profile-pictures/${uid}.jpg`, `users/${uid}/avatar.jpg`]) {
+        try {
+          const url = await getDownloadURL(storageRef(firebaseStorage, path));
+          setPhotoPreview(url);
+          return;
+        } catch {
+          // try next path
+        }
+      }
     });
   }, [authState]);
+
+  function openDocumentPreview(file: { name: string; url: string }) {
+    setPreviewDoc({ name: file.name, url: file.url });
+    setPreviewOpen(true);
+  }
 
   async function saveCustomChips() {
     if (authState.status !== 'authenticated') return;
@@ -299,6 +374,7 @@ export default function OperatorSettingsPage() {
         lastName: profile.lastName,
         phoneNumber: profile.phoneNumber.trim(),
         mobileNumber: profile.mobileNumber.trim(),
+        ...(photoURL ? { profileImage: photoURL } : {}),
       });
 
       try { sessionStorage.removeItem('vc_auth_v1'); } catch {}
@@ -588,6 +664,108 @@ export default function OperatorSettingsPage() {
         </form>
       </SettingsSection>
 
+      <SettingsSection
+        title="Business Location"
+        description="Registered business address from your operator application."
+      >
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="px-6 py-5 space-y-4">
+            <div>
+              <label className={LABEL}>Address</label>
+              <input
+                value={businessLocation.address || '—'}
+                type="text"
+                readOnly
+                className={READONLY_INPUT}
+              />
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className={LABEL}>Latitude</label>
+                <input
+                  value={businessLocation.lat != null ? String(businessLocation.lat) : '—'}
+                  type="text"
+                  readOnly
+                  className={READONLY_INPUT}
+                />
+              </div>
+              <div>
+                <label className={LABEL}>Longitude</label>
+                <input
+                  value={businessLocation.lng != null ? String(businessLocation.lng) : '—'}
+                  type="text"
+                  readOnly
+                  className={READONLY_INPUT}
+                />
+              </div>
+            </div>
+            <p className="text-[11px] text-gray-400">
+              Location details are set during registration and cannot be changed here.
+            </p>
+          </div>
+        </div>
+      </SettingsSection>
+
+      <SettingsSection
+        title="Registration Documents"
+        description="Compliance documents submitted with your operator application."
+      >
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="divide-y divide-gray-100">
+            {complianceFiles.length === 0 ? (
+              <p className="px-6 py-5 text-sm text-gray-400">No registration documents on file.</p>
+            ) : (
+              complianceFiles.map((file) => (
+                <div
+                  key={file.name}
+                  className="flex items-center justify-between gap-3 px-6 py-4"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-gray-900">{file.name}</p>
+                    <p className="text-[11px] text-gray-400">Submitted at registration</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => openDocumentPreview(file)}
+                    disabled={!file.url}
+                    title={file.url ? 'View document' : 'Document unavailable'}
+                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-teal-50 text-teal-600 transition-colors hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Eye className="h-4 w-4" strokeWidth={2} />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </SettingsSection>
+
+      {dotProofUrl ? (
+        <SettingsSection
+          title="DOT Accreditation"
+          description="Optional accreditation certificate from your registration."
+        >
+          <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div className="flex items-center justify-between gap-3 px-6 py-4">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-gray-900">{DOT_CERT_LABEL}</p>
+                <p className="text-[11px] text-gray-400">
+                  Submitted during registration — cannot be modified
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => openDocumentPreview({ name: DOT_CERT_LABEL, url: dotProofUrl })}
+                title="View DOT accreditation"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-teal-50 text-teal-600 transition-colors hover:bg-teal-100"
+              >
+                <Eye className="h-4 w-4" strokeWidth={2} />
+              </button>
+            </div>
+          </div>
+        </SettingsSection>
+      ) : null}
+
       {/* Update Password */}
       <SettingsSection
         title="Update Password"
@@ -744,6 +922,12 @@ export default function OperatorSettingsPage() {
           </div>
         </div>
       )}
+
+      <DocumentPreviewDrawer
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        document={previewDoc}
+      />
     </div>
   );
 }

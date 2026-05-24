@@ -45,7 +45,10 @@ export interface OperatorProfile extends UserProfile {
 
 export interface OperatorFile {
     name: string;
-    url: string;
+    /** Legacy signup submissions; admin resolves via `path` when present. */
+    url?: string;
+    /** Firebase Storage object path (signup-requests/…). */
+    path?: string;
 }
 
 export type SignUpRequestStatus = 'pending' | 'approved' | 'rejected';
@@ -62,6 +65,8 @@ export interface OperatorSignUpRequest {
     lat: number | null;
     lng: number | null;
     photoUrl: string | null;
+    /** Storage path for profile photo when `photoUrl` is not stored. */
+    photoPath?: string | null;
     documents: OperatorFile[];
     status: SignUpRequestStatus;
     submittedAt: Date | null;

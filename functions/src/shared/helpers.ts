@@ -9,6 +9,11 @@ export async function assertSuperAdmin(uid: string) {
   }
 }
 
+export async function listSuperAdminUids(): Promise<string[]> {
+  const snap = await db.collection("users").where("role", "==", "super_admin").get();
+  return snap.docs.map((doc) => doc.id);
+}
+
 export function generateOperatorId(): string {
   const num = Math.floor(1000 + Math.random() * 9000);
   return String(num);
@@ -35,4 +40,22 @@ export function extractPathFromUrl(url: string): string | null {
     // ignore
   }
   return null;
+}
+
+/** Token-based download URL for a Storage object (Admin SDK). */
+export async function getFileDownloadUrl(path: string): Promise<string | null> {
+  const file = bucket.file(path);
+  const [exists] = await file.exists();
+  if (!exists) return null;
+
+  const [meta] = await file.getMetadata();
+  const rawToken = meta.metadata?.firebaseStorageDownloadTokens;
+  const token =
+    typeof rawToken === "string"
+      ? rawToken.split(",")[0]?.trim()
+      : undefined;
+  if (!token) return null;
+
+  const encodedPath = encodeURIComponent(path);
+  return `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodedPath}?alt=media&token=${token}`;
 }
