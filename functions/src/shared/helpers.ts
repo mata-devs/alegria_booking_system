@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import * as logger from "firebase-functions/logger";
 import { HttpsError } from "firebase-functions/v2/https";
 import { db, bucket } from "./firebase";
@@ -26,7 +27,19 @@ export async function copyFile(source: string, dest: string) {
     logger.warn(`copyFile: source not found – ${source}`);
     return;
   }
-  await srcFile.copy(bucket.file(dest));
+  const destFile = bucket.file(dest);
+  await srcFile.copy(destFile);
+  // `bucket.file().copy()` does not reliably carry over the
+  // `firebaseStorageDownloadTokens` system metadata, so getFileDownloadUrl
+  // would return null on the destination. Mint a fresh token here so the
+  // copied file is reachable via a public ?token= URL bypassing rules.
+  try {
+    await destFile.setMetadata({
+      metadata: { firebaseStorageDownloadTokens: randomUUID() },
+    });
+  } catch (err) {
+    logger.warn(`copyFile: failed to set download token on ${dest}`, err);
+  }
 }
 
 export function extractPathFromUrl(url: string): string | null {

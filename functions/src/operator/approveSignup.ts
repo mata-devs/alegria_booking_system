@@ -73,7 +73,7 @@ export const approveOperatorSignup = onCall(
     const operatorId = generateOperatorId();
     const now = FieldValue.serverTimestamp();
 
-    const files: { name: string; url: string }[] = [];
+    const files: { name: string; url: string; path?: string }[] = [];
     let dotProofUrl: string | null = null;
 
     const resolveStoragePath = (item: { path?: string; url?: string }): string | null => {
@@ -129,7 +129,7 @@ export const approveOperatorSignup = onCall(
           const destPath = `operator-documents/${operatorUid}/${doc.name}`;
           await copyFile(srcPath, destPath);
           const url = (await getFileDownloadUrl(destPath)) ?? (typeof doc.url === "string" ? doc.url : "");
-          files.push({ name: doc.name, url });
+          files.push({ name: doc.name, url, path: destPath });
         } catch (err) {
           logger.warn(`Failed to copy document ${doc.name}:`, err);
           if (doc.name !== DOT_CERT_LABEL) {
@@ -150,6 +150,7 @@ export const approveOperatorSignup = onCall(
       lastName,
       companyName: reqData.companyName ?? "",
       operatorId,
+      applicantId: reqData.applicantId ?? null,
       phoneNumber: reqData.phoneNumber ?? "",
       mobileNumber: reqData.mobileNumber ?? "",
       address: reqData.address ?? "",
@@ -157,7 +158,11 @@ export const approveOperatorSignup = onCall(
       profileImage: profileImageUrl,
       dotProofUrl,
       files,
+      paymentMethods: [],
+      customInclusionChips: [],
+      customExclusionChips: [],
       status: "active",
+      submittedAt: reqData.submittedAt ?? null,
       createdAt: now,
       approvedAt: now,
     });
