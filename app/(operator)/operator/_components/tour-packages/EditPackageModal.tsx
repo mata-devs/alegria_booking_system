@@ -204,14 +204,15 @@ export function EditPackageModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white w-full max-w-[1100px] rounded-2xl shadow-xl max-h-[90vh] flex overflow-hidden">
-        <div className="w-[440px] shrink-0 flex flex-col overflow-hidden">
-          <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b bg-white z-10">
-            <h2 className="text-base font-bold text-gray-900">Edit Tour Package</h2>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+      <div className="bg-gray-100 w-full max-w-[1260px] h-[90vh] rounded-3xl shadow-2xl p-3">
+        <div className="flex h-full min-h-0 gap-3">
+          <div className="w-[440px] shrink-0 flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b bg-white z-10">
+              <h2 className="text-base font-bold text-gray-900">Edit Tour Package</h2>
+              <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
             <div className="flex-1 overflow-y-auto">
@@ -476,11 +477,12 @@ export function EditPackageModal({
               </div>
             </div>
           </form>
-        </div>
+          </div>
 
-        <LivePreviewPane previewMode={previewMode} onPreviewModeChange={setPreviewMode}>
-          <PackagePreviewPanel form={form} images={images} isMobile={previewMode === 'mobile'} />
-        </LivePreviewPane>
+          <LivePreviewPane previewMode={previewMode} onPreviewModeChange={setPreviewMode}>
+            <PackagePreviewPanel form={form} images={images} isMobile={previewMode === 'mobile'} />
+          </LivePreviewPane>
+        </div>
       </div>
     </div>
   );

@@ -1,7 +1,6 @@
 ﻿'use client';
 
 import { useState, useRef } from 'react';
-import Image from 'next/image';
 import { X, Monitor, Smartphone } from 'lucide-react';
 import { PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
@@ -174,13 +173,14 @@ export function EditActivityModal({ activity, onClose, operatorId }: { activity:
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white w-full max-w-[1100px] rounded-2xl shadow-xl max-h-[90vh] flex overflow-hidden">
-        {/* Left: Form */}
-        <div className="w-[440px] shrink-0 flex flex-col overflow-hidden">
-          <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b bg-white z-10">
-            <h2 className="text-base font-bold text-gray-900">Edit Activity</h2>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
-          </div>
+      <div className="bg-gray-100 w-full max-w-[1260px] h-[90vh] rounded-3xl shadow-2xl p-3">
+        <div className="flex h-full min-h-0 gap-3">
+          {/* Left: Form */}
+          <div className="w-[440px] shrink-0 flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b bg-white z-10">
+              <h2 className="text-base font-bold text-gray-900">Edit Activity</h2>
+              <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+            </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
             <div className="flex-1 overflow-y-auto">
@@ -362,10 +362,10 @@ export function EditActivityModal({ activity, onClose, operatorId }: { activity:
               </button>
             </div>
           </form>
-        </div>
+          </div>
 
-        {/* Right: Live Preview */}
-        <div className="flex-1 border-l border-gray-100 flex flex-col overflow-hidden bg-gray-50 min-w-0">
+          {/* Right: Live Preview */}
+          <div className="flex-1 flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm min-w-0">
           <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b bg-white">
             <span className="text-sm font-semibold text-gray-700">Live Preview</span>
             <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
@@ -389,6 +389,7 @@ export function EditActivityModal({ activity, onClose, operatorId }: { activity:
           </div>
           <div className="flex-1 overflow-y-auto">
             <ActivityPreviewPanel form={form} images={images} isMobile={previewMode === 'mobile'} />
+          </div>
           </div>
         </div>
       </div>

@@ -15,7 +15,7 @@ export function LivePreviewPane({
   children: ReactNode;
 }) {
   return (
-    <div className="flex-1 border-l border-gray-100 flex flex-col overflow-hidden bg-gray-50 min-w-0">
+    <div className="flex-1 flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm min-w-0">
       <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b bg-white">
         <span className="text-sm font-semibold text-gray-700">Live Preview</span>
         <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
