@@ -84,7 +84,10 @@ export interface PackageCardProps {
   description?: string
   price: number
   pricePrefix?: string
+  /** Single tag string (legacy). Prefer `tags` for multi-chip rendering. */
   tag?: string
+  /** Multi-tag list. When set, overrides `tag` and renders one chip per entry. */
+  tags?: string[]
   duration?: string
   rating?: number
   location?: string
@@ -111,6 +114,7 @@ export default function PackageCard({
   price,
   pricePrefix = 'From',
   tag,
+  tags,
   duration,
   rating,
   location,
@@ -127,6 +131,12 @@ export default function PackageCard({
   wide = false,
   className = '',
 }: PackageCardProps) {
+  const tagList = (tags && tags.length > 0
+    ? tags
+    : tag
+    ? [tag]
+    : []
+  ).filter((t) => !!t && t.trim().length > 0)
   const isInteractive = !!(onClick || href)
 
   const card = (
@@ -157,12 +167,17 @@ export default function PackageCard({
         className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent_35%,rgba(0,0,0,0.55)_60%,rgba(0,0,0,0.93)_100%)]"
       />
 
-      {/* Top-left tag */}
-      {tag && (
-        <div className="absolute top-3 left-3">
-          <span className="bg-green-500 text-white text-xs font-semibold px-2.5 py-1 rounded-full">
-            {tag}
-          </span>
+      {/* Top-left tag chips — supports single (`tag`) or multi (`tags`). */}
+      {tagList.length > 0 && (
+        <div className="absolute top-3 left-3 right-12 flex flex-wrap gap-1.5 z-10">
+          {tagList.map((t) => (
+            <span
+              key={t}
+              className="bg-green-500 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm"
+            >
+              {t}
+            </span>
+          ))}
         </div>
       )}
 
@@ -176,9 +191,10 @@ export default function PackageCard({
 
       {/* Bottom content — p-3 on mobile, p-5 on sm+ */}
       <div className="absolute inset-0 flex flex-col justify-end p-3 sm:p-5 gap-1">
-        {/* Title — text-base mobile, text-2xl sm+. Adjust here */}
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-white font-bold text-base sm:text-2xl leading-tight drop-shadow line-clamp-1 flex-1 min-w-0">
+        {/* Title — wraps to 2 lines; min-h reserves space so 1-line titles don't push the
+            short cards up out of alignment with adjacent 2-line titles in a grid. */}
+        <div className="flex flex-wrap items-start gap-2">
+          <h3 className="text-white font-bold text-base sm:text-xl leading-tight drop-shadow line-clamp-2 flex-1 min-w-0 break-words min-h-[2lh]">
             {title}
           </h3>
           <DotSealBadge granted={dotSealGranted} size="sm" showLabel={false} />

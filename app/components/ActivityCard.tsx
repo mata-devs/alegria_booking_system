@@ -30,9 +30,10 @@ export default function ActivityCard({ activity, date, travelers, dotSealGranted
       title={activity.title}
       price={activity.price}
       pricePrefix="From"
-      tag={activity.category}
+      tags={activity.categories && activity.categories.length > 0 ? activity.categories : (activity.category ? [activity.category] : [])}
       location={activity.location}
       rating={activity.rating}
+      duration={activity.duration || undefined}
       cardKind="activity"
       dotSealGranted={dotSealGranted}
       onClick={handleClick}

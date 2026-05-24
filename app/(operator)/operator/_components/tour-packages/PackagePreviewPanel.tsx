@@ -1,5 +1,6 @@
 ﻿'use client';
 
+import { useState } from 'react';
 import Image from 'next/image';
 import { InclusionChipBadges } from '@/app/components/ui/InclusionChipBadges';
 import type { ImageSlot } from '@/app/(operator)/operator/_components/shared/types';
@@ -26,6 +27,15 @@ export function PackagePreviewPanel({
   const tagList = form.packageTag ? [form.packageTag] : [];
 
   const heroImgs = imgSrcs.slice(0, 3);
+  const itinerarySteps = form.packageItinerary ?? [];
+
+  const [openItinerary, setOpenItinerary] = useState<Set<number>>(new Set([0]));
+  const toggleItinerary = (i: number) =>
+    setOpenItinerary((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i); else next.add(i);
+      return next;
+    });
 
   const StarRow = ({ size = 'sm' }: { size?: 'sm' | 'xs' }) => {
     const cls = size === 'xs' ? 'w-3 h-3' : 'w-3.5 h-3.5';
@@ -214,10 +224,60 @@ export function PackagePreviewPanel({
         )}
       </div>
 
-      {/* 03 Reviews placeholder */}
+      {/* 03 Itinerary */}
       <div className="py-8 border-b border-gray-100">
         <div className="flex items-baseline gap-4 mb-5">
           <span className="text-4xl font-extrabold text-gray-100 leading-none select-none">03</span>
+          <h3 className="text-lg font-extrabold text-gray-900">Itinerary</h3>
+        </div>
+        {itinerarySteps.length > 0 ? (
+          <div className="border-t border-gray-100">
+            {itinerarySteps.map((step, i) => {
+              const isOpen = openItinerary.has(i);
+              return (
+                <div key={i} className="border-b border-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => toggleItinerary(i)}
+                    className="w-full flex items-center justify-between py-4 text-left"
+                  >
+                    <div className="flex items-center gap-4 min-w-0">
+                      <div className={`w-3 h-3 rounded-full shrink-0 ${i === 0 ? 'bg-green-500' : 'border-2 border-gray-300'}`} />
+                      <div className="min-w-0">
+                        {step.itineraryTime && (
+                          <span className="text-xs text-gray-400 font-medium mr-2">{step.itineraryTime}</span>
+                        )}
+                        <span className="text-sm font-semibold text-gray-900">{step.itineraryTitle || `Step ${i + 1}`}</span>
+                      </div>
+                    </div>
+                    <span className="text-gray-400 ml-4 shrink-0">
+                      {isOpen ? (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v12m6-6H6" />
+                        </svg>
+                      )}
+                    </span>
+                  </button>
+                  {isOpen && step.itineraryDescription && (
+                    <p className="text-sm text-gray-500 pb-4 pl-7 leading-relaxed whitespace-pre-wrap">{step.itineraryDescription}</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400 italic">Add itinerary steps in the form to see them here.</p>
+        )}
+      </div>
+
+      {/* 04 Reviews placeholder */}
+      <div className="py-8 border-b border-gray-100">
+        <div className="flex items-baseline gap-4 mb-5">
+          <span className="text-4xl font-extrabold text-gray-100 leading-none select-none">04</span>
           <h3 className="text-lg font-extrabold text-gray-900">Reviews · 0.0★</h3>
         </div>
         <div className="flex items-center gap-6 mb-5">
@@ -240,10 +300,10 @@ export function PackagePreviewPanel({
         <p className="text-xs text-gray-400 mt-2">Had a great experience? <span className="text-green-600 font-medium">Book to leave a review →</span></p>
       </div>
 
-      {/* 04 FAQ */}
+      {/* 05 FAQ */}
       <div className="py-8">
         <div className="flex items-baseline gap-4 mb-5">
-          <span className="text-4xl font-extrabold text-gray-100 leading-none select-none">04</span>
+          <span className="text-4xl font-extrabold text-gray-100 leading-none select-none">05</span>
           <h3 className="text-lg font-extrabold text-gray-900">Frequently asked</h3>
         </div>
         <div className="border-t border-gray-100">

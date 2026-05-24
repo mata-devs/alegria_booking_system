@@ -98,4 +98,5 @@ export type PackagePreviewFormState = Pick<
   | 'packageTag'
   | 'inclusions'
   | 'exclusions'
+  | 'packageItinerary'
 >;

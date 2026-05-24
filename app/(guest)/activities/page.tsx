@@ -10,7 +10,7 @@ import { parseGuestListingSearchParams } from '@/app/lib/searchSchema'
 import { getDayCapacity } from '@/app/lib/getDayCapacity'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
-import { ACTIVITY_TAGS, normalizeActivityTags, primaryActivityTag, formatActivityTagsDisplay, activityHasTag } from '@/app/lib/activity-tags'
+import { ACTIVITY_TAGS, normalizeActivityTags, primaryActivityTag, activityHasTag } from '@/app/lib/activity-tags'
 import { packageImageUrl } from '@/app/lib/package-images'
 import type { Activity } from '@/app/types'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/app/components/ui/drawer'
@@ -59,7 +59,7 @@ function FilterGroup({ title, subtitle, children, last = false }: { title: strin
 
 function FiltersSidebar({
   activities,
-  activeTag, setActiveTag,
+  activeTags, toggleTag,
   activeLocationChip, setActiveLocationChip,
   ratingFilter, setRatingFilter,
   priceRange, setPriceRange,
@@ -70,7 +70,7 @@ function FiltersSidebar({
   onApply,
 }: {
   activities: Activity[]
-  activeTag: string | null; setActiveTag: (v: string | null) => void
+  activeTags: string[]; toggleTag: (tag: string) => void
   activeLocationChip: string | null; setActiveLocationChip: (v: string | null) => void
   ratingFilter: number | null; setRatingFilter: (v: number | null) => void
   priceRange: [number, number]; setPriceRange: (v: [number, number]) => void
@@ -95,28 +95,42 @@ function FiltersSidebar({
         )}
       </div>
 
-      {/* Category */}
-      <FilterGroup title="Category">
-        <div className="flex flex-wrap gap-1.5">
-          {ACTIVITY_TAGS.map((tag) => (
-            <button
-              key={tag}
-              type="button"
-              onClick={() => setActiveTag(activeTag === tag ? null : tag)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-colors border ${
-                activeTag === tag
-                  ? 'border-[#008768] bg-[#d9efe6] text-[#003a2d]'
-                  : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
-              }`}
-            >
-              {tag}
-              <span className={`ml-1 font-semibold text-[10px] ${activeTag === tag ? 'text-[#008768]' : 'text-gray-400'}`}>
-                {activities.filter((a) => a.category === tag).length}
-              </span>
-            </button>
-          ))}
-        </div>
-      </FilterGroup>
+      {/* Category — only show tags that exist in the current activities. Multi-select. */}
+      {(() => {
+        const presentTags = ACTIVITY_TAGS.filter((tag) =>
+          activities.some((a) => (a.categories ? activityHasTag(a.categories, tag) : a.category === tag))
+        );
+        if (presentTags.length === 0) return null;
+        return (
+          <FilterGroup title="Category">
+            <div className="flex flex-wrap gap-1.5">
+              {presentTags.map((tag) => {
+                const cnt = activities.filter((a) =>
+                  a.categories ? activityHasTag(a.categories, tag) : a.category === tag
+                ).length;
+                const active = activeTags.includes(tag);
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => toggleTag(tag)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-colors border ${
+                      active
+                        ? 'border-[#008768] bg-[#d9efe6] text-[#003a2d]'
+                        : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                    }`}
+                  >
+                    {tag}
+                    <span className={`ml-1 font-semibold text-[10px] ${active ? 'text-[#008768]' : 'text-gray-400'}`}>
+                      {cnt}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </FilterGroup>
+        );
+      })()}
 
       {/* Price */}
       <FilterGroup title={`Price · ₱${priceRange[0].toLocaleString()} – ₱${priceRange[1].toLocaleString()}`}>
@@ -215,7 +229,9 @@ function ActivitiesContent() {
   const [searchTravelers, setSearchTravelers] = useState(initialSearch.travelers)
 
   // Filters
-  const [activeTag, setActiveTag] = useState<string | null>(null)
+  const [activeTags, setActiveTags] = useState<string[]>([])
+  const toggleTag = (tag: string) =>
+    setActiveTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))
   const [activeLocationChip, setActiveLocationChip] = useState<string | null>(null)
   const [ratingFilter, setRatingFilter] = useState<number | null>(null)
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 10000])
@@ -252,7 +268,7 @@ function ActivitiesContent() {
           return {
             id: idx,
             firestoreId: d.id,
-            category: formatActivityTagsDisplay(tags) || primaryActivityTag(tags),
+            category: primaryActivityTag(tags),
             categories: tags,
             title: data.activityName ?? '',
             location: data.activityLocation ?? '',
@@ -262,6 +278,7 @@ function ActivitiesContent() {
             maxGuests: data.maximumNumberOfPeople ?? data.maxSlots ?? 30,
             image: packageImageUrl(data.activityImages?.[0]) ?? '',
             municipalityId: data.activityLocation ?? '',
+            duration: data.duration ?? '',
           }
         })
         setActivities(mapped)
@@ -289,16 +306,17 @@ function ActivitiesContent() {
     return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 8)
   }, [activities])
 
-  const activeFiltersCount = [
-    activeTag,
-    activeLocationChip,
-    ratingFilter,
-    (priceRange[0] > 0 || priceRange[1] < maxPrice) ? 'price' : null,
-  ].filter(Boolean).length
+  const activeFiltersCount =
+    activeTags.length
+    + (activeLocationChip ? 1 : 0)
+    + (ratingFilter ? 1 : 0)
+    + ((priceRange[0] > 0 || priceRange[1] < maxPrice) ? 1 : 0)
 
   const filtered = useMemo(() => {
     let list = activities.filter((a) => {
-      const matchesTag = !activeTag || (a.categories ? activityHasTag(a.categories, activeTag) : a.category === activeTag)
+      const matchesTag =
+        activeTags.length === 0
+        || activeTags.some((t) => (a.categories ? activityHasTag(a.categories, t) : a.category === t))
       const matchesLocation = (!searchLocation || a.location.toLowerCase().includes(searchLocation.toLowerCase()))
         && (!activeLocationChip || a.location === activeLocationChip)
       const matchesRating = !ratingFilter || a.rating >= ratingFilter
@@ -313,12 +331,12 @@ function ActivitiesContent() {
     else if (sortBy === 'Price · high to low') list = [...list].sort((a, b) => b.price - a.price)
     else if (sortBy === 'Highest rated') list = [...list].sort((a, b) => b.rating - a.rating)
     return list
-  }, [activities, activeTag, searchLocation, activeLocationChip, ratingFilter, priceRange, searchDate, searchTravelers, dayCapacity, sortBy])
+  }, [activities, activeTags, searchLocation, activeLocationChip, ratingFilter, priceRange, searchDate, searchTravelers, dayCapacity, sortBy])
 
   const visible = filtered.slice(0, visibleCount)
 
   const activePills = [
-    ...(activeTag ? [{ label: activeTag, clear: () => setActiveTag(null) }] : []),
+    ...activeTags.map((tag) => ({ label: tag, clear: () => toggleTag(tag) })),
     ...(activeLocationChip ? [{ label: activeLocationChip, clear: () => setActiveLocationChip(null) }] : []),
     ...(ratingFilter ? [{ label: `${ratingFilter}★ & up`, clear: () => setRatingFilter(null) }] : []),
   ]
@@ -330,41 +348,36 @@ function ActivitiesContent() {
   return (
     <div className="min-h-screen flex flex-col bg-[#f6f4ef]">
 
-      {/* ── Hero band ── */}
-      <div className="relative overflow-hidden text-white" style={{ background: '#0a1614' }}>
-        <div className="absolute inset-0" style={{
-          background: 'radial-gradient(70% 60% at 30% 30%, #4a7a52 0%, transparent 60%), radial-gradient(80% 60% at 70% 70%, #2a5a78 0%, transparent 60%), linear-gradient(180deg, #1c2a26 0%, #0a1614 100%)',
-          opacity: 0.55,
-        }} />
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,.45), rgba(0,0,0,.72))' }} />
-        <div className="relative max-w-[1280px] mx-auto px-6 lg:px-10 py-10 lg:py-14">
+      {/* ── Hero band (light, compact) ── */}
+      <div className="bg-white border-b border-gray-100">
+        <div className="max-w-[1280px] mx-auto px-6 lg:px-10 py-6 lg:py-8">
           {/* Breadcrumb */}
-          <nav className="flex items-center gap-2 text-[11px] font-mono tracking-[.14em] uppercase text-[#00c98f] mb-4">
-            <Link href="/" className="opacity-60 hover:opacity-100 text-white transition-opacity">Home</Link>
-            <span className="opacity-40 text-white">/</span>
-            <span className="opacity-60 text-white">Cebu</span>
-            <span className="opacity-40 text-white">/</span>
-            <span>{loading ? '—' : activities.length} Results</span>
+          <nav className="flex items-center gap-2 text-[11px] font-mono tracking-[.14em] uppercase text-gray-400 mb-3">
+            <Link href="/" className="hover:text-gray-700 transition-colors">Home</Link>
+            <span className="text-gray-300">/</span>
+            <span>Cebu</span>
+            <span className="text-gray-300">/</span>
+            <span className="text-[#008768]">{loading ? '—' : activities.length} Results</span>
           </nav>
 
-          <div className="flex items-flex-end justify-between gap-10">
-            <div>
-              <h1 className="text-[clamp(2.5rem,5vw,3.75rem)] font-extrabold leading-[0.98] tracking-[-0.035em] m-0">
+          <div className="flex items-end justify-between gap-8 flex-wrap">
+            <div className="min-w-0">
+              <h1 className="text-[clamp(1.75rem,3.5vw,2.5rem)] font-extrabold leading-tight tracking-[-0.025em] m-0 text-gray-900">
                 Activities in{' '}
-                <em className="not-italic font-normal" style={{ color: '#00c98f' }}>Cebu</em>.
+                <em className="not-italic font-normal text-[#008768]">Cebu</em>.
               </h1>
-              <p className="mt-3.5 text-[15px] max-w-[540px]" style={{ color: 'rgba(255,255,255,.7)' }}>
+              <p className="mt-2 text-sm text-gray-500 max-w-[540px]">
                 Highland temples, hidden coves, and coastal adventures. {loading ? 'Loading' : activities.length} experiences from local operators.
               </p>
             </div>
-            <div className="hidden lg:flex gap-6 pb-1.5 shrink-0">
+            <div className="hidden lg:flex gap-6 shrink-0">
               {[
                 [loading ? '—' : `${activities.length}`, 'activities'],
                 [avgRating + '★', 'avg rating'],
               ].map(([n, l]) => (
                 <div key={l} className="text-right">
-                  <div className="text-[2rem] font-extrabold tracking-[-0.03em] leading-none">{n}</div>
-                  <div className="mt-1 text-[11px] font-mono tracking-[.1em] uppercase" style={{ color: 'rgba(255,255,255,.55)' }}>{l}</div>
+                  <div className="text-2xl font-extrabold tracking-[-0.02em] leading-none text-gray-900">{n}</div>
+                  <div className="mt-1 text-[10px] font-mono tracking-[.12em] uppercase text-gray-400">{l}</div>
                 </div>
               ))}
             </div>
@@ -453,14 +466,14 @@ function ActivitiesContent() {
                 <div className="w-[300px]">
                   <FiltersSidebar
                     activities={activities}
-                    activeTag={activeTag} setActiveTag={setActiveTag}
+                    activeTags={activeTags} toggleTag={toggleTag}
                     activeLocationChip={activeLocationChip} setActiveLocationChip={setActiveLocationChip}
                     ratingFilter={ratingFilter} setRatingFilter={setRatingFilter}
                     priceRange={priceRange} setPriceRange={setPriceRange}
                     maxPrice={maxPrice}
                     uniqueLocations={uniqueLocations}
                     activeFiltersCount={activeFiltersCount}
-                    onClearAll={() => { setActiveTag(null); setActiveLocationChip(null); setRatingFilter(null); setPriceRange([0, maxPrice]) }}
+                    onClearAll={() => { setActiveTags([]); setActiveLocationChip(null); setRatingFilter(null); setPriceRange([0, maxPrice]) }}
                   />
                 </div>
               </motion.aside>
@@ -469,39 +482,6 @@ function ActivitiesContent() {
 
           {/* ── Results ── */}
           <main className="flex-1 min-w-0">
-            {/* Category chips */}
-            <div className="flex gap-2 mb-5 overflow-x-auto pb-1 scrollbar-hide">
-              <button
-                type="button"
-                onClick={() => setActiveTag(null)}
-                className={`shrink-0 px-4 py-2.5 rounded-full text-[13px] font-medium transition-colors border cursor-pointer ${
-                  activeTag === null
-                    ? 'bg-gray-900 text-white border-gray-900'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                All <span className={`ml-1.5 text-[11px] ${activeTag === null ? 'text-white/60' : 'text-gray-400'}`}>{activities.length}</span>
-              </button>
-              {ACTIVITY_TAGS.map((tag) => {
-                const cnt = activities.filter((a) => a.category === tag).length
-                if (cnt === 0) return null
-                return (
-                  <button
-                    key={tag}
-                    type="button"
-                    onClick={() => setActiveTag(activeTag === tag ? null : tag)}
-                    className={`shrink-0 px-4 py-2.5 rounded-full text-[13px] font-medium transition-colors border cursor-pointer whitespace-nowrap ${
-                      activeTag === tag
-                        ? 'bg-gray-900 text-white border-gray-900'
-                        : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    {tag} <span className={`ml-1.5 text-[11px] ${activeTag === tag ? 'text-white/60' : 'text-gray-400'}`}>{cnt}</span>
-                  </button>
-                )
-              })}
-            </div>
-
             {/* Active filter pills */}
             {activePills.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-5 items-center">
@@ -521,16 +501,16 @@ function ActivitiesContent() {
             )}
 
             {/* Results header */}
-            <div className="flex justify-between items-end mb-5">
-              <div>
-                <h1 className="text-[28px] font-extrabold text-gray-900 tracking-[-0.02em] m-0">
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-end mb-5">
+              <div className="min-w-0">
+                <h1 className="text-2xl sm:text-[28px] font-extrabold text-gray-900 tracking-[-0.02em] m-0 whitespace-nowrap">
                   {loading ? 'Loading…' : `${filtered.length} activities`}
                 </h1>
                 <div className="mt-1 text-sm text-gray-400">
                   {searchDate && `${searchDate} · `}{searchTravelers && `${searchTravelers} guest${parseInt(searchTravelers || '1') !== 1 ? 's' : ''}`}
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                 {/* Desktop filters toggle */}
                 <button
                   type="button"
@@ -567,7 +547,7 @@ function ActivitiesContent() {
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
-                  className="text-[13px] px-3.5 py-2.5 border border-gray-200 rounded-full bg-white font-medium text-gray-700 outline-none cursor-pointer"
+                  className="text-xs sm:text-[13px] px-3 sm:px-3.5 py-2 sm:py-2.5 border border-gray-200 rounded-full bg-white font-medium text-gray-700 outline-none cursor-pointer max-w-[140px] sm:max-w-none truncate"
                 >
                   {['Recommended', 'Price · low to high', 'Price · high to low', 'Highest rated'].map((o) => (
                     <option key={o}>{o}</option>
@@ -598,7 +578,7 @@ function ActivitiesContent() {
               <div className="py-16 text-center text-sm text-gray-400">No activities match your filters.</div>
             ) : (
               <div className={viewMode === 'grid'
-                ? 'grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8'
+                ? `grid grid-cols-2 ${sidebarVisible ? 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3' : 'sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4'} gap-4 mb-8`
                 : 'flex flex-col gap-4 mb-8'
               }>
                 {visible.map((act) => (
@@ -678,14 +658,14 @@ function ActivitiesContent() {
           <div className="px-4">
             <FiltersSidebar
               activities={activities}
-              activeTag={activeTag} setActiveTag={setActiveTag}
+              activeTags={activeTags} toggleTag={toggleTag}
               activeLocationChip={activeLocationChip} setActiveLocationChip={setActiveLocationChip}
               ratingFilter={ratingFilter} setRatingFilter={setRatingFilter}
               priceRange={priceRange} setPriceRange={setPriceRange}
               maxPrice={maxPrice}
               uniqueLocations={uniqueLocations}
               activeFiltersCount={activeFiltersCount}
-              onClearAll={() => { setActiveTag(null); setActiveLocationChip(null); setRatingFilter(null); setPriceRange([0, maxPrice]) }}
+              onClearAll={() => { setActiveTags([]); setActiveLocationChip(null); setRatingFilter(null); setPriceRange([0, maxPrice]) }}
               onApply={() => setFilterDrawerOpen(false)}
             />
           </div>

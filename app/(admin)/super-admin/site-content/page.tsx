@@ -151,7 +151,7 @@ export default function SiteContentCmsPage() {
         <h1 className="mt-1 text-2xl font-bold leading-tight text-gray-900">Site content</h1>
         <p className="mt-1 text-xs text-gray-500">
           Curate the guest homepage hero + ticker and the <code className="rounded bg-gray-100 px-1">/locations</code>{' '}
-          municipality grid (images, taglines, order). Firestore doc: <code className="rounded bg-gray-100 px-1">homepage_cms/current</code>.
+          municipality grid (images, taglines, order).
         </p>
       </header>
 

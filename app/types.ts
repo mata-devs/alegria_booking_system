@@ -23,6 +23,7 @@ export interface Activity {
   maxGuests?: number
   image: string
   municipalityId: string
+  duration?: string
 }
 
 export interface TourPackage {
