@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
@@ -12,8 +12,9 @@ import { GuestReviewCard } from '@/app/components/GuestReviewCard'
 import { firebaseDb } from '@/app/lib/firebase'
 import { getAllApprovedReviewsForCatalog, type CatalogReview } from '@/app/lib/reviews-service'
 import type { Activity } from '@/app/types'
-import { DotSealBadge } from '@/app/components/ui/DotSealBadge'
 import { packageImageUrl } from '@/app/lib/package-images'
+import { normalizeActivityTags, formatActivityTagsDisplay, primaryActivityTag } from '@/app/lib/activity-tags'
+import { DotSealBadge } from '@/app/components/ui/DotSealBadge'
 import { normalizePackageLocations, formatLocationSummary } from '@/app/lib/package-locations'
 
 interface OperatorInfo {
@@ -145,14 +146,14 @@ export default function OperatorProfilePage() {
           return {
             id: idx,
             firestoreId: d.id,
-            category: a.activityTag ?? '',
+            category: formatActivityTagsDisplay(normalizeActivityTags(a.activityTags, a.activityTag)) || primaryActivityTag(normalizeActivityTags(a.activityTags, a.activityTag)),
             title: a.activityName ?? '',
             location: a.activityLocation ?? '',
             rating: a.activityRating ?? 0,
             reviewCount: 0,
             price: a.pricePerGuest ?? 0,
             maxGuests: a.maximumNumberOfPeople ?? a.maxSlots ?? 30,
-            image: a.activityImages?.[0] ?? '',
+            image: packageImageUrl(a.activityImages?.[0]) ?? '',
             municipalityId: a.activityLocation ?? '',
           }
         })

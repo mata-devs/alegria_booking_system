@@ -11,6 +11,7 @@ export interface Activity {
   id: number
   firestoreId?: string
   category: string
+  categories?: string[]
   title: string
   location: string
   rating: number

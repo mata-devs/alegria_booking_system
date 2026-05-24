@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
 import { packageImageUrl } from '@/app/lib/package-images'
+import { normalizeActivityTags, formatActivityTagsDisplay, primaryActivityTag } from '@/app/lib/activity-tags'
 import {
   countByActivityLocation,
   countByPackageLocation,
@@ -68,16 +69,17 @@ export default function HomeCarousels() {
 
         const mappedActivities: Activity[] = actSnap.docs.map((d, idx) => {
           const data = d.data()
+          const tags = normalizeActivityTags(data.activityTags, data.activityTag)
           return {
             id: idx,
             firestoreId: d.id,
-            category: data.activityTag ?? '',
+            category: formatActivityTagsDisplay(tags) || primaryActivityTag(tags),
             title: data.activityName ?? '',
             location: data.activityLocation ?? '',
             rating: data.activityRating ?? 0,
             reviewCount: 0,
             price: data.pricePerGuest ?? 0,
-            image: data.activityImages?.[0] ?? '',
+            image: packageImageUrl(data.activityImages?.[0]) ?? '',
             municipalityId: data.activityLocation ?? '',
           }
         })

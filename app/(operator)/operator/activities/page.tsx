@@ -9,7 +9,7 @@ import {
   type RowData,
 } from '@tanstack/react-table';
 import Image from 'next/image';
-import { Plus, Search, SlidersHorizontal, X, Upload, ChevronLeft, ChevronRight, Pencil, Trash2, LayoutGrid, Table as TableIcon, GripVertical } from 'lucide-react';
+import { Plus, Search, SlidersHorizontal, X, Upload, ChevronLeft, ChevronRight, Pencil, Trash2, LayoutGrid, Table as TableIcon, GripVertical, Monitor, Smartphone } from 'lucide-react';
 import ToggleSwitch from '@/app/components/ui/ToggleSwitch';
 import PackageCard from '@/app/components/ui/PackageCard';
 import {
@@ -43,13 +43,16 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { firebaseDb, firebaseStorage } from '@/app/lib/firebase';
 import { useAuth } from '@/app/context/AuthContext';
-import { ACTIVITY_TAGS, type ActivityTag, type StoredActivityTag } from '@/app/lib/activity-tags';
+import { ACTIVITY_TAGS, type ActivityTag, type StoredActivityTag, normalizeActivityTags, primaryActivityTag, formatActivityTagsDisplay, activityHasTag } from '@/app/lib/activity-tags';
+import { ActivityTagMultiSelect } from '@/app/components/ui/ActivityTagMultiSelect';
 import { CEBU_MUNICIPALITIES } from '@/app/lib/cebu-municipalities';
 import { ChipGridSelector } from '@/app/components/ui/ChipGridSelector';
-import {
-  DEFAULT_EXCLUSION_CHIPS,
+import { useOperatorCustomChips } from '@/app/hooks/useOperatorCustomChips';
+import { DEFAULT_EXCLUSION_CHIPS,
   DEFAULT_INCLUSION_CHIPS,
 } from '@/app/lib/inclusion-chips';
+import { InclusionChipBadges } from '@/app/components/ui/InclusionChipBadges';
+import { normalizePackageImages, packageImageUrl, type PackageImage } from '@/app/lib/package-images';
 
 declare module '@tanstack/react-table' {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -77,8 +80,9 @@ interface OperatorActivity {
   maximumNumberOfPeople: number;
   activityLocation: string;
   activityTag: StoredActivityTag;
+  activityTags: StoredActivityTag[];
   activityRating: number;
-  activityImages: string[];
+  activityImages: PackageImage[];
   operatorId: string;
   createdAt: Timestamp | null;
   status: ActivityStatus;
@@ -197,65 +201,16 @@ function MunicipalityCombobox({ value, onChange, error }: { value: string; onCha
   );
 }
 
-// ── Tag Combobox ────────────────────────────────────────────────
-
-function TagCombobox({ value, onChange, error }: { value: string; onChange: (v: string) => void; error?: string }) {
-  const [search, setSearch] = useState(value);
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => { setSearch(value); }, [value]);
-
-  const suggestions = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return ACTIVITY_TAGS.filter((t) => t.toLowerCase().includes(q));
-  }, [search]);
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
-
-  const select = (t: string) => { onChange(t); setSearch(t); setOpen(false); };
-
-  return (
-    <div ref={containerRef} className="relative">
-      <input
-        type="text"
-        value={search}
-        onChange={(e) => { setSearch(e.target.value); onChange(''); setOpen(true); }}
-        onFocus={() => setOpen(true)}
-        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
-        placeholder="Search tag…"
-        autoComplete="off"
-      />
-      {open && suggestions.length > 0 && (
-        <ul className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-y-auto max-h-[200px]">
-          {suggestions.map((t) => (
-            <li key={t} onMouseDown={(e) => { e.preventDefault(); select(t); }}
-              className={`px-3 py-2 text-sm cursor-pointer hover:bg-green-50 hover:text-green-700 ${t === value ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-700'}`}>
-              {t}
-            </li>
-          ))}
-        </ul>
-      )}
-      {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
-    </div>
-  );
-}
 
 function OperatorActivityCard({ activity, onViewDetails, onDelete }: { activity: OperatorActivity; onViewDetails: (a: OperatorActivity) => void; onDelete: (a: OperatorActivity) => void }) {
   const createdDate = activity.createdAt?.toDate?.()?.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' }) ?? '—';
   return (
     <PackageCard
-      image={activity.activityImages[0]}
+      image={packageImageUrl(activity.activityImages[0])}
       title={activity.activityName}
       price={activity.pricePerGuest}
       pricePrefix=""
-      tag={activity.activityTag}
+      tag={formatActivityTagsDisplay(activity.activityTags)}
       rating={activity.activityRating}
       location={activity.activityLocation}
       createdAt={`Created: ${createdDate}`}
@@ -270,7 +225,7 @@ function OperatorActivityCard({ activity, onViewDetails, onDelete }: { activity:
 
 function ViewDetailsModal({ activity, onClose, onEdit }: { activity: OperatorActivity; onClose: () => void; onEdit: (a: OperatorActivity) => void }) {
   const [imgIdx, setImgIdx] = useState(0);
-  const images = activity.activityImages;
+  const images = activity.activityImages.map((img) => packageImageUrl(img));
   const createdDate = activity.createdAt?.toDate?.()?.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) ?? '—';
 
   return (
@@ -320,7 +275,11 @@ function ViewDetailsModal({ activity, onClose, onEdit }: { activity: OperatorAct
         <div className="px-5 py-4 space-y-3">
           <div className="flex items-start justify-between gap-3">
             <h2 className="text-base font-bold text-gray-900 leading-snug">{activity.activityName}</h2>
-            <span className="shrink-0 bg-green-100 text-green-700 text-xs font-semibold px-2.5 py-1 rounded-full">{activity.activityTag}</span>
+            <div className="flex flex-wrap justify-end gap-1.5 shrink-0 max-w-[55%]">
+              {activity.activityTags.map((tag) => (
+                <span key={tag} className="bg-green-100 text-green-700 text-xs font-semibold px-2.5 py-1 rounded-full">{tag}</span>
+              ))}
+            </div>
           </div>
           <div className="flex items-center gap-1 text-gray-500 text-sm">
             <svg className="w-4 h-4 text-green-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -340,6 +299,42 @@ function ViewDetailsModal({ activity, onClose, onEdit }: { activity: OperatorAct
             <p className="text-xs font-semibold text-gray-500 mb-1">Description</p>
             <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{activity.activityDetails}</p>
           </div>
+
+          {(activity.inclusions.length > 0 || activity.exclusions.length > 0) && (
+            <div className="grid grid-cols-2 gap-3">
+              {activity.inclusions.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 mb-1.5">Included</p>
+                  <ul className="space-y-1">
+                    {activity.inclusions.map((item, i) => (
+                      <li key={i} className="flex items-center gap-1.5 text-xs text-gray-600">
+                        <svg className="w-3 h-3 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                        </svg>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {activity.exclusions.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 mb-1.5">Excluded</p>
+                  <ul className="space-y-1">
+                    {activity.exclusions.map((item, i) => (
+                      <li key={i} className="flex items-center gap-1.5 text-xs text-gray-600">
+                        <svg className="w-3 h-3 text-red-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
           <p className="text-xs text-gray-400">Date created: {createdDate}</p>
         </div>
 
@@ -360,10 +355,18 @@ function ViewDetailsModal({ activity, onClose, onEdit }: { activity: OperatorAct
 // ── Sortable image slot ─────────────────────────────────────────
 
 type ImageSlot =
-  | { id: string; kind: 'existing'; url: string }
-  | { id: string; kind: 'new'; file: File; preview: string };
+  | { id: string; kind: 'existing'; url: string; title: string; description: string }
+  | { id: string; kind: 'new'; file: File; preview: string; title: string; description: string };
 
-function SortableImageCard({ slot, onRemove }: { slot: ImageSlot; onRemove: () => void }) {
+function SortableImageCard({
+  slot,
+  onRemove,
+  onUpdate,
+}: {
+  slot: ImageSlot;
+  onRemove: () => void;
+  onUpdate: (patch: Partial<Pick<ImageSlot, 'title' | 'description'>>) => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: slot.id });
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -373,24 +376,102 @@ function SortableImageCard({ slot, onRemove }: { slot: ImageSlot; onRemove: () =
   };
   const src = slot.kind === 'existing' ? slot.url : slot.preview;
   return (
-    <div ref={setNodeRef} style={style} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200">
-      <Image src={src} alt="image" fill sizes="96px" className="object-cover" />
-      <button
-        type="button"
-        {...attributes}
-        {...listeners}
-        className="absolute top-0.5 left-0.5 bg-black/40 text-white rounded-full p-0.5 cursor-grab active:cursor-grabbing hover:bg-black/60"
-        aria-label="Drag to reorder"
-      >
-        <GripVertical className="w-3 h-3" />
-      </button>
-      <button
-        type="button"
-        onClick={onRemove}
-        className="absolute top-0.5 right-0.5 bg-black/50 text-white rounded-full p-0.5 hover:bg-black/70"
-      >
-        <X className="w-3 h-3" />
-      </button>
+    <div ref={setNodeRef} style={style} className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
+      <div className="flex items-start gap-2">
+        <div className="relative w-20 h-20 shrink-0 rounded-lg overflow-hidden border border-gray-200">
+          <Image src={src} alt="Activity image" fill sizes="80px" className="object-cover" />
+          <button
+            type="button"
+            {...attributes}
+            {...listeners}
+            className="absolute top-0.5 left-0.5 bg-black/40 text-white rounded-full p-0.5 cursor-grab active:cursor-grabbing hover:bg-black/60"
+            aria-label="Drag to reorder"
+          >
+            <GripVertical className="w-3 h-3" />
+          </button>
+        </div>
+        <div className="flex-1 min-w-0 space-y-2">
+          <div>
+            <label className="block text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1">Title</label>
+            <input
+              type="text"
+              value={slot.title}
+              onChange={(e) => onUpdate({ title: e.target.value })}
+              placeholder="e.g. Tops Lookout View"
+              className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1">Description</label>
+            <textarea
+              value={slot.description}
+              onChange={(e) => onUpdate({ description: e.target.value })}
+              rows={2}
+              placeholder="Short caption for this image"
+              className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 resize-none"
+            />
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="shrink-0 bg-black/5 hover:bg-red-50 text-gray-500 hover:text-red-600 rounded-full p-1 transition-colors"
+          aria-label="Remove image"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ActivityImagesEditor({
+  images,
+  errors,
+  fileInputRef,
+  sensors,
+  onDragEnd,
+  onImageChange,
+  onRemove,
+  onUpdate,
+}: {
+  images: ImageSlot[];
+  errors?: string;
+  fileInputRef: React.RefObject<HTMLInputElement>;
+  sensors: ReturnType<typeof useSensors>;
+  onDragEnd: (event: DragEndEvent) => void;
+  onImageChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onRemove: (id: string) => void;
+  onUpdate: (id: string, patch: Partial<Pick<ImageSlot, 'title' | 'description'>>) => void;
+}) {
+  return (
+    <div>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+        <SortableContext items={images.map((s) => s.id)} strategy={rectSortingStrategy}>
+          <div className="space-y-2 mb-2">
+            {images.map((slot) => (
+              <SortableImageCard
+                key={slot.id}
+                slot={slot}
+                onRemove={() => onRemove(slot.id)}
+                onUpdate={(patch) => onUpdate(slot.id, patch)}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
+      {images.length < MAX_IMAGES && (
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="w-full rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center gap-2 py-3 text-gray-400 hover:border-green-400 hover:text-green-500 transition-colors"
+        >
+          <Upload className="w-4 h-4" />
+          <span className="text-sm">Add image</span>
+        </button>
+      )}
+      <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={onImageChange} />
+      {errors && <p className="text-red-500 text-xs mt-1">{errors}</p>}
     </div>
   );
 }
@@ -407,7 +488,7 @@ interface EditFormState {
   minimumNumberOfPeople: string;
   maximumNumberOfPeople: string;
   activityLocation: string;
-  activityTag: ActivityTag | '';
+  activityTags: string[];
   status: ActivityStatus;
   inclusions: string[];
   exclusions: string[];
@@ -417,18 +498,7 @@ type FormErrors = Partial<Record<keyof EditFormState | 'images', string>>;
 
 function EditActivityModal({ activity, onClose, operatorId }: { activity: OperatorActivity; onClose: () => void; operatorId: string }) {
   const { authState } = useAuth();
-  const customInclusionChips = authState.status === 'authenticated' ? (authState.profile.customInclusionChips ?? []) : [];
-  const customExclusionChips = authState.status === 'authenticated' ? (authState.profile.customExclusionChips ?? []) : [];
-
-  async function persistCustomChip(kind: 'inclusion' | 'exclusion', chip: string) {
-    if (authState.status !== 'authenticated') return;
-    const field = kind === 'inclusion' ? 'customInclusionChips' : 'customExclusionChips';
-    const current = kind === 'inclusion' ? customInclusionChips : customExclusionChips;
-    if (current.includes(chip)) return;
-    await updateDoc(doc(firebaseDb, 'users', authState.user.uid), {
-      [field]: [...current, chip],
-    });
-  }
+  const { inclusionChips, exclusionChips, chipError, addCustomChip, removeCustomChip } = useOperatorCustomChips(authState);
 
   const [form, setForm] = useState<EditFormState>({
     activityName: activity.activityName,
@@ -440,13 +510,19 @@ function EditActivityModal({ activity, onClose, operatorId }: { activity: Operat
     minimumNumberOfPeople: String(activity.minimumNumberOfPeople ?? 1),
     maximumNumberOfPeople: String(activity.maximumNumberOfPeople ?? 30),
     activityLocation: activity.activityLocation,
-    activityTag: (ACTIVITY_TAGS as ReadonlyArray<string>).includes(activity.activityTag) ? activity.activityTag as ActivityTag : '',
+    activityTags: normalizeActivityTags(activity.activityTags, activity.activityTag),
     status: activity.status,
     inclusions: activity.inclusions ?? [],
     exclusions: activity.exclusions ?? [],
   });
   const [images, setImages] = useState<ImageSlot[]>(
-    activity.activityImages.map((url, i) => ({ id: `ex-${i}-${url.slice(-6)}`, kind: 'existing' as const, url }))
+    activity.activityImages.map((img, i) => ({
+      id: `ex-${i}-${packageImageUrl(img).slice(-6)}`,
+      kind: 'existing' as const,
+      url: packageImageUrl(img),
+      title: typeof img === 'string' ? '' : (img.title ?? ''),
+      description: typeof img === 'string' ? '' : (img.description ?? ''),
+    }))
   );
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
@@ -469,6 +545,8 @@ function EditActivityModal({ activity, onClose, operatorId }: { activity: Operat
       kind: 'new' as const,
       file,
       preview: URL.createObjectURL(file),
+      title: '',
+      description: '',
     }));
     setImages((prev) => [...prev, ...newSlots]);
     e.target.value = '';
@@ -480,6 +558,10 @@ function EditActivityModal({ activity, onClose, operatorId }: { activity: Operat
       if (slot?.kind === 'new') URL.revokeObjectURL(slot.preview);
       return prev.filter((s) => s.id !== id);
     });
+  };
+
+  const updateImage = (id: string, patch: Partial<Pick<ImageSlot, 'title' | 'description'>>) => {
+    setImages((prev) => prev.map((slot) => (slot.id === id ? { ...slot, ...patch } : slot)));
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -502,7 +584,7 @@ function EditActivityModal({ activity, onClose, operatorId }: { activity: Operat
     if (Number(form.maximumNumberOfPeople) < Number(form.minimumNumberOfPeople)) e.maximumNumberOfPeople = 'Must be ≥ minimum';
     if (!CEBU_MUNICIPALITIES.includes(form.activityLocation as typeof CEBU_MUNICIPALITIES[number]))
       e.activityLocation = 'Select a valid municipality';
-    if (!form.activityTag) e.activityTag = 'Select a tag';
+    if (!form.activityTags.length) e.activityTags = 'Select at least one tag';
     if (totalImages < MIN_IMAGES) e.images = `At least ${MIN_IMAGES} images required (${totalImages}/${MIN_IMAGES})`;
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -513,15 +595,23 @@ function EditActivityModal({ activity, onClose, operatorId }: { activity: Operat
     if (!validate()) return;
     setSubmitting(true);
     try {
-      const finalUrls: string[] = [];
+      const finalImages: PackageImage[] = [];
       for (const slot of images) {
         if (slot.kind === 'existing') {
-          finalUrls.push(slot.url);
+          finalImages.push({
+            url: slot.url,
+            title: slot.title.trim(),
+            description: slot.description.trim(),
+          });
         } else {
           const compressed = await compressImage(slot.file);
           const storageRef = ref(firebaseStorage, `activities/${operatorId}/${Date.now()}_${slot.file.name}`);
           await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg', cacheControl: 'public,max-age=31536000' });
-          finalUrls.push(await getDownloadURL(storageRef));
+          finalImages.push({
+            url: await getDownloadURL(storageRef),
+            title: slot.title.trim(),
+            description: slot.description.trim(),
+          });
         }
       }
       await updateDoc(doc(firebaseDb, 'activities', activity.id), {
@@ -534,9 +624,10 @@ function EditActivityModal({ activity, onClose, operatorId }: { activity: Operat
         minimumNumberOfPeople: Number(form.minimumNumberOfPeople),
         maximumNumberOfPeople: Number(form.maximumNumberOfPeople),
         activityLocation: form.activityLocation.trim(),
-        activityTag: form.activityTag,
+        activityTags: form.activityTags,
+        activityTag: primaryActivityTag(form.activityTags),
         status: form.status,
-        activityImages: finalUrls,
+        activityImages: finalImages,
         inclusions: form.inclusions,
         exclusions: form.exclusions,
       });
@@ -642,18 +733,24 @@ function EditActivityModal({ activity, onClose, operatorId }: { activity: Operat
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Activity Tag</label>
-            <TagCombobox value={form.activityTag} onChange={(v) => field('activityTag', v as ActivityTag)} error={errors.activityTag} />
+            <label className="block text-xs font-semibold text-gray-600 mb-1">Activity Tags</label>
+            <p className="text-xs text-gray-400 mb-2">Select one or more tags that describe this activity.</p>
+            <ActivityTagMultiSelect
+              value={form.activityTags}
+              onChange={(v) => field('activityTags', v)}
+              error={errors.activityTags}
+            />
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-2">What&apos;s Included</label>
             <ChipGridSelector
               defaults={DEFAULT_INCLUSION_CHIPS}
-              customs={customInclusionChips}
+              customs={inclusionChips}
               value={form.inclusions}
               onChange={(v) => field('inclusions', v)}
-              onAddCustom={(chip) => persistCustomChip('inclusion', chip)}
+              onAddCustom={(chip) => addCustomChip('inclusion', chip)}
+              onRemoveCustom={(chip) => removeCustomChip('inclusion', chip)}
               variant="inclusion"
             />
           </div>
@@ -661,12 +758,14 @@ function EditActivityModal({ activity, onClose, operatorId }: { activity: Operat
             <label className="block text-xs font-semibold text-gray-600 mb-2">What&apos;s Excluded</label>
             <ChipGridSelector
               defaults={DEFAULT_EXCLUSION_CHIPS}
-              customs={customExclusionChips}
+              customs={exclusionChips}
               value={form.exclusions}
               onChange={(v) => field('exclusions', v)}
-              onAddCustom={(chip) => persistCustomChip('exclusion', chip)}
+              onAddCustom={(chip) => addCustomChip('exclusion', chip)}
+              onRemoveCustom={(chip) => removeCustomChip('exclusion', chip)}
               variant="exclusion"
             />
+            {chipError && <p className="text-red-500 text-xs mt-1">{chipError}</p>}
           </div>
 
           {/* Images — drag to reorder */}
@@ -674,24 +773,16 @@ function EditActivityModal({ activity, onClose, operatorId }: { activity: Operat
             <label className="block text-xs font-semibold text-gray-600 mb-1">
               Activity Images <span className="font-normal text-gray-400">(3–5 images required, max 5 MB each)</span>
             </label>
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={images.map((s) => s.id)} strategy={rectSortingStrategy}>
-                <div className="grid grid-cols-5 gap-2 mb-2">
-                  {images.map((slot) => (
-                    <SortableImageCard key={slot.id} slot={slot} onRemove={() => removeImage(slot.id)} />
-                  ))}
-                  {images.length < MAX_IMAGES && (
-                    <button type="button" onClick={() => fileInputRef.current?.click()}
-                      className="aspect-square rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:border-green-400 hover:text-green-500 transition-colors">
-                      <Upload className="w-5 h-5" />
-                      <span className="text-xs mt-1">Add</span>
-                    </button>
-                  )}
-                </div>
-              </SortableContext>
-            </DndContext>
-            <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageChange} />
-            {errors.images && <p className="text-red-500 text-xs">{errors.images}</p>}
+            <ActivityImagesEditor
+              images={images}
+              errors={errors.images}
+              fileInputRef={fileInputRef}
+              sensors={sensors}
+              onDragEnd={handleDragEnd}
+              onImageChange={handleImageChange}
+              onRemove={removeImage}
+              onUpdate={updateImage}
+            />
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
@@ -720,36 +811,347 @@ interface AddFormState {
   minimumNumberOfPeople: string;
   maximumNumberOfPeople: string;
   activityLocation: string;
-  activityTag: ActivityTag | '';
+  activityTags: string[];
   inclusions: string[];
   exclusions: string[];
 }
 
 const EMPTY_FORM: AddFormState = {
   activityName: '', activityDetails: '', pricePerGuest: '', priceAdult: '', priceChild: '', childAgeMax: '',
-  minimumNumberOfPeople: '1', maximumNumberOfPeople: '30', activityLocation: '', activityTag: '',
+  minimumNumberOfPeople: '1', maximumNumberOfPeople: '30', activityLocation: '', activityTags: [],
   inclusions: [], exclusions: [],
 };
 
+function ActivityPreviewPanel({
+  form,
+  images,
+  isMobile,
+}: {
+  form: AddFormState;
+  images: ImageSlot[];
+  isMobile: boolean;
+}) {
+  const imgSrcs = images.map((s) => (s.kind === 'existing' ? s.url : s.preview));
+
+  const displayName = form.activityName || 'Activity Name';
+  const displayDetails = form.activityDetails || 'Activity details will appear here.';
+  const displayLocation = form.activityLocation || 'Location';
+  const displayPrice = parseFloat(form.pricePerGuest) || 0;
+  const displayMax = Number(form.maximumNumberOfPeople) || 30;
+
+  const heroImgs = imgSrcs.slice(0, 3);
+
+  const StarRow = ({ size = 'sm' }: { size?: 'sm' | 'xs' }) => {
+    const cls = size === 'xs' ? 'w-3 h-3' : 'w-3.5 h-3.5';
+    return (
+      <div className="flex gap-0.5">
+        {[1,2,3,4,5].map(s => (
+          <svg key={s} className={`${cls} text-gray-200`} fill="currentColor" viewBox="0 0 20 20">
+            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+          </svg>
+        ))}
+      </div>
+    );
+  };
+
+  const StackedPhotos = ({ scale }: { scale: number }) => {
+    const s = (n: number) => Math.round(n * scale);
+    return (
+      <div style={{ position: 'relative', width: s(380), height: s(380) }}>
+        {/* Image 1 — back right, rotated */}
+        <div style={{ position: 'absolute', top: s(28), right: 0, zIndex: 1, width: s(255), height: s(255), borderRadius: s(22), overflow: 'hidden', transform: 'rotate(-5deg)', boxShadow: '0 4px 20px rgba(0,0,0,0.18)', background: '#e5e7eb' }}>
+          {heroImgs[0]
+            ? <Image src={heroImgs[0]} alt="" fill sizes={`${s(255)}px`} className="object-cover" />
+            : <div className="w-full h-full bg-gray-200 flex items-center justify-center"><span className="text-[9px] text-gray-400">Photo 1</span></div>
+          }
+          <div style={{ position: 'absolute', bottom: 10, left: 10, background: 'rgba(17,24,39,0.7)', color: 'white', fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 99, textTransform: 'uppercase', letterSpacing: '0.05em', maxWidth: '80%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {(images[0]?.title || displayLocation).toUpperCase()}
+          </div>
+        </div>
+        {/* Image 2 — front left */}
+        <div style={{ position: 'absolute', bottom: s(32), left: 0, zIndex: 2, width: s(248), height: s(248), borderRadius: s(22), overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.18)', background: '#e5e7eb' }}>
+          {heroImgs[1]
+            ? <Image src={heroImgs[1]} alt="" fill sizes={`${s(248)}px`} className="object-cover" />
+            : <div className="w-full h-full bg-gray-200 flex items-center justify-center"><span className="text-[9px] text-gray-400">Photo 2</span></div>
+          }
+          <div style={{ position: 'absolute', bottom: 10, left: 10, background: 'rgba(17,24,39,0.7)', color: 'white', fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 99, textTransform: 'uppercase', letterSpacing: '0.05em', maxWidth: '80%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {(images[1]?.title || form.activityTags[1] || form.activityTags[0] || '').toUpperCase()}
+          </div>
+        </div>
+        {/* Image 3 — small bottom right */}
+        {(heroImgs[2] || imgSrcs.length === 0) && (
+          <div style={{ position: 'absolute', bottom: 0, right: s(16), zIndex: 3, width: s(140), height: s(140), borderRadius: s(18), overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.18)', background: '#e5e7eb' }}>
+            {heroImgs[2]
+              ? <Image src={heroImgs[2]} alt="" fill sizes={`${s(140)}px`} className="object-cover" />
+              : <div className="w-full h-full bg-gray-200 flex items-center justify-center"><span className="text-[9px] text-gray-400">Photo 3</span></div>
+            }
+            <div style={{ position: 'absolute', bottom: 10, left: 10, background: 'rgba(17,24,39,0.7)', color: 'white', fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 99, textTransform: 'uppercase', letterSpacing: '0.05em', maxWidth: '90%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {images[2]?.title
+                ? images[2].title.toUpperCase()
+                : imgSrcs.length > 2
+                  ? `${imgSrcs.length} PHOTOS`
+                  : displayLocation.toUpperCase()}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const TagRow = () => (
+    <div className="flex flex-wrap items-center gap-1.5 mb-4">
+      {form.activityTags.length > 0 ? form.activityTags.map((tag) => (
+        <span key={tag} className="inline-flex items-center gap-1 bg-gray-900 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-full">
+          ★ {tag}
+        </span>
+      )) : (
+        <span className="inline-flex items-center gap-1 bg-gray-200 text-gray-400 text-[10px] font-bold px-2.5 py-1.5 rounded-full">★ Tag</span>
+      )}
+      <span className="inline-flex items-center gap-1 border border-gray-300 text-gray-600 text-[10px] font-medium px-2.5 py-1.5 rounded-full">
+        <svg className="w-2.5 h-2.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        Free cancellation
+      </span>
+    </div>
+  );
+
+  const MetaRow = ({ size = 'sm' }: { size?: 'sm' | 'xs' }) => (
+    <div className="flex flex-wrap items-center gap-3 text-gray-500" style={{ fontSize: size === 'xs' ? 11 : 13 }}>
+      <div className="flex items-center gap-1.5">
+        <StarRow size={size === 'xs' ? 'xs' : 'sm'} />
+        <span className="font-bold text-gray-900">0.0</span>
+      </div>
+      <span className="flex items-center gap-1">
+        <svg className="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+        {displayLocation}
+      </span>
+      <span className="flex items-center gap-1">
+        <svg className="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" /></svg>
+        English, Filipino
+      </span>
+    </div>
+  );
+
+  const StatsBar = () => (
+    <div className="border-b border-gray-100 overflow-x-auto bg-white">
+      <div className="flex items-stretch divide-x divide-gray-100 min-w-max lg:min-w-0">
+        {[
+          { label: 'Location',   value: displayLocation },
+          { label: 'Group size', value: `Up to ${displayMax}` },
+          { label: 'Category',   value: form.activityTags.join(' · ') || '—' },
+          { label: 'From',       value: displayPrice ? `₱${displayPrice.toLocaleString()} / pax` : '₱— / pax' },
+        ].map(({ label, value }) => (
+          <div key={label} className="flex-1 px-4 py-3 text-center min-w-[90px]">
+            <p className="text-[9px] font-semibold uppercase tracking-widest text-gray-400 mb-0.5">{label}</p>
+            <p className="text-xs font-semibold text-gray-900 whitespace-nowrap">{value}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const BookingSidebar = () => (
+    <div className="w-56 shrink-0 self-start sticky top-4">
+      <div className="bg-white rounded-2xl shadow-[0_2px_24px_rgba(0,0,0,0.10)] ring-1 ring-gray-100 p-5">
+        <p className="text-[10px] text-gray-400 mb-0.5">From</p>
+        <div className="flex items-baseline gap-1 mb-0.5">
+          <span className="text-2xl font-extrabold text-gray-900">₱{displayPrice ? displayPrice.toLocaleString() : '—'}</span>
+        </div>
+        <p className="text-[10px] text-gray-400 mb-1">per adult · taxes included</p>
+        <span className="inline-flex items-center gap-1 text-green-600 text-[10px] font-semibold mb-4">
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          Free cancel
+        </span>
+        <div className="border border-gray-200 rounded-xl px-3 py-2.5 bg-gray-50 mb-3 flex items-center gap-2">
+          <svg className="w-3.5 h-3.5 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+          <span className="text-xs text-gray-400">dd/mm/yyyy</span>
+        </div>
+        <div className="border border-gray-200 rounded-xl px-3 py-2.5 bg-gray-50 flex items-center justify-between mb-4">
+          <span className="text-[11px] text-gray-500 font-semibold uppercase tracking-wide">Travelers (10+)</span>
+          <div className="flex items-center gap-2">
+            <span className="w-6 h-6 rounded-full border border-gray-300 text-gray-400 flex items-center justify-center text-sm leading-none">−</span>
+            <span className="text-xs font-semibold text-gray-800">1</span>
+            <span className="w-6 h-6 rounded-full border border-gray-300 text-gray-400 flex items-center justify-center text-sm leading-none">+</span>
+          </div>
+        </div>
+        <div className="border-t border-gray-100 pt-3 mb-4 space-y-1.5 text-xs">
+          <div className="flex justify-between text-gray-500">
+            <span>1 adult × ₱{displayPrice ? displayPrice.toLocaleString() : '—'}</span>
+            <span>₱{displayPrice ? displayPrice.toLocaleString() : '—'}</span>
+          </div>
+          <div className="flex justify-between font-bold text-gray-900 pt-2 border-t border-gray-100 text-sm">
+            <span>Total</span>
+            <span>₱{displayPrice ? displayPrice.toLocaleString() : '—'}</span>
+          </div>
+        </div>
+        <button type="button" className="w-full bg-green-500 text-white font-bold py-3 rounded-full text-xs shadow-md">
+          Reserve now →
+        </button>
+        <p className="text-center text-[9px] text-gray-400 mt-2">Reserve now · pay nothing today</p>
+      </div>
+    </div>
+  );
+
+  const ContentSections = () => (
+    <>
+      {/* 01 About */}
+      <div className="py-8 border-b border-gray-100">
+        <div className="flex items-baseline gap-4 mb-5">
+          <span className="text-4xl font-extrabold text-gray-100 leading-none select-none">01</span>
+          <h3 className="text-lg font-extrabold text-gray-900">About this activity</h3>
+        </div>
+        <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap line-clamp-8">{displayDetails}</p>
+      </div>
+
+      {/* 02 What's included */}
+      <div className="py-8 border-b border-gray-100">
+        <div className="flex items-baseline gap-4 mb-5">
+          <span className="text-4xl font-extrabold text-gray-100 leading-none select-none">02</span>
+          <h3 className="text-lg font-extrabold text-gray-900">What&apos;s included</h3>
+        </div>
+        {(form.inclusions.length > 0 || form.exclusions.length > 0) ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {form.inclusions.length > 0 && (
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-green-600 mb-3">Included</p>
+                <InclusionChipBadges chips={form.inclusions} variant="inclusion" />
+              </div>
+            )}
+            {form.exclusions.length > 0 && (
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-red-500 mb-3">Not included</p>
+                <InclusionChipBadges chips={form.exclusions} variant="exclusion" />
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400 italic">Select inclusions and exclusions in the form to see them here.</p>
+        )}
+      </div>
+
+      {/* 03 Reviews placeholder */}
+      <div className="py-8 border-b border-gray-100">
+        <div className="flex items-baseline gap-4 mb-5">
+          <span className="text-4xl font-extrabold text-gray-100 leading-none select-none">03</span>
+          <h3 className="text-lg font-extrabold text-gray-900">Reviews · 0.0★</h3>
+        </div>
+        <div className="flex items-center gap-6 mb-5">
+          <div className="flex flex-col items-center">
+            <span className="text-5xl font-extrabold text-gray-900 leading-none">0.0</span>
+            <StarRow />
+            <p className="text-[10px] text-gray-400 mt-1">Based on 0 ratings</p>
+          </div>
+          <div className="flex-1 space-y-2.5">
+            {['Guide','Value','Safety','Fun'].map(l => (
+              <div key={l} className="flex items-center gap-3">
+                <span className="text-xs text-gray-500 w-12 shrink-0">{l}</span>
+                <div className="flex-1 bg-gray-100 rounded-full h-1.5"><div className="bg-green-500 h-1.5 rounded-full" style={{ width: '20%' }} /></div>
+                <span className="text-xs font-semibold text-gray-800 w-6 text-right">1.0</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <p className="text-xs text-gray-400 italic">No reviews yet. Be the first!</p>
+        <p className="text-xs text-gray-400 mt-2">Had a great experience? <span className="text-green-600 font-medium">Book to leave a review →</span></p>
+      </div>
+
+      {/* 04 FAQ */}
+      <div className="py-8">
+        <div className="flex items-baseline gap-4 mb-5">
+          <span className="text-4xl font-extrabold text-gray-100 leading-none select-none">04</span>
+          <h3 className="text-lg font-extrabold text-gray-900">Frequently asked</h3>
+        </div>
+        <div className="border-t border-gray-100">
+          {['What should I bring?','Is the activity suitable for kids?','What is the cancellation policy?','Is hotel pickup included?'].map((q) => (
+            <div key={q} className="flex items-center justify-between py-4 border-b border-gray-100">
+              <span className="text-sm font-semibold text-gray-900">{q}</span>
+              <svg className="w-5 h-5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+
+  return (
+    <div className={`${isMobile ? 'max-w-[390px] mx-auto shadow-[0_0_0_1px_rgba(0,0,0,0.07)]' : 'w-full'} bg-white min-h-full`}>
+
+      {/* ── Hero ── */}
+      <div className="bg-[#f8faf8] border-b border-gray-100">
+        <div className="px-5 lg:px-7 py-7 lg:py-10">
+          {isMobile ? (
+            // Mobile: stacked photos top, text below
+            <>
+              <div className="flex justify-center mb-6 py-2">
+                <StackedPhotos scale={0.56} />
+              </div>
+              <TagRow />
+              <h2 className="text-2xl font-extrabold text-gray-900 leading-tight tracking-tight mb-4">{displayName}</h2>
+              <p className="text-gray-500 text-sm leading-relaxed line-clamp-3 mb-5">{displayDetails}</p>
+              <MetaRow size="xs" />
+            </>
+          ) : (
+            // Desktop: text left, stacked photos right
+            <div className="grid grid-cols-2 gap-10 items-center">
+              <div>
+                <TagRow />
+                <h2 className="text-[1.9rem] font-extrabold text-gray-900 leading-tight tracking-tight mb-4">{displayName}</h2>
+                <p className="text-gray-500 text-sm leading-relaxed line-clamp-3 mb-6">{displayDetails}</p>
+                <MetaRow />
+              </div>
+              <div className="flex items-center justify-center py-3">
+                <StackedPhotos scale={0.72} />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Stats bar ── */}
+      <StatsBar />
+
+      {/* ── Main content ── */}
+      {isMobile ? (
+        <div className="px-5 py-4 pb-20">
+          <ContentSections />
+        </div>
+      ) : (
+        <div className="px-7 py-4 pb-12 flex gap-12">
+          <div className="flex-1 min-w-0">
+            <ContentSections />
+          </div>
+          <BookingSidebar />
+        </div>
+      )}
+
+      {/* Mobile sticky bottom bar */}
+      {isMobile && (
+        <div className="border-t border-gray-100 bg-white shadow-2xl px-4 py-3 flex items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-gray-400 leading-none mb-0.5">Price per guest</p>
+            <div className="flex items-baseline gap-1">
+              <span className="text-xl font-extrabold text-gray-900">₱{displayPrice ? displayPrice.toLocaleString() : '—'}</span>
+              <span className="text-xs text-gray-400">/ person</span>
+            </div>
+          </div>
+          <button type="button" className="flex items-center gap-2 bg-green-500 text-white font-bold px-5 py-3 rounded-full text-sm shadow-md shrink-0">
+            Book This Activity
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AddActivityModal({ onClose, operatorId }: { onClose: () => void; operatorId: string }) {
   const { authState } = useAuth();
-  const customInclusionChips = authState.status === 'authenticated' ? (authState.profile.customInclusionChips ?? []) : [];
-  const customExclusionChips = authState.status === 'authenticated' ? (authState.profile.customExclusionChips ?? []) : [];
-
-  async function persistCustomChip(kind: 'inclusion' | 'exclusion', chip: string) {
-    if (authState.status !== 'authenticated') return;
-    const field = kind === 'inclusion' ? 'customInclusionChips' : 'customExclusionChips';
-    const current = kind === 'inclusion' ? customInclusionChips : customExclusionChips;
-    if (current.includes(chip)) return;
-    await updateDoc(doc(firebaseDb, 'users', authState.user.uid), {
-      [field]: [...current, chip],
-    });
-  }
+  const { inclusionChips, exclusionChips, chipError, addCustomChip, removeCustomChip } = useOperatorCustomChips(authState);
 
   const [form, setForm] = useState<AddFormState>(EMPTY_FORM);
   const [images, setImages] = useState<ImageSlot[]>([]);
   const [errors, setErrors] = useState<Partial<Record<keyof AddFormState | 'images', string>>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -767,6 +1169,8 @@ function AddActivityModal({ onClose, operatorId }: { onClose: () => void; operat
       kind: 'new' as const,
       file,
       preview: URL.createObjectURL(file),
+      title: '',
+      description: '',
     }));
     setImages((prev) => [...prev, ...newSlots]);
     e.target.value = '';
@@ -778,6 +1182,10 @@ function AddActivityModal({ onClose, operatorId }: { onClose: () => void; operat
       if (slot?.kind === 'new') URL.revokeObjectURL(slot.preview);
       return prev.filter((s) => s.id !== id);
     });
+  };
+
+  const updateImage = (id: string, patch: Partial<Pick<ImageSlot, 'title' | 'description'>>) => {
+    setImages((prev) => prev.map((slot) => (slot.id === id ? { ...slot, ...patch } : slot)));
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -799,7 +1207,7 @@ function AddActivityModal({ onClose, operatorId }: { onClose: () => void; operat
     if (!form.maximumNumberOfPeople || Number(form.maximumNumberOfPeople) < 1) e.maximumNumberOfPeople = 'Minimum 1';
     if (Number(form.maximumNumberOfPeople) < Number(form.minimumNumberOfPeople)) e.maximumNumberOfPeople = 'Must be ≥ minimum';
     if (!CEBU_MUNICIPALITIES.includes(form.activityLocation as typeof CEBU_MUNICIPALITIES[number])) e.activityLocation = 'Select a valid municipality';
-    if (!form.activityTag) e.activityTag = 'Select a tag';
+    if (!form.activityTags.length) e.activityTags = 'Select at least one tag';
     if (images.length < MIN_IMAGES) e.images = `At least ${MIN_IMAGES} images required (${images.length}/${MIN_IMAGES})`;
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -810,13 +1218,17 @@ function AddActivityModal({ onClose, operatorId }: { onClose: () => void; operat
     if (!validate()) return;
     setSubmitting(true);
     try {
-      const imageUrls: string[] = [];
+      const imageEntries: PackageImage[] = [];
       for (const slot of images) {
         if (slot.kind === 'new') {
           const compressed = await compressImage(slot.file);
           const storageRef = ref(firebaseStorage, `activities/${operatorId}/${Date.now()}_${slot.file.name}`);
           await uploadBytes(storageRef, compressed, { contentType: 'image/jpeg', cacheControl: 'public,max-age=31536000' });
-          imageUrls.push(await getDownloadURL(storageRef));
+          imageEntries.push({
+            url: await getDownloadURL(storageRef),
+            title: slot.title.trim(),
+            description: slot.description.trim(),
+          });
         }
       }
       await addDoc(collection(firebaseDb, 'activities'), {
@@ -829,9 +1241,10 @@ function AddActivityModal({ onClose, operatorId }: { onClose: () => void; operat
         minimumNumberOfPeople: Number(form.minimumNumberOfPeople),
         maximumNumberOfPeople: Number(form.maximumNumberOfPeople),
         activityLocation: form.activityLocation.trim(),
-        activityTag: form.activityTag,
+        activityTags: form.activityTags,
+        activityTag: primaryActivityTag(form.activityTags),
         activityRating: 0,
-        activityImages: imageUrls,
+        activityImages: imageEntries,
         operatorId,
         status: 'active',
         inclusions: form.inclusions,
@@ -852,124 +1265,198 @@ function AddActivityModal({ onClose, operatorId }: { onClose: () => void; operat
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl overflow-y-auto max-h-[90vh]">
-        <div className="flex items-center justify-between px-6 py-4 border-b sticky top-0 bg-white z-10">
+      <div className="bg-white w-full max-w-[1100px] rounded-2xl shadow-xl max-h-[90vh] flex overflow-hidden">
+        {/* Left: Form */}
+        <div className="w-[440px] shrink-0 flex flex-col overflow-hidden">
+        <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b bg-white z-10">
           <h2 className="text-base font-bold text-gray-900">Add Activity</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
         </div>
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Activity Name</label>
-            <input type="text" value={form.activityName} onChange={(e) => field('activityName', e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="e.g. Island Hopping Adventure" />
-            {errors.activityName && <p className="text-red-500 text-xs mt-1">{errors.activityName}</p>}
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Activity Details</label>
-            <textarea value={form.activityDetails} onChange={(e) => field('activityDetails', e.target.value)}
-              rows={3} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 resize-none" placeholder="Describe the activity…" />
-            {errors.activityDetails && <p className="text-red-500 text-xs mt-1">{errors.activityDetails}</p>}
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Price per Guest (₱) — Flat Rate</label>
-            <input type="number" min="0" value={form.pricePerGuest} onChange={(e) => field('pricePerGuest', e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="e.g. 1500" />
-            {errors.pricePerGuest && <p className="text-red-500 text-xs mt-1">{errors.pricePerGuest}</p>}
-            <p className="text-xs text-gray-400 mt-1">Or set separate adult/child prices below (optional)</p>
-          </div>
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          <div className="flex-1 overflow-y-auto">
 
-          <div className="grid grid-cols-3 gap-3">
+            {/* ── 1. Activity Info ── */}
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Adult Price (₱)</label>
-              <input type="number" min="0" value={form.priceAdult} onChange={(e) => field('priceAdult', e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="Optional" />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Child Price (₱)</label>
-              <input type="number" min="0" value={form.priceChild} onChange={(e) => field('priceChild', e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="Optional" />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Child Age Max</label>
-              <input type="number" min="0" value={form.childAgeMax} onChange={(e) => field('childAgeMax', e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="e.g. 12" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Min Guests</label>
-              <input type="number" min="1" value={form.minimumNumberOfPeople} onChange={(e) => field('minimumNumberOfPeople', e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="e.g. 1" />
-              {errors.minimumNumberOfPeople && <p className="text-red-500 text-xs mt-1">{errors.minimumNumberOfPeople}</p>}
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Max Guests</label>
-              <input type="number" min="1" value={form.maximumNumberOfPeople} onChange={(e) => field('maximumNumberOfPeople', e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="e.g. 30" />
-              {errors.maximumNumberOfPeople && <p className="text-red-500 text-xs mt-1">{errors.maximumNumberOfPeople}</p>}
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Activity Location</label>
-            <MunicipalityCombobox value={form.activityLocation} onChange={(v) => field('activityLocation', v)} error={errors.activityLocation} />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Activity Tag</label>
-            <TagCombobox value={form.activityTag} onChange={(v) => field('activityTag', v as ActivityTag)} error={errors.activityTag} />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-2">What&apos;s Included</label>
-            <ChipGridSelector
-              defaults={DEFAULT_INCLUSION_CHIPS}
-              customs={customInclusionChips}
-              value={form.inclusions}
-              onChange={(v) => field('inclusions', v)}
-              onAddCustom={(chip) => persistCustomChip('inclusion', chip)}
-              variant="inclusion"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-2">What&apos;s Excluded</label>
-            <ChipGridSelector
-              defaults={DEFAULT_EXCLUSION_CHIPS}
-              customs={customExclusionChips}
-              value={form.exclusions}
-              onChange={(v) => field('exclusions', v)}
-              onAddCustom={(chip) => persistCustomChip('exclusion', chip)}
-              variant="exclusion"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">
-              Activity Images <span className="font-normal text-gray-400">(3–5 images required, max 5 MB each)</span>
-            </label>
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={images.map((s) => s.id)} strategy={rectSortingStrategy}>
-                <div className="grid grid-cols-5 gap-2 mb-2">
-                  {images.map((slot) => (
-                    <SortableImageCard key={slot.id} slot={slot} onRemove={() => removeImage(slot.id)} />
-                  ))}
-                  {images.length < MAX_IMAGES && (
-                    <button type="button" onClick={() => fileInputRef.current?.click()}
-                      className="aspect-square rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:border-green-400 hover:text-green-500 transition-colors">
-                      <Upload className="w-5 h-5" />
-                      <span className="text-xs mt-1">Add</span>
-                    </button>
-                  )}
+              <div className="flex items-center gap-2.5 px-6 py-3 bg-gray-50 border-b border-gray-100 sticky top-0 z-[1]">
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-500 text-white text-[10px] font-bold shrink-0">1</span>
+                <span className="text-xs font-bold text-gray-700 uppercase tracking-widest">Activity Info</span>
+              </div>
+              <div className="px-6 py-4 space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Activity Name</label>
+                  <input type="text" value={form.activityName} onChange={(e) => field('activityName', e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="e.g. Island Hopping Adventure" />
+                  {errors.activityName && <p className="text-red-500 text-xs mt-1">{errors.activityName}</p>}
                 </div>
-              </SortableContext>
-            </DndContext>
-            <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageChange} />
-            {errors.images && <p className="text-red-500 text-xs">{errors.images}</p>}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Location</label>
+                  <MunicipalityCombobox value={form.activityLocation} onChange={(v) => field('activityLocation', v)} error={errors.activityLocation} />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Category Tags</label>
+                  <p className="text-xs text-gray-400 mb-2">Select one or more tags that describe this activity.</p>
+                  <ActivityTagMultiSelect
+                    value={form.activityTags}
+                    onChange={(v) => field('activityTags', v)}
+                    error={errors.activityTags}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Description</label>
+                  <textarea value={form.activityDetails} onChange={(e) => field('activityDetails', e.target.value)}
+                    rows={4} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 resize-none" placeholder="Describe the activity — highlights, what to expect, duration…" />
+                  {errors.activityDetails && <p className="text-red-500 text-xs mt-1">{errors.activityDetails}</p>}
+                </div>
+              </div>
+            </div>
+
+            {/* ── 2. Pricing & Group Size ── */}
+            <div className="border-t border-gray-200">
+              <div className="flex items-center gap-2.5 px-6 py-3 bg-gray-50 border-b border-gray-100 sticky top-0 z-[1]">
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-500 text-white text-[10px] font-bold shrink-0">2</span>
+                <span className="text-xs font-bold text-gray-700 uppercase tracking-widest">Pricing & Group Size</span>
+              </div>
+              <div className="px-6 py-4 space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Price per Guest (₱)</label>
+                  <input type="number" min="0" value={form.pricePerGuest} onChange={(e) => field('pricePerGuest', e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="e.g. 1500" />
+                  {errors.pricePerGuest && <p className="text-red-500 text-xs mt-1">{errors.pricePerGuest}</p>}
+                </div>
+                <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-3 space-y-2">
+                  <p className="text-[11px] font-semibold text-gray-500">Optional: separate adult / child pricing</p>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-semibold text-gray-500 mb-1">Adult (₱)</label>
+                      <input type="number" min="0" value={form.priceAdult} onChange={(e) => field('priceAdult', e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 bg-white" placeholder="Optional" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-gray-500 mb-1">Child (₱)</label>
+                      <input type="number" min="0" value={form.priceChild} onChange={(e) => field('priceChild', e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 bg-white" placeholder="Optional" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-gray-500 mb-1">Child max age</label>
+                      <input type="number" min="0" value={form.childAgeMax} onChange={(e) => field('childAgeMax', e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 bg-white" placeholder="e.g. 12" />
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-2">Group Size</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] text-gray-500 mb-1">Min guests</label>
+                      <input type="number" min="1" value={form.minimumNumberOfPeople} onChange={(e) => field('minimumNumberOfPeople', e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="e.g. 1" />
+                      {errors.minimumNumberOfPeople && <p className="text-red-500 text-xs mt-1">{errors.minimumNumberOfPeople}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-gray-500 mb-1">Max guests</label>
+                      <input type="number" min="1" value={form.maximumNumberOfPeople} onChange={(e) => field('maximumNumberOfPeople', e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="e.g. 30" />
+                      {errors.maximumNumberOfPeople && <p className="text-red-500 text-xs mt-1">{errors.maximumNumberOfPeople}</p>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ── 3. Inclusions & Exclusions ── */}
+            <div className="border-t border-gray-200">
+              <div className="flex items-center gap-2.5 px-6 py-3 bg-gray-50 border-b border-gray-100 sticky top-0 z-[1]">
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-500 text-white text-[10px] font-bold shrink-0">3</span>
+                <span className="text-xs font-bold text-gray-700 uppercase tracking-widest">Inclusions & Exclusions</span>
+              </div>
+              <div className="px-6 py-4 space-y-5">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-2">What&apos;s Included</label>
+                  <ChipGridSelector
+                    defaults={DEFAULT_INCLUSION_CHIPS}
+                    customs={inclusionChips}
+                    value={form.inclusions}
+                    onChange={(v) => field('inclusions', v)}
+                    onAddCustom={(chip) => addCustomChip('inclusion', chip)}
+                    onRemoveCustom={(chip) => removeCustomChip('inclusion', chip)}
+                    variant="inclusion"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-2">What&apos;s Excluded</label>
+                  <ChipGridSelector
+                    defaults={DEFAULT_EXCLUSION_CHIPS}
+                    customs={exclusionChips}
+                    value={form.exclusions}
+                    onChange={(v) => field('exclusions', v)}
+                    onAddCustom={(chip) => addCustomChip('exclusion', chip)}
+                    onRemoveCustom={(chip) => removeCustomChip('exclusion', chip)}
+                    variant="exclusion"
+                  />
+                  {chipError && <p className="text-red-500 text-xs mt-1">{chipError}</p>}
+                </div>
+              </div>
+            </div>
+
+            {/* ── 4. Photos ── */}
+            <div className="border-t border-gray-200">
+              <div className="flex items-center gap-2.5 px-6 py-3 bg-gray-50 border-b border-gray-100 sticky top-0 z-[1]">
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-500 text-white text-[10px] font-bold shrink-0">4</span>
+                <span className="text-xs font-bold text-gray-700 uppercase tracking-widest">Photos</span>
+                <span className="text-[10px] text-gray-400 ml-0.5">3 to 5 required · max 5 MB each</span>
+              </div>
+              <div className="px-6 py-4">
+                <ActivityImagesEditor
+                  images={images}
+                  errors={errors.images}
+                  fileInputRef={fileInputRef}
+                  sensors={sensors}
+                  onDragEnd={handleDragEnd}
+                  onImageChange={handleImageChange}
+                  onRemove={removeImage}
+                  onUpdate={updateImage}
+                />
+              </div>
+            </div>
+
           </div>
-          <div className="flex justify-end gap-3 pt-2">
+
+          {/* ── Footer ── */}
+          <div className="shrink-0 flex justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-white">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
             <button type="submit" disabled={submitting} className="px-5 py-2 text-sm font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed">
               {submitting ? 'Saving…' : 'Add Activity'}
             </button>
           </div>
         </form>
+        </div>
+        {/* Right: Live Preview */}
+        <div className="flex-1 border-l border-gray-100 flex flex-col overflow-hidden bg-gray-50 min-w-0">
+          <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b bg-white">
+            <span className="text-sm font-semibold text-gray-700">Live Preview</span>
+            <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setPreviewMode('desktop')}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium transition-colors ${previewMode === 'desktop' ? 'bg-green-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+              >
+                <Monitor className="w-3.5 h-3.5" />
+                Desktop
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreviewMode('mobile')}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium transition-colors border-l border-gray-200 ${previewMode === 'mobile' ? 'bg-green-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+              >
+                <Smartphone className="w-3.5 h-3.5" />
+                Mobile
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            <ActivityPreviewPanel form={form} images={images} isMobile={previewMode === 'mobile'} />
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1194,9 +1681,13 @@ export default function OperatorActivitiesPage() {
     const unsub = onSnapshot(q, (snap) => {
       setActivities(snap.docs.map((d) => {
         const data = d.data();
+        const tags = normalizeActivityTags(data.activityTags, data.activityTag);
         return {
           id: d.id,
           ...data,
+          activityTags: tags,
+          activityTag: primaryActivityTag(tags),
+          activityImages: normalizePackageImages(data.activityImages),
           inclusions: Array.isArray(data.inclusions) ? data.inclusions : [],
           exclusions: Array.isArray(data.exclusions) ? data.exclusions : [],
         } as OperatorActivity;
@@ -1211,7 +1702,7 @@ export default function OperatorActivitiesPage() {
   const filtered = useMemo(() => activities.filter((a) => {
     if (a.id === pendingDeleteId) return false;
     if (search && !a.activityName.toLowerCase().includes(search.toLowerCase())) return false;
-    if (filters.tag && a.activityTag !== filters.tag) return false;
+    if (filters.tag && !activityHasTag(a.activityTags, filters.tag)) return false;
     if (filters.status !== 'all' && a.status !== filters.status) return false;
     if (filters.location && a.activityLocation !== filters.location) return false;
     if (filters.priceMin && a.pricePerGuest < Number(filters.priceMin)) return false;
@@ -1230,7 +1721,12 @@ export default function OperatorActivitiesPage() {
         </button>
       ),
     },
-    { accessorKey: 'activityTag', header: 'Tag', meta: { tdClassName: 'px-4 py-3 text-gray-600' } },
+    {
+      id: 'activityTags',
+      header: 'Tags',
+      meta: { tdClassName: 'px-4 py-3 text-gray-600' },
+      cell: ({ row }) => formatActivityTagsDisplay(row.original.activityTags),
+    },
     { accessorKey: 'activityLocation', header: 'Location', meta: { tdClassName: 'px-4 py-3 text-gray-600' } },
     {
       accessorKey: 'pricePerGuest',

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -12,7 +12,7 @@ import PackageCard from '@/app/components/ui/PackageCard'
 import SearchBar from '@/app/components/SearchBar'
 import { CategoryFilterCollapsible } from '@/app/components/CategoryFilterCollapsible'
 import { firebaseDb } from '@/app/lib/firebase'
-import { ACTIVITY_TAGS } from '@/app/lib/activity-tags'
+import { ACTIVITY_TAGS, normalizeActivityTags, formatActivityTagsDisplay, primaryActivityTag } from '@/app/lib/activity-tags'
 import { packageImageUrl } from '@/app/lib/package-images'
 import {
   countByActivityLocation,
@@ -136,14 +136,14 @@ export default function MunicipalityView() {
           actList.push({
             id: idx,
             firestoreId: d.id,
-            category: data.activityTag ?? '',
+            category: formatActivityTagsDisplay(normalizeActivityTags(data.activityTags, data.activityTag)) || primaryActivityTag(normalizeActivityTags(data.activityTags, data.activityTag)),
             title: data.activityName ?? '',
             location: data.activityLocation ?? '',
             rating: data.activityRating ?? 0,
             reviewCount: 0,
             price: data.pricePerGuest ?? 0,
             maxGuests: data.maximumNumberOfPeople ?? data.maxSlots ?? 30,
-            image: data.activityImages?.[0] ?? '',
+            image: packageImageUrl(data.activityImages?.[0]) ?? '',
             municipalityId: data.activityLocation ?? '',
           })
         })

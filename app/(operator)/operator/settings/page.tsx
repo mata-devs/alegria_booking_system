@@ -296,8 +296,28 @@ export default function OperatorSettingsPage() {
   }
 
   function removeCustomChip(kind: 'inclusion' | 'exclusion', chip: string) {
-    if (kind === 'inclusion') setCustomInclusionChips((prev) => prev.filter((c) => c !== chip));
-    else setCustomExclusionChips((prev) => prev.filter((c) => c !== chip));
+    if (authState.status !== 'authenticated') return;
+    const field = kind === 'inclusion' ? 'customInclusionChips' : 'customExclusionChips';
+  const uid = authState.user.uid;
+
+    if (kind === 'inclusion') {
+      setCustomInclusionChips((prev) => {
+        const next = prev.filter((c) => c !== chip);
+        void updateDoc(doc(firebaseDb, 'users', uid), { [field]: next }).catch(() => {
+          setChipsStatus({ type: 'error', msg: 'Failed to remove custom chip.' });
+        });
+        return next;
+      });
+      return;
+    }
+
+    setCustomExclusionChips((prev) => {
+      const next = prev.filter((c) => c !== chip);
+      void updateDoc(doc(firebaseDb, 'users', uid), { [field]: next }).catch(() => {
+        setChipsStatus({ type: 'error', msg: 'Failed to remove custom chip.' });
+      });
+      return next;
+    });
   }
 
   const onPickPhoto = () => photoFileRef.current?.click();
@@ -517,7 +537,7 @@ export default function OperatorSettingsPage() {
       {/* Profile Information */}
       <SettingsSection
         title="Profile Information"
-        description="Update your account's profile information and email address."
+        description="Update your profile, contact numbers, and photo."
       >
         <form onSubmit={onSaveProfile} className="rounded-xl border border-gray-200 bg-white shadow-sm">
           <div className="px-6 py-5 space-y-5">
@@ -584,6 +604,45 @@ export default function OperatorSettingsPage() {
               </div>
             </div>
 
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <PhLandlineInput
+                id="settings-phone"
+                label="Telephone"
+                labelClassName={LABEL}
+                valueE164={profile.phoneNumber}
+                onChangeE164={(v) => {
+                  setProfile((p) => ({ ...p, phoneNumber: v }));
+                  setPhoneErrors(validateProfilePhones());
+                }}
+                error={phoneErrors.phoneNumber}
+                onBlur={(e) =>
+                  blurUnlessPhoneSibling(e, 'settings-mobile', () =>
+                    setPhoneErrors(validateProfilePhones()),
+                  )
+                }
+              />
+              <PhPhoneInput
+                id="settings-mobile"
+                label="Mobile Number"
+                labelClassName={LABEL}
+                valueE164={profile.mobileNumber}
+                onChangeE164={(v) => {
+                  setProfile((p) => ({ ...p, mobileNumber: v }));
+                  setPhoneErrors(validateProfilePhones());
+                }}
+                error={phoneErrors.mobileNumber}
+                onBlur={(e) =>
+                  blurUnlessPhoneSibling(e, 'settings-phone', () =>
+                    setPhoneErrors(validateProfilePhones()),
+                  )
+                }
+                accent="signup"
+              />
+            </div>
+            <p className="text-[11px] text-gray-400 -mt-2">
+              At least one valid number required. Metro 02 8XXX XXXX or provincial 0XX XXX XXXX for landline; 9XX for mobile.
+            </p>
+
             <div>
               <label className={LABEL}>Company Name</label>
               <input
@@ -605,45 +664,6 @@ export default function OperatorSettingsPage() {
               />
               <p className="mt-1 text-[11px] text-gray-400">Contact support to change your email.</p>
             </div>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <PhLandlineInput
-                id="settings-phone"
-                label="Telephone (landline)"
-                labelClassName={LABEL}
-                valueE164={profile.phoneNumber}
-                onChangeE164={(v) => {
-                  setProfile((p) => ({ ...p, phoneNumber: v }));
-                  setPhoneErrors(validateProfilePhones());
-                }}
-                error={phoneErrors.phoneNumber}
-                onBlur={(e) =>
-                  blurUnlessPhoneSibling(e, 'settings-mobile', () =>
-                    setPhoneErrors(validateProfilePhones()),
-                  )
-                }
-              />
-              <PhPhoneInput
-                id="settings-mobile"
-                label="Mobile number"
-                labelClassName={LABEL}
-                valueE164={profile.mobileNumber}
-                onChangeE164={(v) => {
-                  setProfile((p) => ({ ...p, mobileNumber: v }));
-                  setPhoneErrors(validateProfilePhones());
-                }}
-                error={phoneErrors.mobileNumber}
-                onBlur={(e) =>
-                  blurUnlessPhoneSibling(e, 'settings-phone', () =>
-                    setPhoneErrors(validateProfilePhones()),
-                  )
-                }
-                accent="signup"
-              />
-            </div>
-            <p className="text-[11px] text-gray-400 -mt-2">
-              At least one valid number required. Metro 02 8XXX XXXX or provincial 0XX XXX XXXX for landline; 9XX for mobile.
-            </p>
           </div>
 
           <StatusLine status={profileStatus} />

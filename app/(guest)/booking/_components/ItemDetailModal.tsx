@@ -7,6 +7,7 @@ import { firestore } from '@/app/lib/firebase';
 import { X, MapPin, Star, ChevronLeft, ChevronRight, Users, Clock, Tag } from 'lucide-react';
 import { normalizePackageLocations, formatLocationSummary } from '@/app/lib/package-locations';
 import { normalizePackageImages, packageImageUrl } from '@/app/lib/package-images';
+import { normalizeActivityTags, formatActivityTagsDisplay, primaryActivityTag } from '@/app/lib/activity-tags';
 import { InclusionChipBadges } from '@/app/components/ui/InclusionChipBadges';
 
 interface ItemDetailModalProps {
@@ -21,8 +22,9 @@ interface ActivityData {
     pricePerGuest: number;
     activityLocation: string;
     activityTag: string;
+    activityTags?: unknown;
     activityRating: number;
-    activityImages: string[];
+    activityImages: (string | import('@/app/lib/package-images').PackageImage)[];
     minimumNumberOfPeople?: number;
     maximumNumberOfPeople?: number;
 }
@@ -78,9 +80,10 @@ export function ItemDetailModal({ itemId, sourceType, onClose }: ItemDetailModal
 
     const images = pkg
       ? normalizePackageImages(pkg.packageImages).map((img) => packageImageUrl(img))
-      : (act?.activityImages ?? []);
+      : normalizePackageImages(act?.activityImages).map((img) => packageImageUrl(img));
     const name = pkg ? pkg.packageName : (act?.activityName ?? '');
-    const tag = pkg ? pkg.packageTag : (act?.activityTag ?? '');
+    const activityTags = act ? normalizeActivityTags(act.activityTags, act.activityTag) : [];
+    const tag = pkg ? pkg.packageTag : (formatActivityTagsDisplay(activityTags) || primaryActivityTag(activityTags));
     const rating = pkg ? pkg.packageRating : (act?.activityRating ?? 0);
     const location = pkg
       ? formatLocationSummary(normalizePackageLocations(pkg))

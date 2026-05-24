@@ -47,6 +47,7 @@ import { ACTIVITY_TAGS, type ActivityTag, type StoredActivityTag } from '@/app/l
 import { CEBU_MUNICIPALITIES } from '@/app/lib/cebu-municipalities';
 import { MunicipalityMultiSelect } from '@/app/components/ui/MunicipalityMultiSelect';
 import { ChipGridSelector } from '@/app/components/ui/ChipGridSelector';
+import { useOperatorCustomChips } from '@/app/hooks/useOperatorCustomChips';
 import {
   DEFAULT_EXCLUSION_CHIPS,
   DEFAULT_INCLUSION_CHIPS,
@@ -695,18 +696,7 @@ type AddFormErrors = Partial<Record<keyof AddFormState | 'images' | 'minimumNumb
 
 function AddPackageModal({ onClose, operatorId }: { onClose: () => void; operatorId: string }) {
   const { authState } = useAuth();
-  const customInclusionChips = authState.status === 'authenticated' ? (authState.profile.customInclusionChips ?? []) : [];
-  const customExclusionChips = authState.status === 'authenticated' ? (authState.profile.customExclusionChips ?? []) : [];
-
-  async function persistCustomChip(kind: 'inclusion' | 'exclusion', chip: string) {
-    if (authState.status !== 'authenticated') return;
-    const field = kind === 'inclusion' ? 'customInclusionChips' : 'customExclusionChips';
-    const current = kind === 'inclusion' ? customInclusionChips : customExclusionChips;
-    if (current.includes(chip)) return;
-    await updateDoc(doc(firebaseDb, 'users', authState.user.uid), {
-      [field]: [...current, chip],
-    });
-  }
+  const { inclusionChips, exclusionChips, chipError, addCustomChip, removeCustomChip } = useOperatorCustomChips(authState);
 
   const [form, setForm] = useState<AddFormState>(EMPTY_FORM);
   const [images, setImages] = useState<ImageSlot[]>([]);
@@ -916,10 +906,11 @@ function AddPackageModal({ onClose, operatorId }: { onClose: () => void; operato
             <label className="block text-xs font-semibold text-gray-600 mb-2">What&apos;s Included</label>
             <ChipGridSelector
               defaults={DEFAULT_INCLUSION_CHIPS}
-              customs={customInclusionChips}
+              customs={inclusionChips}
               value={form.inclusions}
               onChange={(v) => field('inclusions', v)}
-              onAddCustom={(chip) => persistCustomChip('inclusion', chip)}
+              onAddCustom={(chip) => addCustomChip('inclusion', chip)}
+              onRemoveCustom={(chip) => removeCustomChip('inclusion', chip)}
               variant="inclusion"
             />
           </div>
@@ -927,12 +918,14 @@ function AddPackageModal({ onClose, operatorId }: { onClose: () => void; operato
             <label className="block text-xs font-semibold text-gray-600 mb-2">What&apos;s Excluded</label>
             <ChipGridSelector
               defaults={DEFAULT_EXCLUSION_CHIPS}
-              customs={customExclusionChips}
+              customs={exclusionChips}
               value={form.exclusions}
               onChange={(v) => field('exclusions', v)}
-              onAddCustom={(chip) => persistCustomChip('exclusion', chip)}
+              onAddCustom={(chip) => addCustomChip('exclusion', chip)}
+              onRemoveCustom={(chip) => removeCustomChip('exclusion', chip)}
               variant="exclusion"
             />
+            {chipError && <p className="text-red-500 text-xs mt-1">{chipError}</p>}
           </div>
 
           <div>
@@ -996,18 +989,7 @@ type EditFormErrors = Partial<Record<keyof EditFormState | 'images' | 'minimumNu
 
 function EditPackageModal({ pkg, onClose, onDelete, operatorId }: { pkg: OperatorPackage; onClose: () => void; onDelete: () => void; operatorId: string }) {
   const { authState } = useAuth();
-  const customInclusionChips = authState.status === 'authenticated' ? (authState.profile.customInclusionChips ?? []) : [];
-  const customExclusionChips = authState.status === 'authenticated' ? (authState.profile.customExclusionChips ?? []) : [];
-
-  async function persistCustomChip(kind: 'inclusion' | 'exclusion', chip: string) {
-    if (authState.status !== 'authenticated') return;
-    const field = kind === 'inclusion' ? 'customInclusionChips' : 'customExclusionChips';
-    const current = kind === 'inclusion' ? customInclusionChips : customExclusionChips;
-    if (current.includes(chip)) return;
-    await updateDoc(doc(firebaseDb, 'users', authState.user.uid), {
-      [field]: [...current, chip],
-    });
-  }
+  const { inclusionChips, exclusionChips, chipError, addCustomChip, removeCustomChip } = useOperatorCustomChips(authState);
 
   const [form, setForm] = useState<EditFormState>({
     packageName: pkg.packageName,
@@ -1258,10 +1240,11 @@ function EditPackageModal({ pkg, onClose, onDelete, operatorId }: { pkg: Operato
             <label className="block text-xs font-semibold text-gray-600 mb-2">What&apos;s Included</label>
             <ChipGridSelector
               defaults={DEFAULT_INCLUSION_CHIPS}
-              customs={customInclusionChips}
+              customs={inclusionChips}
               value={form.inclusions}
               onChange={(v) => field('inclusions', v)}
-              onAddCustom={(chip) => persistCustomChip('inclusion', chip)}
+              onAddCustom={(chip) => addCustomChip('inclusion', chip)}
+              onRemoveCustom={(chip) => removeCustomChip('inclusion', chip)}
               variant="inclusion"
             />
           </div>
@@ -1269,12 +1252,14 @@ function EditPackageModal({ pkg, onClose, onDelete, operatorId }: { pkg: Operato
             <label className="block text-xs font-semibold text-gray-600 mb-2">What&apos;s Excluded</label>
             <ChipGridSelector
               defaults={DEFAULT_EXCLUSION_CHIPS}
-              customs={customExclusionChips}
+              customs={exclusionChips}
               value={form.exclusions}
               onChange={(v) => field('exclusions', v)}
-              onAddCustom={(chip) => persistCustomChip('exclusion', chip)}
+              onAddCustom={(chip) => addCustomChip('exclusion', chip)}
+              onRemoveCustom={(chip) => removeCustomChip('exclusion', chip)}
               variant="exclusion"
             />
+            {chipError && <p className="text-red-500 text-xs mt-1">{chipError}</p>}
           </div>
 
           <div>

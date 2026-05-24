@@ -10,6 +10,7 @@ import PackageCard from '@/app/components/ui/PackageCard'
 import { collection, query, where, getDocs, limit } from 'firebase/firestore'
 import { normalizePackageLocations, formatLocationSummary } from '@/app/lib/package-locations'
 import { packageImageUrl } from '@/app/lib/package-images'
+import { normalizeActivityTags, formatActivityTagsDisplay, primaryActivityTag } from '@/app/lib/activity-tags'
 import { canonicalMunicipalityLabel } from '@/app/lib/cebu-municipalities'
 import { firebaseDb } from '@/app/lib/firebase'
 import { CategoryFilterCollapsible } from '@/app/components/CategoryFilterCollapsible'
@@ -59,7 +60,7 @@ function TourPackagesContent() {
   const [searchDrawerOpen, setSearchDrawerOpen] = useState(false)
   const [filterPanelOpen, setFilterPanelOpen] = useState(false)
   const [popularActivities, setPopularActivities] = useState<{
-    id: string; activityName: string; activityTag: string;
+    id: string; activityName: string; activityTag: string; activityTags?: unknown;
     activityLocation: string; activityRating: number;
     pricePerGuest: number; activityImages: string[];
   }[]>([])
@@ -308,11 +309,11 @@ function TourPackagesContent() {
               {popularActivities.map((act) => (
                 <div key={act.id} className="shrink-0 w-44 sm:w-52 snap-start">
                   <PackageCard
-                    image={act.activityImages?.[0] ?? ''}
+                    image={packageImageUrl(act.activityImages?.[0]) ?? ''}
                     title={act.activityName}
                     price={act.pricePerGuest}
                     pricePrefix="From"
-                    tag={act.activityTag}
+                    tag={formatActivityTagsDisplay(normalizeActivityTags(act.activityTags, act.activityTag)) || primaryActivityTag(normalizeActivityTags(act.activityTags, act.activityTag))}
                     rating={act.activityRating}
                     location={act.activityLocation}
                     cardKind="activity"

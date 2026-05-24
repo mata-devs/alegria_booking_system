@@ -34,6 +34,7 @@
     "country-data-list": "^1.6.2",
     "firebase": "^12.9.0",
     "firebase-admin": "^13.9.0",
+    "framer-motion": "^12.40.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.562.0",
     "next": "^15.1.15",
