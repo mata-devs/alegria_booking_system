@@ -375,11 +375,11 @@ export function buildCountsByMunicipalitySlug(
   packageByMuni: Map<string, number>,
 ): Map<string, { activityCount: number; packageCount: number }> {
   const result = new Map<string, { activityCount: number; packageCount: number }>()
-  const allSlugs = new Set([...activityByMuni.keys(), ...packageByMuni.keys()])
-  for (const slug of allSlugs) {
-    result.set(slug, {
-      activityCount: activityByMuni.get(slug) ?? 0,
-      packageCount: packageByMuni.get(slug) ?? 0,
+  const allNames = new Set([...activityByMuni.keys(), ...packageByMuni.keys()])
+  for (const name of allNames) {
+    result.set(municipalitySlug(name), {
+      activityCount: activityByMuni.get(name) ?? 0,
+      packageCount: packageByMuni.get(name) ?? 0,
     })
   }
   return result
