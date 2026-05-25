@@ -1,7 +1,6 @@
 'use client'
 
 import Image from 'next/image'
-import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Play } from 'lucide-react'
 import type { HomepageCmsHero, TickerItem } from '@/app/lib/homepage-cms'
@@ -21,8 +20,7 @@ import type { HomepageCmsHero, TickerItem } from '@/app/lib/homepage-cms'
  * Features:
  *  - Background `<Image>` cross-fades to the active municipality's best picture.
  *  - Active row is centered, highlighted, and prefixed with a green ▶ marker.
- *  - Click any visible row → navigate to `/locations/{slug}`.
- *  - Pauses auto-rotate on hover and keyboard focus within the ticker.
+ *  - Pauses auto-rotate on hover within the ticker.
  *  - Respects `prefers-reduced-motion: reduce` (no auto-advance, no transition).
  *  - Truly continuous — no snap-back from last item to first.
  */
@@ -207,7 +205,7 @@ export default function MunicipalityTicker({
             fill
             priority={i === 0}
             sizes="100vw"
-            className={`object-cover transition-opacity duration-700 ease-out ${i === activeSourceIndex ? 'opacity-100' : 'opacity-0'}`}
+            className={`object-cover ${i !== 0 ? 'transition-opacity duration-700 ease-out ' : ''}${i === activeSourceIndex ? 'opacity-100' : 'opacity-0'}`}
           />
         ) : null,
       )}
@@ -263,8 +261,6 @@ export default function MunicipalityTicker({
               aria-live="polite"
               onMouseEnter={() => setPaused(true)}
               onMouseLeave={() => setPaused(false)}
-              onFocus={() => setPaused(true)}
-              onBlur={() => setPaused(false)}
             >
               <div
                 className="pointer-events-none absolute left-10 top-[100px] md:top-[150px] z-20 flex h-[50px] items-center text-green-400 drop-shadow-lg"
@@ -288,18 +284,15 @@ export default function MunicipalityTicker({
                         key={`${it.municipalitySlug}-${loopIndex}`}
                         className={`h-[50px] ${tickerOpacityClass(distance)}`}
                       >
-                        <Link
-                          href={`/locations/${it.municipalitySlug}`}
-                          tabIndex={isActive ? 0 : -1}
-                          aria-current={isActive ? 'true' : undefined}
-                          className={`flex h-full w-full items-center pl-16 pr-2 text-left font-extrabold tracking-tight transition-colors focus-visible:outline-none sm:pl-16 ${
-                            isActive ? 'text-white' : 'text-white/70 hover:text-white'
+                        <span
+                          className={`flex h-full w-full items-center pl-16 pr-2 text-left font-extrabold tracking-tight sm:pl-16 ${
+                            isActive ? 'text-white' : 'text-white/70'
                           }`}
                         >
                           <span className={`drop-shadow text-2xl sm:text-3xl lg:text-4xl transition-transform duration-300 ease-out origin-left ${isActive ? 'scale-[1.18]' : 'scale-100'}`}>
                             {it.displayName}
                           </span>
-                        </Link>
+                        </span>
                       </li>
                     )
                   })}
