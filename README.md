@@ -241,11 +241,48 @@ app/
 │   └── operator/
 │       ├── layout.tsx                   # Operator layout (sidebar nav)
 │       ├── page.tsx                     # Operator home / redirect
-│       ├── _components/
-│       │   └── ui/                      # Local chart UI primitives (shadcn-style)
-│       │       ├── chart.tsx
-│       │       ├── card.tsx
-│       │       └── button.tsx
+│       ├── _components/                 # Shared operator-portal components (decoupled from pages)
+│       │   ├── ui/                      # Local chart UI primitives (shadcn-style)
+│       │   │   ├── chart.tsx
+│       │   │   ├── card.tsx
+│       │   │   └── button.tsx
+│       │   ├── shared/                  # Cross-feature primitives (used by activities + tour-packages)
+│       │   │   ├── StarDisplay.tsx
+│       │   │   ├── StatusBadge.tsx
+│       │   │   ├── FormSectionHeader.tsx
+│       │   │   ├── LivePreviewPane.tsx  # Desktop/mobile preview switcher shell
+│       │   │   ├── compress-image.ts    # Canvas-based JPEG compression
+│       │   │   ├── constants.ts         # MIN_IMAGES, MAX_IMAGES, MAX_SIZE_MB
+│       │   │   ├── types.ts             # ImageSlot discriminated union
+│       │   │   └── images/
+│       │   │       ├── SortableImageCard.tsx   # dnd-kit sortable image slot
+│       │   │       └── PackageImagesEditor.tsx # Image grid + reorder + upload
+│       │   ├── activities/              # Activities CRUD modals + helpers
+│       │   │   ├── AddActivityModal.tsx
+│       │   │   ├── EditActivityModal.tsx
+│       │   │   ├── DeleteActivityModal.tsx
+│       │   │   ├── ViewDetailsModal.tsx
+│       │   │   ├── FiltersModal.tsx
+│       │   │   ├── ActivityPreviewPanel.tsx    # Live preview body
+│       │   │   ├── OperatorActivityCard.tsx
+│       │   │   ├── MunicipalityCombobox.tsx
+│       │   │   ├── compress-image.ts
+│       │   │   ├── constants.ts         # EMPTY_FORM, EMPTY_FILTERS, image limits
+│       │   │   ├── types.ts             # OperatorActivity, Filters, form state, FormErrors
+│       │   │   └── images/
+│       │   │       └── ActivityImagesEditor.tsx
+│       │   └── tour-packages/           # Tour-package CRUD modals + helpers
+│       │       ├── AddPackageModal.tsx
+│       │       ├── EditPackageModal.tsx
+│       │       ├── DeletePackageModal.tsx
+│       │       ├── ViewDetailsModal.tsx
+│       │       ├── FiltersModal.tsx
+│       │       ├── PackagePreviewPanel.tsx     # Live preview body
+│       │       ├── OperatorPackageCard.tsx
+│       │       ├── ItineraryEditor.tsx
+│       │       ├── TagCombobox.tsx
+│       │       ├── constants.ts
+│       │       └── types.ts
 │       ├── bookings/                    # Live booking management (calendar + list)
 │       │   ├── page.tsx
 │       │   ├── calendar.tsx             # Week-view calendar component
@@ -272,9 +309,9 @@ app/
 │       │   ├── piechart2.tsx            # Promo code usage
 │       │   └── payment.tsx              # Payment methods
 │       ├── activities/
-│       │   └── page.tsx                 # Operator-managed activities CRUD
+│       │   └── page.tsx                 # Operator-managed activities CRUD (thin shell; modals + form live in _components/activities/)
 │       ├── tour-packages/
-│       │   └── page.tsx                 # Operator-managed tour packages CRUD
+│       │   └── page.tsx                 # Operator-managed tour packages CRUD (thin shell; modals + form live in _components/tour-packages/)
 │       ├── voucher-codes/
 │       │   └── page.tsx                 # Operator promo / voucher codes
 │       └── settings/
