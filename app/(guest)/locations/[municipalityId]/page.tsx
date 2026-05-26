@@ -209,6 +209,7 @@ function FiltersSidebar({
         <div className="space-y-3">
           <input
             type="range"
+            aria-label="Maximum price"
             min={0}
             max={maxPrice}
             value={priceRange[1]}
@@ -244,7 +245,7 @@ function FiltersSidebar({
               </span>
               <span className="flex gap-0.5 text-[#f1a500]">
                 {[1, 2, 3, 4, 5].map((n) => (
-                  <span key={n} style={{ opacity: n <= Math.floor(r) ? 1 : (n - 0.5 === r ? 0.5 : 0.18) }}>
+                  <span key={n} className={n <= Math.floor(r) ? 'star-full' : (n - 0.5 === r ? 'star-half' : 'star-dim')}>
                     <StarIcon filled />
                   </span>
                 ))}
@@ -447,41 +448,55 @@ export default function MunicipalityView() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f6f4ef]">
-      <section className="relative overflow-hidden">
-        <div className="relative w-full h-[50vh] min-h-[220px]">
-          {cmsHeroImage ? (
-            <Image
-              src={cmsHeroImage}
-              alt={municipalityName}
-              fill
-              sizes="100vw"
-              className="object-cover"
-              priority
-            />
-          ) : (
-            <div className="absolute inset-0 bg-green-900" />
-          )}
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/50" />
-        <div className="absolute top-0 left-0 px-8 md:px-16 pt-5">
-          <nav className="text-white/80 text-sm">
-            <Link href="/" className="hover:text-white transition-colors">Home</Link>
-            <span className="mx-2">›</span>
-            <Link href="/locations" className="hover:text-white transition-colors">Cebu Locations</Link>
-            <span className="mx-2">›</span>
-            <span className="text-white font-medium">{municipalityName}</span>
-          </nav>
-        </div>
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
-          <h1 className="text-white font-extrabold text-4xl sm:text-5xl md:text-6xl drop-shadow-lg tracking-wide">
-            {municipalityName}
-          </h1>
-          <p className="text-white/80 text-sm sm:text-base mt-2">Cebu, Philippines</p>
-        </div>
-      </section>
 
-      <div className="relative z-30 -mt-8 px-4 sm:px-6 md:px-16 mb-4">
-        <SearchBar defaultWhere={municipalityName} className="max-w-4xl mx-auto" />
+      {/* ── Hero band ── */}
+      <div className="bg-white border-b border-gray-100">
+        <div className="max-w-[1280px] mx-auto px-6 lg:px-10 py-6 lg:py-8">
+          {/* Breadcrumb */}
+          <nav className="flex items-center gap-2 text-[11px] font-mono tracking-[.14em] uppercase text-gray-400 mb-3">
+            <Link href="/" className="hover:text-gray-700 transition-colors">Home</Link>
+            <span className="text-gray-300">/</span>
+            <Link href="/locations" className="hover:text-gray-700 transition-colors">Cebu</Link>
+            <span className="text-gray-300">/</span>
+            <span className="text-[#008768]">{loading ? '—' : totalCount} Results</span>
+          </nav>
+
+          <div className="flex items-end justify-between gap-8 flex-wrap">
+            <div className="min-w-0">
+              <h1 className="text-[clamp(1.75rem,3.5vw,2.5rem)] font-extrabold leading-tight tracking-[-0.025em] m-0 text-gray-900">
+                Explore{' '}
+                <em className="not-italic font-normal text-[#008768]">{municipalityName}</em>.
+              </h1>
+              <p className="mt-2 text-sm text-gray-500 max-w-[540px]">
+                {loading ? 'Loading…' : `${totalCount} experience${totalCount !== 1 ? 's' : ''} available in ${municipalityName}, Cebu.`}
+              </p>
+            </div>
+            <div className="hidden lg:flex gap-6 shrink-0">
+              <div className="text-right">
+                <div className="text-2xl font-extrabold tracking-[-0.02em] leading-none text-gray-900">{loading ? '—' : totalCount}</div>
+                <div className="mt-1 text-[10px] font-mono tracking-[.12em] uppercase text-gray-400">experiences</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Search bar ── */}
+      <div className="bg-white border-b border-gray-100 py-4">
+        <div className="max-w-[1280px] mx-auto px-6 lg:px-10">
+          <div className="hidden sm:block">
+            <SearchBar defaultWhere={municipalityName} className="max-w-4xl mx-auto" />
+          </div>
+          <button
+            type="button"
+            className="sm:hidden w-full flex items-center gap-3 border border-gray-200 rounded-full px-5 py-3 bg-white shadow-sm text-sm text-gray-500"
+          >
+            <svg className="w-4 h-4 shrink-0 text-[#008768]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+            </svg>
+            <span className="flex-1 text-left">{municipalityName}</span>
+          </button>
+        </div>
       </div>
 
       <div className="max-w-[1280px] mx-auto w-full px-6 lg:px-10 py-8 pb-20 lg:pb-16">
@@ -523,7 +538,7 @@ export default function MunicipalityView() {
                 {activePills.map(({ label, clear }) => (
                   <span key={label} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#d9efe6] text-[#003a2d] font-medium text-xs">
                     {label}
-                    <button type="button" onClick={clear}
+                    <button type="button" aria-label={`Remove ${label} filter`} onClick={clear}
                       className="w-[18px] h-[18px] rounded-full border-none bg-[#008768]/20 text-[#003a2d] flex items-center justify-center cursor-pointer p-0">
                       <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                         <path d="M2 2l8 8M10 2l-8 8" />
@@ -576,6 +591,7 @@ export default function MunicipalityView() {
                 </button>
 
                 <select
+                  aria-label="Sort by"
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
                   className="text-xs sm:text-[13px] px-3 sm:px-3.5 py-2 sm:py-2.5 border border-gray-200 rounded-full bg-white font-medium text-gray-700 outline-none cursor-pointer max-w-[140px] sm:max-w-none truncate"
