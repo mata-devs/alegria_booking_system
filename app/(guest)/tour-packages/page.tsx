@@ -141,6 +141,7 @@ function FiltersSidebar({
         <div className="space-y-3">
           <input
             type="range"
+            aria-label="Maximum price"
             min={0}
             max={maxPrice}
             value={priceRange[1]}
@@ -173,7 +174,7 @@ function FiltersSidebar({
               </span>
               <span className="flex gap-0.5 text-[#f1a500]">
                 {[1, 2, 3, 4, 5].map((n) => (
-                  <span key={n} style={{ opacity: n <= Math.floor(r) ? 1 : (n - 0.5 === r ? 0.5 : 0.18) }}>
+                  <span key={n} className={n <= Math.floor(r) ? 'star-full' : (n - 0.5 === r ? 'star-half' : 'star-dim')}>
                     <StarIcon filled />
                   </span>
                 ))}
@@ -470,7 +471,7 @@ function TourPackagesContent() {
                 {activePills.map(({ label, clear }) => (
                   <span key={label} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#d9efe6] text-[#003a2d] font-medium text-xs">
                     {label}
-                    <button type="button" onClick={clear}
+                    <button type="button" onClick={clear} aria-label={`Remove ${label} filter`}
                       className="w-[18px] h-[18px] rounded-full border-none bg-[#008768]/20 text-[#003a2d] flex items-center justify-center cursor-pointer p-0">
                       <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                         <path d="M2 2l8 8M10 2l-8 8" />
@@ -524,6 +525,7 @@ function TourPackagesContent() {
                 </button>
 
                 <select
+                  aria-label="Sort by"
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
                   className="text-xs sm:text-[13px] px-3 sm:px-3.5 py-2 sm:py-2.5 border border-gray-200 rounded-full bg-white font-medium text-gray-700 outline-none cursor-pointer max-w-[140px] sm:max-w-none truncate"

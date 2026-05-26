@@ -137,6 +137,7 @@ function FiltersSidebar({
         <div className="space-y-3">
           <input
             type="range"
+            aria-label="Maximum price"
             min={0}
             max={maxPrice}
             value={priceRange[1]}
@@ -170,7 +171,7 @@ function FiltersSidebar({
               </span>
               <span className="flex gap-0.5 text-[#f1a500]">
                 {[1,2,3,4,5].map((n) => (
-                  <span key={n} style={{ opacity: n <= Math.floor(r) ? 1 : (n - 0.5 === r ? 0.5 : 0.18) }}>
+                  <span key={n} className={n <= Math.floor(r) ? 'star-full' : (n - 0.5 === r ? 'star-half' : 'star-dim')}>
                     <StarIcon filled />
                   </span>
                 ))}
@@ -388,49 +389,20 @@ function ActivitiesContent() {
       {/* ── Compact search bar ── */}
       <div className="bg-white border-b border-gray-100 py-4">
         <div className="max-w-[1280px] mx-auto px-6 lg:px-10">
-          {/* Desktop pill bar */}
-          <div className="hidden sm:grid grid-cols-[1.4fr_1fr_1fr_auto] border border-gray-200 rounded-full p-1 bg-white shadow-sm">
-            <div className="px-5 py-2">
-              <div className="text-[10px] font-mono tracking-[.14em] uppercase text-gray-400">Where</div>
-              <input
-                type="text"
-                value={searchLocation}
-                onChange={(e) => setSearchLocation(e.target.value)}
-                placeholder="Any location"
-                className="text-sm font-medium text-gray-800 w-full bg-transparent outline-none mt-0.5 placeholder:text-gray-400"
-              />
-            </div>
-            <div className="px-5 py-2 border-l border-gray-100">
-              <div className="text-[10px] font-mono tracking-[.14em] uppercase text-gray-400">When</div>
-              <input
-                type="date"
-                value={searchDate}
-                onChange={(e) => setSearchDate(e.target.value)}
-                className="text-sm font-medium text-gray-800 w-full bg-transparent outline-none mt-0.5 [color-scheme:light]"
-              />
-            </div>
-            <div className="px-5 py-2 border-l border-gray-100">
-              <div className="text-[10px] font-mono tracking-[.14em] uppercase text-gray-400">Travelers</div>
-              <input
-                type="number"
-                min={1}
-                value={searchTravelers}
-                onChange={(e) => setSearchTravelers(e.target.value)}
-                placeholder="1 guest"
-                className="text-sm font-medium text-gray-800 w-full bg-transparent outline-none mt-0.5 placeholder:text-gray-400"
-              />
-            </div>
-            <div className="p-1">
-              <button
-                type="button"
-                className="flex items-center gap-2 bg-[#008768] hover:bg-[#003a2d] text-white font-medium px-6 py-3 rounded-full text-sm transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
-                </svg>
-                Search
-              </button>
-            </div>
+          {/* Desktop search bar */}
+          <div className="hidden sm:block">
+            <SearchBar
+              className="max-w-4xl mx-auto"
+              defaultWhere={searchLocation}
+              defaultWhen={searchDate}
+              defaultTravelers={searchTravelers}
+              onSearch={({ where, when, travelers }) => {
+                setSearchLocation(where)
+                setSearchDate(when)
+                setSearchTravelers(travelers)
+                setVisibleCount(12)
+              }}
+            />
           </div>
 
           {/* Mobile search trigger */}
@@ -489,7 +461,7 @@ function ActivitiesContent() {
                 {activePills.map(({ label, clear }) => (
                   <span key={label} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#d9efe6] text-[#003a2d] font-medium text-xs">
                     {label}
-                    <button type="button" onClick={clear}
+                    <button type="button" onClick={clear} aria-label={`Remove ${label} filter`}
                       className="w-[18px] h-[18px] rounded-full border-none bg-[#008768]/20 text-[#003a2d] flex items-center justify-center cursor-pointer p-0">
                       <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                         <path d="M2 2l8 8M10 2l-8 8" />
@@ -545,6 +517,7 @@ function ActivitiesContent() {
                 </button>
 
                 <select
+                  aria-label="Sort by"
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
                   className="text-xs sm:text-[13px] px-3 sm:px-3.5 py-2 sm:py-2.5 border border-gray-200 rounded-full bg-white font-medium text-gray-700 outline-none cursor-pointer max-w-[140px] sm:max-w-none truncate"
