@@ -22,6 +22,7 @@ export default function ActivityCard({ activity, date, travelers, dotSealGranted
   return (
     <PackageCard
       image={activity.image}
+      images={activity.images}
       title={activity.title}
       price={activity.price}
       pricePrefix="From"

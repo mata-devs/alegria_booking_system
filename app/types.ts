@@ -22,6 +22,7 @@ export interface Activity {
   childAgeMax?: number
   maxGuests?: number
   image: string
+  images?: string[]
   municipalityId: string
   duration?: string
 }

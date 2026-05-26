@@ -568,6 +568,7 @@ function TourPackagesContent() {
                   <PackageCard
                     key={pkg.id}
                     image={packageImageUrl(pkg.packageImages[0])}
+                    images={pkg.packageImages.filter(Boolean).map(packageImageUrl)}
                     title={pkg.packageName}
                     price={pkg.pricePerPerson}
                     pricePrefix="Starting from"
@@ -628,6 +629,7 @@ function TourPackagesContent() {
           </div>
           <div className="relative">
             <button
+              type="button"
               onClick={() => carouselRef.current?.scrollBy({ left: -320, behavior: 'smooth' })}
               className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 bg-white shadow-md border border-gray-200 rounded-full p-2 hover:bg-gray-50 transition-colors hidden sm:flex"
               aria-label="Scroll left"
@@ -668,6 +670,7 @@ function TourPackagesContent() {
               </div>
             </div>
             <button
+              type="button"
               onClick={() => carouselRef.current?.scrollBy({ left: 320, behavior: 'smooth' })}
               className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 bg-white shadow-md border border-gray-200 rounded-full p-2 hover:bg-gray-50 transition-colors hidden sm:flex"
               aria-label="Scroll right"

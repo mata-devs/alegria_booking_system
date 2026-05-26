@@ -266,6 +266,8 @@ function ActivitiesContent() {
         const mapped: Activity[] = snap.docs.map((d, idx) => {
           const data = d.data()
           const tags = normalizeActivityTags(data.activityTags, data.activityTag)
+          const rawImgs: unknown[] = Array.isArray(data.activityImages) ? data.activityImages : []
+          const images = rawImgs.map((img) => packageImageUrl(img as string)).filter(Boolean)
           return {
             id: idx,
             firestoreId: d.id,
@@ -277,7 +279,8 @@ function ActivitiesContent() {
             reviewCount: 0,
             price: data.pricePerGuest ?? 0,
             maxGuests: data.maximumNumberOfPeople ?? data.maxSlots ?? 30,
-            image: packageImageUrl(data.activityImages?.[0]) ?? '',
+            image: images[0] ?? '',
+            images,
             municipalityId: data.activityLocation ?? '',
             duration: data.duration ?? '',
           }
