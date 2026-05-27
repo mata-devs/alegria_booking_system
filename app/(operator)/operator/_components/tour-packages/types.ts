@@ -1,6 +1,7 @@
 import type { Timestamp } from 'firebase/firestore';
 import type { ActivityTag, StoredActivityTag } from '@/app/lib/activity-tags';
 import type { PackageImage } from '@/app/lib/package-images';
+import type { PricingMode, PricingTier } from '@/app/lib/pricing-tiers';
 
 export type { ImageSlot } from '@/app/(operator)/operator/_components/shared/types';
 
@@ -16,10 +17,10 @@ export interface OperatorPackage {
   id: string;
   packageName: string;
   packageDescription: string;
-  pricePerPerson: number;
-  priceAdult?: number;
-  priceChild?: number;
-  childAgeMax?: number;
+  pricePerPerson: number; // denormalized "from" price (lowest per-person across tiers)
+  pricingMode: PricingMode;
+  pricingTiers: PricingTier[];
+  childAgeMax?: number; // adultChild only
   minimumNumberOfPeople: number;
   maximumNumberOfPeople: number;
   packageLocations: string[];
@@ -28,7 +29,8 @@ export interface OperatorPackage {
   exclusions: string[];
   packageItinerary: ItineraryStep[];
   packageImages: PackageImage[];
-  packageTag: StoredActivityTag;
+  packageTag: StoredActivityTag; // primary (legacy / single-tag consumers)
+  packageTags: StoredActivityTag[];
   packageRating: number;
   status: PackageStatus;
   operatorId: string;
@@ -47,15 +49,14 @@ export interface Filters {
 export interface AddFormState {
   packageName: string;
   packageDescription: string;
-  pricePerPerson: string;
-  priceAdult: string;
-  priceChild: string;
+  pricingMode: PricingMode;
+  pricingTiers: PricingTier[];
   childAgeMax: string;
   minimumNumberOfPeople: string;
   maximumNumberOfPeople: string;
   packageLocations: string[];
   duration: string;
-  packageTag: ActivityTag | '';
+  packageTags: string[];
   inclusions: string[];
   exclusions: string[];
   packageItinerary: ItineraryStep[];
@@ -68,15 +69,14 @@ export type AddFormErrors = Partial<
 export interface EditFormState {
   packageName: string;
   packageDescription: string;
-  pricePerPerson: string;
-  priceAdult: string;
-  priceChild: string;
+  pricingMode: PricingMode;
+  pricingTiers: PricingTier[];
   childAgeMax: string;
   minimumNumberOfPeople: string;
   maximumNumberOfPeople: string;
   packageLocations: string[];
   duration: string;
-  packageTag: ActivityTag | '';
+  packageTags: string[];
   status: PackageStatus;
   inclusions: string[];
   exclusions: string[];
@@ -92,10 +92,11 @@ export type PackagePreviewFormState = Pick<
   | 'packageName'
   | 'packageDescription'
   | 'packageLocations'
-  | 'pricePerPerson'
+  | 'pricingMode'
+  | 'pricingTiers'
   | 'maximumNumberOfPeople'
   | 'duration'
-  | 'packageTag'
+  | 'packageTags'
   | 'inclusions'
   | 'exclusions'
   | 'packageItinerary'

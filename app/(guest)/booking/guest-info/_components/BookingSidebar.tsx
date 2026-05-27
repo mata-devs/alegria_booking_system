@@ -12,6 +12,18 @@ import {
     computeBookingTotals,
     DEFAULT_SERVICE_CHARGE_PER_BOOKING,
 } from '@/app/lib/platform-pricing';
+import {
+    formatVoucherDiscountDetail,
+    parseVoucherDiscount,
+    type VoucherDiscount,
+} from '@/app/lib/voucher-discount';
+import {
+    resolveTier,
+    computeTierBase,
+    lowestFromPrice,
+    type PricingMode,
+    type PricingTier,
+} from '@/app/lib/pricing-tiers';
 import { ItemDetailModal } from '@/app/(guest)/booking/_components/ItemDetailModal';
 
 const MAX_GUESTS = 30;
@@ -23,8 +35,8 @@ const peso = (n: number) =>
 type AppliedPromo = {
     id: string;
     code: string;
-    discount: number;
     operatorUid?: string;
+    discount: VoucherDiscount;
 } & Record<string, unknown>;
 
 interface BookingSidebarProps {
@@ -40,7 +52,7 @@ interface BookingSidebarProps {
     onPaymentMethodChange?: (method: PaymentMethod) => void;
     onContinue?: () => void;
     initialPromoCode?: string;
-    onPromoApplied?: (promo: { code: string; discount: number; operatorUid?: string }) => void;
+    onPromoApplied?: (promo: { code: string; discount: VoucherDiscount; operatorUid?: string }) => void;
     onPromoRemoved?: () => void;
     priceOverride?: number;
     minGuests?: number;
@@ -84,6 +96,8 @@ export function BookingSidebar({
     const [pricePerGuest, setPricePerGuest] = useState<number | null>(priceOverride ?? null);
     const [priceLoading, setPriceLoading] = useState(priceOverride === undefined);
     const [serviceChargePerBooking, setServiceChargePerBooking] = useState<number | null>(null);
+    const [pricingMode, setPricingMode] = useState<PricingMode>('standard');
+    const [pricingTiers, setPricingTiers] = useState<PricingTier[]>([]);
 
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>(paymentMethod ?? "Gcash / Maya");
 
@@ -122,7 +136,10 @@ export function BookingSidebar({
                 const priceField = isTourPackage ? "pricePerPerson" : "pricePerGuest";
                 const snap = await getDoc(doc(firestore, collectionName, selectedActivityId));
                 if (!cancelled && snap.exists()) {
-                    setPricePerGuest(snap.data()[priceField] ?? null);
+                    const data = snap.data();
+                    setPricePerGuest(data[priceField] ?? null);
+                    setPricingMode(data.pricingMode === "adultChild" ? "adultChild" : "standard");
+                    setPricingTiers(Array.isArray(data.pricingTiers) ? (data.pricingTiers as PricingTier[]) : []);
                 }
             } catch {
                 // price stays null
@@ -216,7 +233,9 @@ export function BookingSidebar({
             const voucherDoc = snap.docs[0];
             const vd = voucherDoc.data();
             if (vd.voucherStatus !== "Active") throw new Error("This promo code is no longer active.");
-            if (vd.numberOfUsesAllowed !== undefined && vd.usageCount !== undefined && vd.usageCount >= vd.numberOfUsesAllowed) {
+            const usesAllowed = Number(vd.numberOfUsersAllowed);
+            const usesUsed = Number(vd.numberOfUsersUsed);
+            if (Number.isFinite(usesAllowed) && usesAllowed > 0 && usesUsed >= usesAllowed) {
                 throw new Error("Sorry, this promo code has reached its usage limit.");
             }
             if (vd.expirationDate && new Date() > vd.expirationDate.toDate()) {
@@ -234,9 +253,13 @@ export function BookingSidebar({
                 if (!active) throw new Error("The operator associated with this voucher is currently inactive.");
             }
 
-            setAppliedPromo({ id: voucherDoc.id, ...vd } as AppliedPromo);
+            const discount = parseVoucherDiscount(vd as Record<string, unknown>);
+            if (discount.discountValue <= 0) {
+                throw new Error("This promo code has an invalid discount.");
+            }
+            setAppliedPromo({ id: voucherDoc.id, code: vd.code as string, discount, operatorUid: vd.operatorUid as string | undefined });
             setPromoError("");
-            onPromoApplied?.({ code: vd.code, discount: vd.discount, operatorUid: vd.operatorUid });
+            onPromoApplied?.({ code: vd.code as string, discount, operatorUid: vd.operatorUid as string | undefined });
         } catch (err) {
             setPromoError(err instanceof Error ? err.message : "Failed to validate promo code.");
             setAppliedPromo(null);
@@ -257,11 +280,15 @@ export function BookingSidebar({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [initialPromoCode]);
 
-    const price = pricePerGuest ?? 0;
-    const baseAmount = price * guestCount;
+    const hasTiers = pricingTiers.length > 0;
+    const activeTier = hasTiers ? resolveTier(pricingTiers, guestCount) : null;
+    const fromPrice = hasTiers ? lowestFromPrice(pricingMode, pricingTiers) : (pricePerGuest ?? 0);
+    const baseAmount = hasTiers
+        ? computeTierBase(pricingMode, activeTier, adultCount, childCount)
+        : (pricePerGuest ?? 0) * guestCount;
     const charge = serviceChargePerBooking ?? DEFAULT_SERVICE_CHARGE_PER_BOOKING;
     const pricingReady = serviceChargePerBooking !== null;
-    const totals = computeBookingTotals(baseAmount, charge, appliedPromo?.discount);
+    const totals = computeBookingTotals(baseAmount, charge, appliedPromo?.discount ?? null);
 
     return (
         <>
@@ -288,9 +315,11 @@ export function BookingSidebar({
                         ) : (
                             <>
                                 <span className="text-4xl font-extrabold text-black">
-                                    ₱ {(pricePerGuest ?? 0).toLocaleString("en-PH")}
+                                    ₱ {fromPrice.toLocaleString("en-PH")}
                                 </span>
-                                <span className="text-gray-500 font-medium mb-1.5">/ person</span>
+                                <span className="text-gray-500 font-medium mb-1.5">
+                                    {pricingMode === 'adultChild' ? '/ adult, from' : '/ person, from'}
+                                </span>
                             </>
                         )}
                     </div>
@@ -399,15 +428,42 @@ export function BookingSidebar({
                             )}
                         </div>
                         {promoError && <p className="text-red-500 text-[11px] mt-2 font-semibold flex items-center gap-1"><span>⚠</span> {promoError}</p>}
-                        {appliedPromo && <p className="text-[#74C00F] text-[11px] mt-2 font-semibold flex items-center gap-1"><span>✓</span> Code Applied! ({appliedPromo.discount}% off)</p>}
+                        {appliedPromo && (
+                            <p className="text-[#74C00F] text-[11px] mt-2 font-semibold flex items-center gap-1">
+                                <span>✓</span> Code Applied! ({formatVoucherDiscountDetail(appliedPromo.discount)})
+                            </p>
+                        )}
                     </div>
 
                     {/* Pricing breakdown */}
                     <div className="mt-8 space-y-4">
-                        <div className="flex justify-between text-gray-500 font-medium text-sm">
-                            <span>{priceLoading ? "Loading..." : `₱${(pricePerGuest ?? 0).toLocaleString("en-PH")} × ${guestCount} ${guestCount === 1 ? "person" : "persons"}`}</span>
-                            <span className="text-black">{priceLoading ? "—" : peso(baseAmount)}</span>
-                        </div>
+                        {hasTiers && activeTier && (
+                            <span className="inline-flex items-center gap-1.5 bg-[#f0fce0] text-[#5a9608] text-[11px] font-bold px-3 py-1 rounded-full">
+                                ★ {activeTier.minPax} to {activeTier.maxPax} pax bracket
+                            </span>
+                        )}
+                        {hasTiers && !activeTier && (
+                            <p className="text-[11px] text-amber-600 font-semibold">No price bracket for {guestCount} guests.</p>
+                        )}
+                        {hasTiers && pricingMode === 'adultChild' && activeTier ? (
+                            <>
+                                <div className="flex justify-between text-gray-500 font-medium text-sm">
+                                    <span>₱{(activeTier.priceAdult ?? 0).toLocaleString("en-PH")} × {adultCount} {adultCount === 1 ? "adult" : "adults"}</span>
+                                    <span className="text-black">{peso((activeTier.priceAdult ?? 0) * adultCount)}</span>
+                                </div>
+                                {childCount > 0 && (
+                                    <div className="flex justify-between text-gray-500 font-medium text-sm">
+                                        <span>₱{(activeTier.priceChild ?? 0).toLocaleString("en-PH")} × {childCount} {childCount === 1 ? "child" : "children"}</span>
+                                        <span className="text-black">{peso((activeTier.priceChild ?? 0) * childCount)}</span>
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            <div className="flex justify-between text-gray-500 font-medium text-sm">
+                                <span>{priceLoading ? "Loading..." : `₱${(hasTiers && activeTier ? (activeTier.price ?? 0) : (pricePerGuest ?? 0)).toLocaleString("en-PH")} × ${guestCount} ${guestCount === 1 ? "person" : "persons"}`}</span>
+                                <span className="text-black">{priceLoading ? "—" : peso(baseAmount)}</span>
+                            </div>
+                        )}
                         <div className="flex justify-between text-gray-500 font-medium text-sm">
                             <span>Convenience Fee</span>
                             <span className="text-black">
@@ -416,7 +472,7 @@ export function BookingSidebar({
                         </div>
                         {appliedPromo && (
                             <div className="flex justify-between text-[#74C00F] font-medium text-sm">
-                                <span>Discount ({appliedPromo.discount}%)</span>
+                                <span>Discount ({formatVoucherDiscountDetail(appliedPromo.discount)})</span>
                                 <span>-{pricingReady ? peso(totals.discountAmount) : "—"}</span>
                             </div>
                         )}

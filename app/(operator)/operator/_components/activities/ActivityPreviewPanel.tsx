@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { InclusionChipBadges } from '@/app/components/ui/InclusionChipBadges';
+import { lowestFromPrice, tiersBounds } from '@/app/lib/pricing-tiers';
 import type { AddFormState, ImageSlot } from './types';
 export function ActivityPreviewPanel({
   form,
@@ -17,8 +18,8 @@ export function ActivityPreviewPanel({
   const displayName = form.activityName || 'Activity Name';
   const displayDetails = form.activityDetails || 'Activity details will appear here.';
   const displayLocation = form.activityLocation || 'Location';
-  const displayPrice = parseFloat(form.pricePerGuest) || 0;
-  const displayMax = Number(form.maximumNumberOfPeople) || 30;
+  const displayPrice = lowestFromPrice(form.pricingMode, form.pricingTiers);
+  const displayMax = tiersBounds(form.pricingTiers).maxPax || 30;
 
   const heroImgs = imgSrcs.slice(0, 3);
 
@@ -174,6 +175,28 @@ export function ActivityPreviewPanel({
 
   const ContentSections = () => (
     <>
+      {/* Pricing by group size */}
+      {form.pricingTiers.length > 0 && (
+        <div className="py-8 border-b border-gray-100">
+          <div className="flex items-baseline gap-4 mb-5">
+            <span className="text-4xl font-extrabold text-gray-100 leading-none select-none">₱</span>
+            <h3 className="text-lg font-extrabold text-gray-900">Pricing by group size</h3>
+          </div>
+          <div className="space-y-2">
+            {form.pricingTiers.map((t, i) => (
+              <div key={i} className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-4 py-2.5 text-sm">
+                <span className="font-semibold text-gray-700">{t.minPax} to {t.maxPax} pax</span>
+                <span className="font-bold text-gray-900">
+                  {form.pricingMode === 'adultChild'
+                    ? `Adult ₱${(t.priceAdult ?? 0).toLocaleString()} · Child ₱${(t.priceChild ?? 0).toLocaleString()}`
+                    : `₱${(t.price ?? 0).toLocaleString()} / person`}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 01 About */}
       <div className="py-8 border-b border-gray-100">
         <div className="flex items-baseline gap-4 mb-5">

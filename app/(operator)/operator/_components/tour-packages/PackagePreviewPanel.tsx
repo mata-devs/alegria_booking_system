@@ -6,6 +6,7 @@ import { InclusionChipBadges } from '@/app/components/ui/InclusionChipBadges';
 import type { ImageSlot } from '@/app/(operator)/operator/_components/shared/types';
 import type { PackagePreviewFormState } from './types'
 import { formatLocationSummary } from '@/app/lib/package-locations';
+import { lowestFromPrice, tiersBounds } from '@/app/lib/pricing-tiers';
 
 export function PackagePreviewPanel({
   form,
@@ -21,10 +22,10 @@ export function PackagePreviewPanel({
   const displayName = form.packageName || 'Package Name';
   const displayDetails = form.packageDescription || 'Package description will appear here.';
   const displayLocation = form.packageLocations.length ? formatLocationSummary(form.packageLocations) : 'Location';
-  const displayPrice = parseFloat(form.pricePerPerson) || 0;
-  const displayMax = Number(form.maximumNumberOfPeople) || 10;
+  const displayPrice = lowestFromPrice(form.pricingMode, form.pricingTiers);
+  const displayMax = tiersBounds(form.pricingTiers).maxPax || 10;
   const displayDuration = form.duration || '—';
-  const tagList = form.packageTag ? [form.packageTag] : [];
+  const tagList = form.packageTags ?? [];
 
   const heroImgs = imgSrcs.slice(0, 3);
   const itinerarySteps = form.packageItinerary ?? [];
@@ -189,6 +190,28 @@ export function PackagePreviewPanel({
 
   const ContentSections = () => (
     <>
+      {/* Pricing by group size */}
+      {form.pricingTiers.length > 0 && (
+        <div className="py-8 border-b border-gray-100">
+          <div className="flex items-baseline gap-4 mb-5">
+            <span className="text-4xl font-extrabold text-gray-100 leading-none select-none">₱</span>
+            <h3 className="text-lg font-extrabold text-gray-900">Pricing by group size</h3>
+          </div>
+          <div className="space-y-2">
+            {form.pricingTiers.map((t, i) => (
+              <div key={i} className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-4 py-2.5 text-sm">
+                <span className="font-semibold text-gray-700">{t.minPax} to {t.maxPax} pax</span>
+                <span className="font-bold text-gray-900">
+                  {form.pricingMode === 'adultChild'
+                    ? `Adult ₱${(t.priceAdult ?? 0).toLocaleString()} · Child ₱${(t.priceChild ?? 0).toLocaleString()}`
+                    : `₱${(t.price ?? 0).toLocaleString()} / person`}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 01 About */}
       <div className="py-8 border-b border-gray-100">
         <div className="flex items-baseline gap-4 mb-5">

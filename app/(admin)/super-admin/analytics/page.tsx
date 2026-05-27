@@ -4,9 +4,10 @@ import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { BookOpen, CreditCard, SlidersHorizontal, Wallet } from "lucide-react";
 import {
-  getAnalyticsDashboard,
+  subscribeAnalyticsDashboard,
   type AnalyticsDashboardResponse,
 } from "@/app/lib/analytics-service";
+import { useAuth } from "@/app/context/AuthContext";
 
 const Filters = dynamic(
   () => import("@/app/(admin)/super-admin/analytics/_components/filter"),
@@ -29,6 +30,7 @@ function formatPeso(value: number) {
 }
 
 export default function SuperAdminAnalyticsPage() {
+  const { authState } = useAuth();
   const [dashboard, setDashboard] = useState<AnalyticsDashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,28 +38,19 @@ export default function SuperAdminAnalyticsPage() {
   const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
+    if (authState.status !== "authenticated") return;
+    setLoading(true);
+    setError(null);
 
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await getAnalyticsDashboard(
-          selectedOperators.length > 0 ? { operators: selectedOperators } : undefined,
-        );
-        if (!cancelled) setDashboard(data);
-      } catch (e: unknown) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to fetch analytics.");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedOperators]);
+    // Super-admin scope: all bookings, optionally filtered to selected operators.
+    const unsub = subscribeAnalyticsDashboard(
+      selectedOperators.length > 0 ? { operators: selectedOperators } : {},
+      { role: "super_admin", uid: authState.user.uid },
+      (d) => { setDashboard(d); setLoading(false); },
+      (e) => { setError(e.message); setLoading(false); },
+    );
+    return () => unsub();
+  }, [authState.status, selectedOperators]);
 
   const operatorOptions = useMemo(
     () => dashboard?.filters.options.operators ?? [],

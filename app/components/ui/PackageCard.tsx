@@ -170,12 +170,20 @@ export default function PackageCard({
     setImgIdx((i) => (i + 1) % imgList.length)
   }
 
+  // ─── PILL OVERFLOW ──────────────────────────────────────────────────────
+  // Max 2 visible chips; rest collapse to a single white "+N" chip with a
+  // title tooltip listing the hidden labels. NEVER wraps to a 2nd row.
+  // ────────────────────────────────────────────────────────────────────────
+  const VISIBLE_PILLS = 2
+  const visiblePills = tagList.slice(0, VISIBLE_PILLS)
+  const hiddenPillCount = tagList.length - visiblePills.length
+
   const card = (
     <div
       // ── CARD SIZE ──────────────────────────────────────────────────────────
-      // Width:  sm:max-w-[280px] — change this value to resize card width (sm+ only, mobile fills column)
-      // Height: aspect-[3/4]  — change ratio (e.g. aspect-[4/5], aspect-square) to resize height
-      // Wide variant (homepage horizontal cards): h-52 — change to resize that variant
+      // Width:  sm:max-w-[280px] — change to resize card width (sm+; mobile fills column)
+      // Height: aspect-[3/4]    — change ratio (e.g. aspect-[4/5], aspect-square)
+      // Wide variant (homepage horizontal cards): h-52
       // ───────────────────────────────────────────────────────────────────────
       className={`relative rounded-2xl overflow-hidden group ${wide ? 'h-52' : 'w-full min-w-0 aspect-[3/4]'} ${isInteractive ? 'cursor-pointer' : ''} ${className}`}
       onClick={onClick}
@@ -198,7 +206,6 @@ export default function PackageCard({
       {/* Carousel controls — shown on hover when multiple images exist */}
       {hasMultiple && (
         <>
-          {/* Dot indicators */}
           <div className="absolute top-2 left-0 right-0 z-30 flex justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
             {imgList.map((_, i) => (
               <button
@@ -210,8 +217,6 @@ export default function PackageCard({
               />
             ))}
           </div>
-
-          {/* Prev button */}
           <button
             type="button"
             aria-label="Previous image"
@@ -220,8 +225,6 @@ export default function PackageCard({
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
-
-          {/* Next button */}
           <button
             type="button"
             aria-label="Next image"
@@ -233,23 +236,33 @@ export default function PackageCard({
         </>
       )}
 
-      {/* Gradient overlay — image clear top ~40%, transitions to near-black at bottom
-          Adjust the rgba stop values to control gradient strength */}
+      {/* Gradient overlay — image clear top ~35%, transitions to near-black at bottom. */}
       <div
         className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent_35%,rgba(0,0,0,0.55)_60%,rgba(0,0,0,0.93)_100%)]"
       />
 
-      {/* Top-left tag chips — supports single (`tag`) or multi (`tags`). */}
+      {/* Top-left tag chips — supports single (`tag`) or multi (`tags`).
+          NEVER wraps: max 2 chips visible; the rest collapse into a single
+          white "+N" chip whose `title` lists the hidden labels.
+          Each chip clips at max-w-[120px] with ellipsis if a label is unusually long. */}
       {tagList.length > 0 && (
-        <div className="absolute top-3 left-3 right-12 flex flex-wrap gap-1.5 z-10">
-          {tagList.map((t) => (
+        <div className="absolute top-2.5 left-2.5 right-12 sm:top-3 sm:left-3 flex flex-nowrap gap-1.5 z-10 min-w-0">
+          {visiblePills.map((t) => (
             <span
               key={t}
-              className="bg-green-500 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm"
+              className="bg-green-600/95 text-white text-[10px] sm:text-xs font-semibold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full shadow-sm whitespace-nowrap overflow-hidden text-ellipsis max-w-[120px] min-w-0 shrink backdrop-blur-sm"
             >
               {t}
             </span>
           ))}
+          {hiddenPillCount > 0 && (
+            <span
+              className="bg-white/95 text-gray-900 text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full shadow-sm whitespace-nowrap shrink-0 backdrop-blur-sm"
+              title={tagList.slice(VISIBLE_PILLS).join(', ')}
+            >
+              +{hiddenPillCount}
+            </span>
+          )}
         </div>
       )}
 
@@ -262,11 +275,12 @@ export default function PackageCard({
       )}
 
       {/* Bottom content — p-3 on mobile, p-5 on sm+ */}
-      <div className="absolute inset-0 flex flex-col justify-end p-3 sm:p-5 gap-1">
-        {/* Title — wraps to 2 lines; min-h reserves space so 1-line titles don't push the
-            short cards up out of alignment with adjacent 2-line titles in a grid. */}
+      <div className="absolute inset-0 flex flex-col justify-end p-3 sm:p-5 gap-0.5 sm:gap-1">
+        {/* Title — wraps to 2 lines; min-h reserves space so 1-line titles don't push
+            short cards out of alignment with adjacent 2-line titles in a grid.
+            Mobile uses tighter 15px / leading-tight; sm+ goes to text-xl. */}
         <div className="flex flex-wrap items-start gap-2">
-          <h3 className="text-white font-bold text-base sm:text-xl leading-tight drop-shadow line-clamp-2 flex-1 min-w-0 break-words min-h-[2lh]">
+          <h3 className="text-white font-bold text-[15px] sm:text-xl leading-tight drop-shadow line-clamp-2 flex-1 min-w-0 break-words min-h-[2lh]">
             {title}
           </h3>
           <DotSealBadge granted={dotSealGranted} size="sm" showLabel={false} />
@@ -278,7 +292,7 @@ export default function PackageCard({
         )}
 
         {location && (
-          <div className="flex items-center gap-1 text-white/70 text-xs mt-0.5">
+          <div className="flex items-center gap-1 text-white/75 text-[11px] sm:text-xs mt-0.5">
             <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20">
               <path
                 fillRule="evenodd"
@@ -291,26 +305,23 @@ export default function PackageCard({
         )}
 
         {createdAt && (
-          <p className="text-white/55 text-xs mt-0.5">{createdAt}</p>
+          <p className="text-white/55 text-[11px] sm:text-xs mt-0.5">{createdAt}</p>
         )}
 
-        {/* Pill badges row */}
+        {/* Pill badges row — duration + Min. N (logistics) come FIRST so they
+            stay visually grouped on the same line. Rating / "Be the first to
+            review" follows, and is the one that wraps to a second row when
+            space is tight (the less critical info). */}
         {(rating !== undefined || duration || status || minGuests !== undefined) && (
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap mt-1">
-            {rating !== undefined && (
-              <span className="flex items-center gap-1 sm:gap-1.5 bg-black/45 text-white text-xs px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full backdrop-blur-sm">
-                <span className="font-semibold">{rating.toFixed(1)}</span>
-                <Stars rating={rating} />
-              </span>
-            )}
+          <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap mt-0.5 sm:mt-1">
             {duration && (
-              <span className="bg-black/45 text-white text-xs px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full backdrop-blur-sm font-medium">
+              <span className="bg-black/45 text-white text-[10px] sm:text-xs px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-full backdrop-blur-sm font-medium">
                 {duration}
               </span>
             )}
             {minGuests !== undefined && minGuests > 1 && (
               <span
-                className="flex items-center gap-1 bg-black/45 text-white text-xs px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full backdrop-blur-sm font-medium"
+                className="flex items-center gap-1 bg-black/45 text-white text-[10px] sm:text-xs px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-full backdrop-blur-sm font-medium"
                 title={`Minimum ${minGuests} guests required to book`}
               >
                 <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -319,21 +330,32 @@ export default function PackageCard({
                 Min. {minGuests}
               </span>
             )}
+            {rating !== undefined && rating > 0 ? (
+              <span className="flex items-center gap-1 sm:gap-1.5 bg-black/45 text-white text-[10px] sm:text-xs px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-full backdrop-blur-sm">
+                <span className="font-semibold">{rating.toFixed(1)}</span>
+                <Stars rating={rating} />
+              </span>
+            ) : rating !== undefined ? (
+              <span className="bg-white/15 text-white text-[10px] sm:text-xs px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-full backdrop-blur-sm font-medium italic">
+                Be the first to review
+              </span>
+            ) : null}
             {status}
           </div>
         )}
 
-        {/* Price — prefix text-xs above, amount text-xl mobile / text-2xl sm+. Adjust here */}
+        {/* Price — prefix text-[10px] above, amount text-lg mobile / text-2xl sm+.
+            Smaller mobile than before (was text-xl/20px) for the denser "narrower-card" feel. */}
         <div className="mt-1 sm:mt-1.5">
           {pricePrefix && (
-            <p className="text-white/70 text-xs font-normal leading-none mb-0.5 sm:mb-1">{pricePrefix}</p>
+            <p className="text-white/70 text-[10px] sm:text-xs font-normal leading-none mb-0.5 sm:mb-1">{pricePrefix}</p>
           )}
-          <p className="text-white font-bold text-xl sm:text-2xl leading-none">
+          <p className="text-white font-bold text-lg sm:text-2xl leading-none drop-shadow-sm">
             ₱{price.toLocaleString()}
           </p>
         </div>
 
-        {/* CTA button — py-2 text-sm mobile, py-3 text-base sm+. Adjust here */}
+        {/* CTA button — py-2 text-[13px] mobile, py-3 text-base sm+. */}
         {ctaLabel && (
           <button
             type="button"
@@ -341,7 +363,7 @@ export default function PackageCard({
               e.stopPropagation()
               onCta?.()
             }}
-            className="mt-2 sm:mt-3 w-full bg-white text-gray-900 font-semibold text-sm sm:text-base py-2 sm:py-3 rounded-full hover:bg-gray-100 transition-colors"
+            className="mt-2 sm:mt-3 w-full bg-white text-gray-900 font-semibold text-[13px] sm:text-base py-2 sm:py-3 rounded-full hover:bg-gray-100 transition-colors"
           >
             {ctaLabel}
           </button>

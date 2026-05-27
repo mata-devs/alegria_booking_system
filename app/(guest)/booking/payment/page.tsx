@@ -11,6 +11,14 @@ import {
     computeBookingTotals,
     DEFAULT_SERVICE_CHARGE_PER_BOOKING,
 } from "@/app/lib/platform-pricing";
+import { parseVoucherDiscount } from "@/app/lib/voucher-discount";
+import {
+    resolveTier,
+    computeTierBase,
+    splitGuestsByAge,
+    type PricingMode,
+    type PricingTier,
+} from "@/app/lib/pricing-tiers";
 import { PaymentInstructions } from "./_components/PaymentInstructions";
 import { BookingSummary } from "./_components/BookingSummary";
 import { UploadPayment } from "./_components/UploadPayment";
@@ -119,6 +127,7 @@ function PaymentPageContent() {
     const [operatorPayment, setOperatorPayment] = useState<OperatorPaymentInfo>({ imageUrl: null, accountName: null, accountNumber: null });
     const [operatorMeta, setOperatorMeta] = useState<OperatorMeta>({ companyName: null, phoneNumber: null });
     const [pricingTotal, setPricingTotal] = useState<number | null>(null);
+    const [summaryCounts, setSummaryCounts] = useState<{ adults: number; children: number } | null>(null);
 
     useEffect(() => {
         setSessionData(loadSessionData());
@@ -180,9 +189,19 @@ function PaymentPageContent() {
                 const pricePerGuest = isTourPackage
                     ? (typeof activity.pricePerPerson === "number" ? activity.pricePerPerson : null)
                     : (typeof activity.pricePerGuest === "number" ? activity.pricePerGuest : null);
-                if (!pricePerGuest) { setPricingTotal(null); return; }
 
-                let discountPercent: number | null = null;
+                const mode: PricingMode = activity.pricingMode === "adultChild" ? "adultChild" : "standard";
+                const tiers = Array.isArray(activity.pricingTiers) ? (activity.pricingTiers as PricingTier[]) : [];
+                const childAgeMax = typeof activity.childAgeMax === "number" ? activity.childAgeMax : undefined;
+                const ages = [
+                    parseInt(sessionData.formData.repAge, 10),
+                    ...sessionData.guests.map((g) => parseInt(g.age, 10)),
+                ].filter((n) => Number.isFinite(n));
+                const { adults, children } = splitGuestsByAge(ages, childAgeMax);
+
+                if (!tiers.length && !pricePerGuest) { setPricingTotal(null); return; }
+
+                let bookingDiscount = null;
                 if (sessionData.context.promoCode) {
                     const codeUpper = sessionData.context.promoCode.trim().toUpperCase();
                     const snap = await getDocs(query(collection(firestore, "voucherCodes"), where("code", "==", codeUpper)));
@@ -192,7 +211,8 @@ function PaymentPageContent() {
                             typeof voucher.operatorUid === "string" ? voucher.operatorUid : null;
                         const requiredOperatorUid = sessionData.context.tourOperatorUid ?? null;
                         if (!voucherOperatorUid || !requiredOperatorUid || voucherOperatorUid === requiredOperatorUid) {
-                            discountPercent = typeof voucher.discount === "number" ? voucher.discount : null;
+                            const parsed = parseVoucherDiscount(voucher);
+                            if (parsed.discountValue > 0) bookingDiscount = parsed;
                         }
                     }
                 }
@@ -200,10 +220,15 @@ function PaymentPageContent() {
                 const platformPricing = await getPlatformPricing();
                 const charge =
                     platformPricing.serviceChargePerBooking ?? DEFAULT_SERVICE_CHARGE_PER_BOOKING;
-                const baseAmount = pricePerGuest * sessionData.context.guestCount;
-                const { total } = computeBookingTotals(baseAmount, charge, discountPercent);
+                const baseAmount = tiers.length
+                    ? computeTierBase(mode, resolveTier(tiers, sessionData.context.guestCount), adults, children)
+                    : (pricePerGuest ?? 0) * sessionData.context.guestCount;
+                const { total } = computeBookingTotals(baseAmount, charge, bookingDiscount);
 
-                if (!cancelled) setPricingTotal(total);
+                if (!cancelled) {
+                    setPricingTotal(total);
+                    setSummaryCounts({ adults, children });
+                }
             } catch {
                 if (!cancelled) setPricingTotal(null);
             }
@@ -431,6 +456,8 @@ function PaymentPageContent() {
                             activityName={summary?.activityName}
                             bookingDate={context.bookingDate}
                             guestTotal={summary?.guestTotal}
+                            adultCount={summaryCounts?.adults}
+                            childCount={summaryCounts?.children}
                             representativeName={formData.repName}
                             representativeEmail={formData.repEmail}
                             representativePhone={formData.repPhone}
