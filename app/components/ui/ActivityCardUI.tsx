@@ -2,10 +2,11 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, MapPin } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Clock, MapPin } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { DotSealBadge } from '@/app/components/ui/DotSealBadge'
 import { useImageCarousel } from '@/app/hooks/useImageCarousel'
+import { cn } from '@/app/lib/utils'
 
 export interface ActivityCardUIProps {
   image: string
@@ -55,30 +56,37 @@ export default function ActivityCardUI({
 
   const card = (
     <div
-      className={`group relative rounded-2xl overflow-hidden aspect-[3/4] bg-white shadow-md w-full min-w-0 flex flex-col ${isInteractive ? 'cursor-pointer' : ''} ${className}`}
+      className={cn(
+        'group relative rounded-2xl overflow-hidden bg-white shadow-md w-full min-w-0',
+        'flex flex-row sm:flex-col sm:aspect-[3/4]',
+        isInteractive ? 'cursor-pointer' : '',
+        className
+      )}
       onClick={onClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* ── IMAGE SECTION ─────────────────────────────────────────────── */}
-      <div className="relative aspect-[4/3.5] overflow-hidden">
+      <div className="relative w-[120px] sm:w-full aspect-square sm:aspect-[4/3.5] flex-shrink-0 overflow-hidden rounded-l-2xl sm:rounded-none sm:rounded-t-2xl">
         {activeImg ? (
           <Image
             key={activeImg}
             src={activeImg}
             alt={title}
             fill
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 280px"
-            className={`object-cover transition-transform duration-500 ${isInteractive && !hasMultiple ? 'group-hover:scale-105' : ''}`}
+            sizes="(max-width: 640px) 120px, (max-width: 1024px) 50vw, 280px"
+            className={cn(
+              'object-cover transition-transform duration-500',
+              isInteractive && !hasMultiple ? 'group-hover:scale-105' : ''
+            )}
           />
         ) : (
           <div className="absolute inset-0 bg-gray-200" />
         )}
 
-        {/* Carousel controls — shown on hover when multiple images exist */}
+        {/* Carousel controls — desktop only; 120px thumbnail too small on mobile */}
         {hasMultiple && (
-          <>
-            {/* Dot indicators */}
+          <div className="hidden sm:block">
             <div className="absolute bottom-2 left-0 right-0 z-30 flex justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
               {imgList.map((_, i) => (
                 <button
@@ -86,12 +94,13 @@ export default function ActivityCardUI({
                   type="button"
                   aria-label={`Image ${i + 1}`}
                   onClick={(e) => goTo(e, i)}
-                  className={`h-1.5 rounded-full transition-all duration-200 pointer-events-auto ${i === imgIdx ? 'w-3 bg-white' : 'w-1.5 bg-white/60 hover:bg-white/90'}`}
+                  className={cn(
+                    'h-1.5 rounded-full transition-all duration-200 pointer-events-auto',
+                    i === imgIdx ? 'w-3 bg-white' : 'w-1.5 bg-white/60 hover:bg-white/90'
+                  )}
                 />
               ))}
             </div>
-
-            {/* Prev button */}
             <button
               type="button"
               aria-label="Previous image"
@@ -100,8 +109,6 @@ export default function ActivityCardUI({
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-
-            {/* Next button */}
             <button
               type="button"
               aria-label="Next image"
@@ -110,12 +117,12 @@ export default function ActivityCardUI({
             >
               <ChevronRight className="w-4 h-4" />
             </button>
-          </>
+          </div>
         )}
 
-        {/* Category tag — top-left */}
+        {/* Tag overlay — desktop only */}
         {tagList.length > 0 && (
-          <div className="absolute top-2.5 left-2.5 right-10 flex flex-wrap gap-1.5 z-10">
+          <div className="hidden sm:flex absolute top-2.5 left-2.5 right-10 flex-wrap gap-1.5 z-10">
             {tagList.map((t) => (
               <span
                 key={t}
@@ -126,21 +133,39 @@ export default function ActivityCardUI({
             ))}
           </div>
         )}
-
-        {/* Top-right action slot (e.g. wishlist heart) */}
-        {topRightAction && (
-          <div className="absolute top-2.5 right-2.5 z-20">
-            {topRightAction}
-          </div>
-        )}
       </div>
 
-      {/* ── CONTENT BELOW IMAGE ───────────────────────────────────────── */}
-      <div className="p-3 pb-12">
-        {/* Title + DOT seal */}
-        <div className="h-11">
+      {/* ── CONTENT AREA ──────────────────────────────────────────────── */}
+      <div className="flex flex-col flex-1 p-2.5 sm:p-3 sm:pb-12 min-w-0">
+        {/* Tags chips — mobile only */}
+        {tagList.length > 0 && (
+          <div className="flex sm:hidden flex-wrap gap-1 mb-1.5">
+            {tagList.map((t) => (
+              <span
+                key={t}
+                className="bg-green-50 text-green-700 border border-green-200 text-xs font-bold px-1.5 py-0.5 rounded"
+              >
+                {t}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Rating — mobile only */}
+        {rating !== undefined && (
+          <div className="flex sm:hidden items-center gap-1 text-sm text-gray-900 mb-1">
+            <span className="text-amber-400 text-base leading-none" aria-hidden>★</span>
+            <span className="font-semibold">{rating.toFixed(1)}</span>
+            {reviewCount !== undefined && (
+              <span className="text-gray-400 text-xs">({reviewCount.toLocaleString()})</span>
+            )}
+          </div>
+        )}
+
+        {/* Title + location + duration — shared across both layouts */}
+        <div className="sm:h-11">
           <div className="flex items-start mb-1 min-w-0">
-            <h3 className="font-bold text-base sm:text-lg text-gray-900 leading-tight flex-1 min-w-0 overflow-hidden text-ellipsis line-clamp-2">
+            <h3 className="font-bold text-sm sm:text-lg text-gray-900 leading-tight flex-1 min-w-0 overflow-hidden text-ellipsis line-clamp-2">
               {title}
             </h3>
             <div className="shrink-0">
@@ -148,25 +173,31 @@ export default function ActivityCardUI({
             </div>
           </div>
 
-          {/* Location */}
           {location && (
-            <div className="flex items-center gap-1 text-sm text-gray-500 mb-0.5">
-              <MapPin className="w-3.5 h-3.5 shrink-0" aria-hidden />
+            <div className="flex items-center gap-1 text-xs sm:text-sm text-gray-500 mb-0.5">
+              <MapPin className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 shrink-0" aria-hidden />
               <span className="truncate">{location}</span>
             </div>
           )}
 
-          {/* Duration */}
           {duration && (
-            <p className="text-sm text-gray-500">{duration}</p>
+            <div className="flex items-center gap-1 text-xs sm:text-sm text-gray-500">
+              <Clock className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 shrink-0" aria-hidden />
+              <span>{duration}</span>
+            </div>
           )}
-
         </div>
+
+        {/* Price — mobile only; mt-auto pushes to bottom of content area */}
+        <p className="flex sm:hidden items-baseline justify-end gap-1 text-xs text-gray-500 mt-auto pt-2">
+          from{' '}
+          <span className="font-bold text-sm text-gray-900">₱{price.toLocaleString()}</span>
+        </p>
       </div>
 
-      {/* Rating + Price row — absolutely pinned to card bottom */}
-      <div className="absolute bottom-0 left-0 right-0 px-3 pb-3 bg-white">
-        <div className="flex items-center justify-between">
+      {/* ── RATING + PRICE BAR — desktop only, pinned to card bottom ──── */}
+      <div className="hidden sm:flex absolute bottom-0 left-0 right-0 px-3 pb-3 bg-white">
+        <div className="flex items-center justify-between w-full">
           {rating !== undefined && (
             <div className="flex items-center gap-1 text-sm text-gray-900">
               <span className="text-amber-400 text-base leading-none" aria-hidden>★</span>
@@ -182,6 +213,13 @@ export default function ActivityCardUI({
           </p>
         </div>
       </div>
+
+      {/* topRightAction — card root level so it works in both layouts */}
+      {topRightAction && (
+        <div className="absolute top-2.5 right-2.5 z-20">
+          {topRightAction}
+        </div>
+      )}
     </div>
   )
 
