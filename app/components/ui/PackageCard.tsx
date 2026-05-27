@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useImageCarousel } from '@/app/hooks/useImageCarousel'
 import Image from 'next/image'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight, Layers, Sparkle, type LucideIcon } from 'lucide-react'
@@ -143,32 +143,8 @@ export default function PackageCard({
   ).filter((t) => !!t && t.trim().length > 0)
   const isInteractive = !!(onClick || href)
 
-  const imgList = (images && images.filter(Boolean).length > 0
-    ? images.filter(Boolean)
-    : image
-    ? [image]
-    : [])
-  const hasMultiple = imgList.length > 1
-  const [imgIdx, setImgIdx] = useState(0)
-  const [isHovered, setIsHovered] = useState(false)
-  const activeImg = imgList[imgIdx] ?? ''
-
-  useEffect(() => {
-    if (!isHovered || !hasMultiple) return
-    const id = setInterval(() => {
-      setImgIdx((i) => (i + 1) % imgList.length)
-    }, 1800)
-    return () => clearInterval(id)
-  }, [isHovered, hasMultiple, imgList.length])
-
-  const goPrev = (e: React.MouseEvent) => {
-    e.preventDefault(); e.stopPropagation()
-    setImgIdx((i) => (i - 1 + imgList.length) % imgList.length)
-  }
-  const goNext = (e: React.MouseEvent) => {
-    e.preventDefault(); e.stopPropagation()
-    setImgIdx((i) => (i + 1) % imgList.length)
-  }
+  const { imgList, hasMultiple, imgIdx, isHovered, setIsHovered, activeImg, goPrev, goNext, goTo } =
+    useImageCarousel(images, image)
 
   const card = (
     <div
@@ -205,7 +181,7 @@ export default function PackageCard({
                 key={i}
                 type="button"
                 aria-label={`Image ${i + 1}`}
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setImgIdx(i) }}
+                onClick={(e) => goTo(e, i)}
                 className={`h-1.5 rounded-full transition-all duration-200 pointer-events-auto ${i === imgIdx ? 'w-3 bg-white' : 'w-1.5 bg-white/60 hover:bg-white/90'}`}
               />
             ))}
