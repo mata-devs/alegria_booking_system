@@ -7,7 +7,7 @@ import { useSearchParams } from 'next/navigation'
 import Footer from '@/app/components/Footer'
 import SearchBar from '@/app/components/SearchBar'
 import PackageCard from '@/app/components/ui/PackageCard'
-import ActivityCardUI from '@/app/components/ui/ActivityCardUI'
+import ActivityCard from '@/app/components/ActivityCard'
 import { collection, query, where, getDocs, limit } from 'firebase/firestore'
 import { normalizePackageLocations, formatLocationSummary } from '@/app/lib/package-locations'
 import { packageImageUrl } from '@/app/lib/package-images'
@@ -645,13 +645,23 @@ function TourPackagesContent() {
             >
               {popularActivities.map((act) => (
                 <div key={act.id} className="shrink-0 w-44 sm:w-52 snap-start">
-                  <ActivityCardUI
-                    image={packageImageUrl(act.activityImages?.[0]) ?? ''}
-                    title={act.activityName}
-                    price={act.pricePerGuest}
-                    tag={primaryActivityTag(normalizeActivityTags(act.activityTags, act.activityTag))}
-                    rating={act.activityRating}
-                    location={act.activityLocation}
+                  <ActivityCard
+                    activity={{
+                      id: 0,
+                      firestoreId: act.id,
+                      category: primaryActivityTag(normalizeActivityTags(act.activityTags, act.activityTag)),
+                      categories: normalizeActivityTags(act.activityTags, act.activityTag),
+                      title: act.activityName,
+                      location: act.activityLocation,
+                      rating: act.activityRating,
+                      reviewCount: 0,
+                      price: act.pricePerGuest,
+                      image: packageImageUrl(act.activityImages?.[0]) ?? '',
+                      images: act.activityImages?.map(packageImageUrl),
+                      municipalityId: '',
+                    }}
+                    date={searchDate}
+                    travelers={searchTravelers}
                   />
                 </div>
               ))}
