@@ -119,7 +119,7 @@ export default function ActivityCardUI({
             {tagList.map((t) => (
               <span
                 key={t}
-                className="bg-green-600/90 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm"
+                className="bg-green-500 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm"
               >
                 {t}
               </span>

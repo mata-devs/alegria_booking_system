@@ -1,6 +1,11 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import type { MouseEvent } from 'react'
 
+/**
+ * Manages image carousel state and auto-rotation for card components.
+ * Wire `setIsHovered` to `onMouseEnter`/`onMouseLeave` on the container
+ * to enable auto-rotation when multiple images are present.
+ */
 export function useImageCarousel(images: string[] | undefined, fallback: string) {
   // Stabilise imgList by deep-comparing input so that re-renders with the same
   // content (but a new array reference) don't produce a new imgList reference.
