@@ -4,19 +4,22 @@ import type { MouseEvent } from 'react'
 export function useImageCarousel(images: string[] | undefined, fallback: string) {
   // Stabilise imgList by deep-comparing input so that re-renders with the same
   // content (but a new array reference) don't produce a new imgList reference.
-  const imagesKey = (images ?? []).filter(Boolean).join('\x00')
   const prevKeyRef = useRef<string | null>(null)
   const stableImagesRef = useRef<string[] | undefined>(images)
-  if (prevKeyRef.current === null || imagesKey !== prevKeyRef.current) {
-    prevKeyRef.current = imagesKey
-    stableImagesRef.current = images
-  }
-  const stableImages = stableImagesRef.current
+  const stableImgListRef = useRef<string[]>([])
 
   const imgList = useMemo(() => {
-    const filtered = (stableImages ?? []).filter(Boolean) as string[]
-    return filtered.length > 0 ? filtered : fallback ? [fallback] : []
-  }, [stableImages, fallback])
+    const key = (images ?? []).filter(Boolean).join('\x00')
+    const fallbackKey = fallback ?? ''
+    const fullKey = key + '\x01' + fallbackKey
+    if (fullKey !== prevKeyRef.current) {
+      prevKeyRef.current = fullKey
+      stableImagesRef.current = images
+      const filtered = (images ?? []).filter(Boolean) as string[]
+      stableImgListRef.current = filtered.length > 0 ? filtered : fallback ? [fallback] : []
+    }
+    return stableImgListRef.current
+  }, [images, fallback])
 
   const hasMultiple = imgList.length > 1
   const [imgIdx, setImgIdx] = useState(0)
