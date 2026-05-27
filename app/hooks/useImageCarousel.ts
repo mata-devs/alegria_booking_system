@@ -1,11 +1,22 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import type { MouseEvent } from 'react'
 
 export function useImageCarousel(images: string[] | undefined, fallback: string) {
+  // Stabilise imgList by deep-comparing input so that re-renders with the same
+  // content (but a new array reference) don't produce a new imgList reference.
+  const imagesKey = (images ?? []).filter(Boolean).join('\x00')
+  const prevKeyRef = useRef<string | null>(null)
+  const stableImagesRef = useRef<string[] | undefined>(images)
+  if (prevKeyRef.current === null || imagesKey !== prevKeyRef.current) {
+    prevKeyRef.current = imagesKey
+    stableImagesRef.current = images
+  }
+  const stableImages = stableImagesRef.current
+
   const imgList = useMemo(() => {
-    if (images && images.filter(Boolean).length > 0) return images.filter(Boolean) as string[]
-    return fallback ? [fallback] : []
-  }, [images, fallback])
+    const filtered = (stableImages ?? []).filter(Boolean) as string[]
+    return filtered.length > 0 ? filtered : fallback ? [fallback] : []
+  }, [stableImages, fallback])
 
   const hasMultiple = imgList.length > 1
   const [imgIdx, setImgIdx] = useState(0)
@@ -19,6 +30,10 @@ export function useImageCarousel(images: string[] | undefined, fallback: string)
     }, 1800)
     return () => clearInterval(id)
   }, [isHovered, hasMultiple, imgList])
+
+  useEffect(() => {
+    setImgIdx(0)
+  }, [imgList])
 
   const goPrev = (e: MouseEvent) => {
     e.preventDefault()

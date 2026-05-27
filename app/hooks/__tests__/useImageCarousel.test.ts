@@ -80,4 +80,19 @@ describe('useImageCarousel', () => {
     act(() => { vi.advanceTimersByTime(3600) })
     expect(result.current.imgIdx).toBe(0)
   })
+
+  it('resets imgIdx to 0 when images prop changes to a shorter array', () => {
+    const { result, rerender } = renderHook(
+      ({ images }: { images: string[] }) => useImageCarousel(images, 'x.jpg'),
+      { initialProps: { images: ['a.jpg', 'b.jpg', 'c.jpg'] } }
+    )
+    const e = { preventDefault: vi.fn(), stopPropagation: vi.fn() } as unknown as MouseEvent
+    act(() => { result.current.goNext(e) })
+    act(() => { result.current.goNext(e) })
+    expect(result.current.imgIdx).toBe(2)
+
+    act(() => { rerender({ images: ['a.jpg'] }) })
+    expect(result.current.imgIdx).toBe(0)
+    expect(result.current.activeImg).toBe('a.jpg')
+  })
 })
