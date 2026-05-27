@@ -75,6 +75,14 @@ graphify-out
 functions/lib
 .scannerwork
 .sonarrc
+app/lib/__tests__
+tasks
+
+docs/Operators.md
+docs/operator-inboxes.csv
+docs/scripts/
+app/__tests__/
+functions/src/__tests__
 
 
 

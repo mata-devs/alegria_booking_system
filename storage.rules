@@ -57,8 +57,29 @@ service firebase.storage {
                    && request.resource.contentType.matches('image/.*');
     }
 
+    // Added 2026-05-20 — ISSUE-001a: DOT proof upload (operators/{uid}/dot-proof, PDF/JPEG/PNG, 5MB)
+    match /operators/{uid}/dot-proof/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+                   && (request.auth.uid == uid || isSuperAdmin())
+                   && request.resource != null
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('application/pdf|image/jpeg|image/png');
+    }
+
+    // Operator signup compliance docs (copied on approval). Owner + super admin read; server-only write.
+    match /operator-documents/{operatorUid}/{fileName} {
+      allow read: if request.auth != null
+                   && (request.auth.uid == operatorUid || isSuperAdmin());
+      allow write: if false;
+    }
+
+    // Updated 2026-05-22 — ISSUE-007: signup-request uploads contain DOT certs + business
+    // permits (PII). Public read leaked these. Restrict read to super admins; writes remain
+    // public so unauthenticated applicants can submit. Store storage paths on the Firestore doc
+    // (not download URLs — getDownloadURL requires read). Super admins resolve paths client-side.
     match /signup-requests/{requestId}/{allPaths=**} {
-      allow read: if true;
+      allow read: if isSuperAdmin();
       allow write: if request.resource != null
                    && request.resource.size < 10 * 1024 * 1024
                    && (request.resource.contentType.matches('image/.*')

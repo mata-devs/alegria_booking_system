@@ -1,11 +1,7 @@
 import * as admin from "firebase-admin";
 import { logger } from "firebase-functions";
 import { createTransporter, getFromAddress } from "../shared/mailer";
-
-const APP_URL =
-  process.env.APP_URL ||
-  process.env.NEXT_PUBLIC_APP_URL ||
-  "http://localhost:3000";
+import { getAppUrl } from "../shared/appUrl";
 
 export async function sendReviewEmailForBooking(
   bookingId: string,
@@ -32,7 +28,7 @@ export async function sendReviewEmailForBooking(
 
   const guestName = String(representative?.fullName ?? "Guest");
   const tourName = String(booking.activityName ?? "your tour");
-  const reviewLink = `${APP_URL}/review?bookingId=${encodeURIComponent(bookingId)}&token=${encodeURIComponent(reviewToken)}`;
+  const reviewLink = `${getAppUrl()}/review?bookingId=${encodeURIComponent(bookingId)}&token=${encodeURIComponent(reviewToken)}`;
 
   const transporter = createTransporter();
   await transporter.sendMail({

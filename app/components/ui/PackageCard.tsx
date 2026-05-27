@@ -1,9 +1,11 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Layers, Sparkle, type LucideIcon } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Layers, Sparkle, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { DotSealBadge } from '@/app/components/ui/DotSealBadge'
 
 /** Guest hint: single-spot vs bundled itinerary (icon + tooltip top-right). */
 export type PackageCardKind = 'activity' | 'tourPackage'
@@ -15,7 +17,7 @@ const CARD_KIND_COPY: Record<
   activity: {
     label: 'Activity',
     Icon: Sparkle,
-    tip: 'Unique experience booking',
+    tip: 'Unique travel experience',
   },
   tourPackage: {
     label: 'Tour package',
@@ -83,7 +85,10 @@ export interface PackageCardProps {
   description?: string
   price: number
   pricePrefix?: string
+  /** Single tag string (legacy). Prefer `tags` for multi-chip rendering. */
   tag?: string
+  /** Multi-tag list. When set, overrides `tag` and renders one chip per entry. */
+  tags?: string[]
   duration?: string
   rating?: number
   location?: string
@@ -97,6 +102,10 @@ export interface PackageCardProps {
   topRightAction?: ReactNode
   /** Shows type hint icon (guest listings). */
   cardKind?: PackageCardKind
+  /** Operator DOT Quality Seal (display-only). */
+  dotSealGranted?: boolean
+  /** All images for hover carousel; falls back to [image] when omitted. */
+  images?: string[]
   wide?: boolean
   className?: string
 }
@@ -108,6 +117,7 @@ export default function PackageCard({
   price,
   pricePrefix = 'From',
   tag,
+  tags,
   duration,
   rating,
   location,
@@ -120,10 +130,45 @@ export default function PackageCard({
   onClick,
   topRightAction,
   cardKind,
+  dotSealGranted = false,
+  images,
   wide = false,
   className = '',
 }: PackageCardProps) {
+  const tagList = (tags && tags.length > 0
+    ? tags
+    : tag
+    ? [tag]
+    : []
+  ).filter((t) => !!t && t.trim().length > 0)
   const isInteractive = !!(onClick || href)
+
+  const imgList = (images && images.filter(Boolean).length > 0
+    ? images.filter(Boolean)
+    : image
+    ? [image]
+    : [])
+  const hasMultiple = imgList.length > 1
+  const [imgIdx, setImgIdx] = useState(0)
+  const [isHovered, setIsHovered] = useState(false)
+  const activeImg = imgList[imgIdx] ?? ''
+
+  useEffect(() => {
+    if (!isHovered || !hasMultiple) return
+    const id = setInterval(() => {
+      setImgIdx((i) => (i + 1) % imgList.length)
+    }, 1800)
+    return () => clearInterval(id)
+  }, [isHovered, hasMultiple, imgList.length])
+
+  const goPrev = (e: React.MouseEvent) => {
+    e.preventDefault(); e.stopPropagation()
+    setImgIdx((i) => (i - 1 + imgList.length) % imgList.length)
+  }
+  const goNext = (e: React.MouseEvent) => {
+    e.preventDefault(); e.stopPropagation()
+    setImgIdx((i) => (i + 1) % imgList.length)
+  }
 
   const card = (
     <div
@@ -134,17 +179,58 @@ export default function PackageCard({
       // ───────────────────────────────────────────────────────────────────────
       className={`relative rounded-2xl overflow-hidden group ${wide ? 'h-52' : 'w-full min-w-0 aspect-[3/4]'} ${isInteractive ? 'cursor-pointer' : ''} ${className}`}
       onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
-      {image ? (
+      {activeImg ? (
         <Image
-          src={image}
+          key={activeImg}
+          src={activeImg}
           alt={title}
           fill
           sizes={wide ? '(max-width: 768px) 100vw, 480px' : '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 280px'}
-          className={`object-cover ${isInteractive ? 'group-hover:scale-105 transition-transform duration-500' : ''}`}
+          className={`object-cover transition-transform duration-500 ${isInteractive && !hasMultiple ? 'group-hover:scale-105' : ''}`}
         />
       ) : (
         <div className="absolute inset-0 bg-gray-200" />
+      )}
+
+      {/* Carousel controls — shown on hover when multiple images exist */}
+      {hasMultiple && (
+        <>
+          {/* Dot indicators */}
+          <div className="absolute top-2 left-0 right-0 z-30 flex justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+            {imgList.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                aria-label={`Image ${i + 1}`}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setImgIdx(i) }}
+                className={`h-1.5 rounded-full transition-all duration-200 pointer-events-auto ${i === imgIdx ? 'w-3 bg-white' : 'w-1.5 bg-white/60 hover:bg-white/90'}`}
+              />
+            ))}
+          </div>
+
+          {/* Prev button */}
+          <button
+            type="button"
+            aria-label="Previous image"
+            onClick={goPrev}
+            className="absolute left-2 top-1/2 -translate-y-1/2 z-30 w-7 h-7 rounded-full bg-white/90 text-gray-800 flex items-center justify-center opacity-0 group-hover:opacity-50 hover:!opacity-100 transition-opacity duration-200 shadow-sm hover:bg-white"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+
+          {/* Next button */}
+          <button
+            type="button"
+            aria-label="Next image"
+            onClick={goNext}
+            className="absolute right-2 top-1/2 -translate-y-1/2 z-30 w-7 h-7 rounded-full bg-white/90 text-gray-800 flex items-center justify-center opacity-0 group-hover:opacity-50 hover:!opacity-100 transition-opacity duration-200 shadow-sm hover:bg-white"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </>
       )}
 
       {/* Gradient overlay — image clear top ~40%, transitions to near-black at bottom
@@ -153,12 +239,17 @@ export default function PackageCard({
         className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent_35%,rgba(0,0,0,0.55)_60%,rgba(0,0,0,0.93)_100%)]"
       />
 
-      {/* Top-left tag */}
-      {tag && (
-        <div className="absolute top-3 left-3">
-          <span className="bg-green-500 text-white text-xs font-semibold px-2.5 py-1 rounded-full">
-            {tag}
-          </span>
+      {/* Top-left tag chips — supports single (`tag`) or multi (`tags`). */}
+      {tagList.length > 0 && (
+        <div className="absolute top-3 left-3 right-12 flex flex-wrap gap-1.5 z-10">
+          {tagList.map((t) => (
+            <span
+              key={t}
+              className="bg-green-500 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm"
+            >
+              {t}
+            </span>
+          ))}
         </div>
       )}
 
@@ -172,10 +263,14 @@ export default function PackageCard({
 
       {/* Bottom content — p-3 on mobile, p-5 on sm+ */}
       <div className="absolute inset-0 flex flex-col justify-end p-3 sm:p-5 gap-1">
-        {/* Title — text-base mobile, text-2xl sm+. Adjust here */}
-        <h3 className="text-white font-bold text-base sm:text-2xl leading-tight drop-shadow line-clamp-1">
-          {title}
-        </h3>
+        {/* Title — wraps to 2 lines; min-h reserves space so 1-line titles don't push the
+            short cards up out of alignment with adjacent 2-line titles in a grid. */}
+        <div className="flex flex-wrap items-start gap-2">
+          <h3 className="text-white font-bold text-base sm:text-xl leading-tight drop-shadow line-clamp-2 flex-1 min-w-0 break-words min-h-[2lh]">
+            {title}
+          </h3>
+          <DotSealBadge granted={dotSealGranted} size="sm" showLabel={false} />
+        </div>
 
         {/* Description — hidden on mobile and on wide cards (h-52 too compact); visible sm+ on tall cards */}
         {description && !wide && (

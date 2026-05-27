@@ -586,7 +586,7 @@ function IndividualReportPanel({ b }: { b: BookingRow }) {
           <p className="text-gray-500 mb-2">Payment</p>
           <div className="pl-4 space-y-1 text-gray-700">
             <LineItem label={`${peso(b.pricePerGuest)} x ${b.numberOfGuests}`} value={peso(subtotal)} />
-            <LineItem label="Service charge" value={peso(b.serviceCharge)} />
+            <LineItem label="Convenience fee" value={peso(b.serviceCharge)} />
             {b.discountAmount > 0 && <LineItem label="Discount" value={`-${peso(b.discountAmount)}`} />}
             <div className="border-t border-gray-200 pt-2 mt-2 flex justify-between font-bold text-gray-900">
               <span>Total</span><span>{peso(b.finalPrice)}</span>
@@ -794,7 +794,7 @@ function SummarizedReportPanel({ r, recordsBy }: { r: MonthRow; recordsBy: Recor
           <p className="text-gray-500 mb-3">Revenue Breakdown</p>
           <div className="space-y-2 text-gray-700">
             <LineItem label={`${peso(avgPrice)} x ${r.totalGuests} (no. of guest)`} value={peso(guestRevenue)} />
-            <LineItem label={`Service charge x ${r.totalBookings} (no. of bookings)`} value={peso(serviceRevenue)} />
+            <LineItem label={`Convenience fee x ${r.totalBookings} (no. of bookings)`} value={peso(serviceRevenue)} />
             <div className="border-t border-gray-200 pt-2 mt-2 flex justify-between font-bold text-gray-900">
               <span>Total</span><span>{peso(r.totalRevenue)}</span>
             </div>

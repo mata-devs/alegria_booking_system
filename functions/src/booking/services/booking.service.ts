@@ -811,7 +811,7 @@ export async function confirmPayment(bookingId: string) {
             <table style="width:100%;border-collapse:collapse;font-size:14px">
               <tr><td style="padding:6px 0;color:#6b7280;width:42%">Price per Guest</td><td style="padding:6px 0">${fmt(booking.pricePerGuest ?? 0)} × ${booking.numberOfGuests ?? 1}</td></tr>
               <tr style="border-top:1px solid #f3f4f6"><td style="padding:6px 0;color:#6b7280">Base Amount</td><td style="padding:6px 0">${fmt(booking.baseAmount ?? 0)}</td></tr>
-              <tr style="border-top:1px solid #f3f4f6"><td style="padding:6px 0;color:#6b7280">Service charge</td><td style="padding:6px 0">${fmt(booking.serviceCharge ?? 0)}</td></tr>
+              <tr style="border-top:1px solid #f3f4f6"><td style="padding:6px 0;color:#6b7280">Convenience fee</td><td style="padding:6px 0">${fmt(booking.serviceCharge ?? 0)}</td></tr>
               ${(booking.discountAmount ?? 0) > 0 ? `
               <tr style="border-top:1px solid #f3f4f6"><td style="padding:6px 0;color:#6b7280">Discount (${booking.discountPercentage ?? 0}%${booking.promoCode ? ` · ${booking.promoCode}` : ""})</td><td style="padding:6px 0;color:#16a34a">− ${fmt(booking.discountAmount)}</td></tr>` : ""}
               <tr style="border-top:2px solid #e5e7eb">

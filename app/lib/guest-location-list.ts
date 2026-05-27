@@ -17,11 +17,17 @@ export function countByActivityLocation(snap: QuerySnapshot<DocumentData>): Map<
 export function countByPackageLocation(snap: QuerySnapshot<DocumentData>): Map<string, number> {
   const m = new Map<string, number>()
   for (const d of snap.docs) {
-    const raw = (d.data().packageLocation as string)?.trim()
-    if (!raw) continue
-    const loc = canonicalMunicipalityLabel(raw)
-    if (!loc) continue
-    m.set(loc, (m.get(loc) ?? 0) + 1)
+    const data = d.data()
+    const locations: string[] = Array.isArray(data.packageLocations)
+      ? (data.packageLocations as string[]).filter((x) => typeof x === 'string' && x.trim())
+      : process.env.NODE_ENV !== 'production' && typeof data.packageLocation === 'string' && data.packageLocation.trim()
+        ? [data.packageLocation.trim()]
+        : []
+    for (const raw of locations) {
+      const loc = canonicalMunicipalityLabel(raw)
+      if (!loc) continue
+      m.set(loc, (m.get(loc) ?? 0) + 1)
+    }
   }
   return m
 }

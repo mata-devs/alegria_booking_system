@@ -596,7 +596,7 @@ function CreateCodeModal({ isOpen, onClose, onSaved }: CreateCodeModalProps) {
                 <div>
                     <label className="field-label">Affiliated Entity</label>
                     <select name="entityId" value={formData.entityId} onChange={handleChange} disabled={submitting} className="w-full field-input">
-                        <option value="">— Select entity —</option>
+                        <option value="">Select an entity</option>
                         {entities.map(e => <option key={e.entityId} value={e.entityId}>{e.entityName}</option>)}
                     </select>
                 </div>

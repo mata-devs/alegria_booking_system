@@ -455,7 +455,7 @@ export default function BookingDetailsCard({
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-700">Service charge</span>
+                <span className="text-sm font-medium text-gray-700">Convenience fee</span>
                 <span className="text-sm font-medium text-gray-700">
                 {peso(booking.payment.serviceCharge)}
               </span>
@@ -767,7 +767,7 @@ export default function BookingDetailsCard({
                           <span className="font-medium">{peso(totals?.subtotal ?? 0)}</span>
                         </div>
                         <div className="flex items-center justify-between px-4 py-2 text-[13px] border-t border-neutral-100">
-                          <span className="text-neutral-600">Service charge</span>
+                          <span className="text-neutral-600">Convenience fee</span>
                           <span className="font-medium">{peso(booking.payment.serviceCharge)}</span>
                         </div>
                         <div className="flex items-center justify-between px-4 py-2.5 text-sm font-bold border-t border-neutral-200 bg-neutral-50">

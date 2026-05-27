@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { collection, getDocs, query, where } from 'firebase/firestore'
 import Footer from '@/app/components/Footer'
+import { DotSealBadge } from '@/app/components/ui/DotSealBadge'
 import { firebaseDb } from '@/app/lib/firebase'
 
 interface GuestOperator {
@@ -18,6 +19,7 @@ interface GuestOperator {
   ratedCount: number
   activityCount: number
   isVerified: boolean
+  hasDOTQualitySeal: boolean
 }
 
 function MiniStars({ rating }: { rating: number }) {
@@ -82,6 +84,7 @@ export default function OperatorsPage() {
             ratedCount: rEntry?.count ?? 0,
             activityCount: activityCountMap.get(d.id) ?? 0,
             isVerified: Boolean(data.applicationApproveDate),
+            hasDOTQualitySeal: data.hasDOTQualitySeal === true,
           }
         })
         setOperators(list)
@@ -212,6 +215,7 @@ export default function OperatorsPage() {
                         Verified
                       </span>
                     )}
+                    <DotSealBadge granted={op.hasDOTQualitySeal} size="sm" showLabel={false} />
                   </div>
                   {op.avgRating > 0 ? (
                     <div className="flex items-center gap-1.5 mt-1">

@@ -11,6 +11,7 @@ export interface Activity {
   id: number
   firestoreId?: string
   category: string
+  categories?: string[]
   title: string
   location: string
   rating: number
@@ -21,7 +22,9 @@ export interface Activity {
   childAgeMax?: number
   maxGuests?: number
   image: string
+  images?: string[]
   municipalityId: string
+  duration?: string
 }
 
 export interface TourPackage {
@@ -36,7 +39,8 @@ export interface TourPackage {
   theme: string
   duration: string
   inclusions: string[]
-  municipalityId: string
+  exclusions: string[]
+  municipalityIds: string[]
 }
 
 export interface TravelerReview {

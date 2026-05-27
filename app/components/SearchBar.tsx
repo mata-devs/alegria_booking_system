@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { collection, getDocs, query, where as firestoreWhere } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
 import { getHomepageCmsClient } from '@/app/lib/homepage-cms'
+import DatePopover from '@/app/components/ui/DatePopover'
 import {
   countByActivityLocation,
   countByPackageLocation,
@@ -223,8 +224,7 @@ export default function SearchBar({
           </div>
           <div className="flex flex-col min-w-0 w-full">
             <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">When</span>
-            <input type="date" id="when-desktop" name="when" autoComplete="off" aria-label="Travel date" value={when} onChange={(e) => setWhen(e.target.value)}
-              className="outline-none text-sm font-medium text-gray-800 w-full bg-transparent [color-scheme:light]" />
+            <DatePopover id="when-desktop" value={when} onChange={setWhen} minToday placeholder="Pick a date" />
           </div>
         </div>
         <div className="w-px my-4 bg-gray-200 shrink-0" />
@@ -293,8 +293,7 @@ export default function SearchBar({
           </div>
           <div className="flex flex-col flex-1">
             <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">When</span>
-            <input type="date" id="when-mobile" name="when" autoComplete="off" aria-label="Travel date" value={when} onChange={(e) => setWhen(e.target.value)}
-              className="outline-none text-sm font-medium text-gray-800 bg-transparent mt-0.5 w-full [color-scheme:light]" />
+            <DatePopover id="when-mobile" value={when} onChange={setWhen} minToday placeholder="Pick a date" className="mt-0.5" />
           </div>
         </div>
         <div className="flex items-center gap-3 px-4 py-3 border-t border-gray-100">

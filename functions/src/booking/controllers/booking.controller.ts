@@ -141,7 +141,7 @@ export async function create(req: Request, res: Response) {
                     <td style="padding:6px 0">${fmt(pricing.baseAmount)}</td>
                   </tr>
                   <tr style="border-top:1px solid #f3f4f6">
-                    <td style="padding:6px 0;color:#6b7280">Service charge</td>
+                    <td style="padding:6px 0;color:#6b7280">Convenience fee</td>
                     <td style="padding:6px 0">${fmt(pricing.serviceCharge)}</td>
                   </tr>
                   <tr style="border-top:1px solid #f3f4f6">

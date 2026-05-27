@@ -9,7 +9,8 @@ export type NotificationKind =
   | "payout_processed"
   | "admin_announcement"
   | "cancellation_request"
-  | "tour_starts_today";
+  | "tour_starts_today"
+  | "operator_signup_new";
 
 export interface WriteNotificationInput {
   kind: NotificationKind;

@@ -100,6 +100,11 @@ export default function SuperAdminNotificationsPage() {
                       #{n.bookingId.slice(0, 8).toUpperCase()}
                     </p>
                   )}
+                  {n.signupRequestId && (
+                    <p className="text-xs text-gray-400 mt-1 font-mono">
+                      Request #{n.signupRequestId.slice(0, 8).toUpperCase()}
+                    </p>
+                  )}
 
                   {/* CTA */}
                   {n.kind === 'booking_new' && (
@@ -109,7 +114,12 @@ export default function SuperAdminNotificationsPage() {
                   )}
                   {n.kind === 'booking_paid' && (
                     <p className="text-xs font-medium text-[#558B2F] mt-1">
-                      Payment received — confirm and prepare →
+                      Payment received. Confirm and prepare →
+                    </p>
+                  )}
+                  {n.kind === 'operator_signup_new' && (
+                    <p className="text-xs font-medium text-[#558B2F] mt-1">
+                      Review documents and approve or decline →
                     </p>
                   )}
 

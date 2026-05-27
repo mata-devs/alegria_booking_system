@@ -128,36 +128,76 @@ export default function AccommodationsPage() {
   }, [accommodations, search, activeType, sort])
 
   return (
-    <div className="min-h-screen flex flex-col bg-white">
-      {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div className="relative w-full h-[clamp(180px,25vw,280px)]">
-          <Image
-            src="https://picsum.photos/seed/cebu-accommodations-hero/1400/500"
-            alt="Accommodations in Cebu"
-            fill
-            sizes="100vw"
-            className="object-cover"
-            priority
-          />
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/50" />
-        <div className="absolute top-0 left-0 px-4 sm:px-8 md:px-16 pt-5">
-          <nav className="text-white/80 text-sm">
-            <Link href="/" className="hover:text-white transition-colors">Home</Link>
-            <span className="mx-2">›</span>
-            <span className="text-white font-medium">Accommodations</span>
+    <div className="min-h-screen flex flex-col bg-[#f6f4ef]">
+
+      {/* ── Hero band ── */}
+      <div className="bg-white border-b border-gray-100">
+        <div className="max-w-[1280px] mx-auto px-6 lg:px-10 py-6 lg:py-8">
+          <nav className="flex items-center gap-2 text-[11px] font-mono tracking-[.14em] uppercase text-gray-400 mb-3">
+            <Link href="/" className="hover:text-gray-700 transition-colors">Home</Link>
+            <span className="text-gray-300">/</span>
+            <span className="text-[#008768]">{filtered.length} Results</span>
           </nav>
+
+          <div className="flex items-end justify-between gap-8 flex-wrap">
+            <div className="min-w-0">
+              <h1 className="text-[clamp(1.75rem,3.5vw,2.5rem)] font-extrabold leading-tight tracking-[-0.025em] m-0 text-gray-900">
+                Stay in{' '}
+                <em className="not-italic font-normal text-[#008768]">Cebu</em>.
+              </h1>
+              <p className="mt-2 text-sm text-gray-500 max-w-[540px]">
+                Find the perfect place to stay across the island of Cebu.
+              </p>
+            </div>
+            <div className="hidden lg:flex gap-6 shrink-0">
+              <div className="text-right">
+                <div className="text-2xl font-extrabold tracking-[-0.02em] leading-none text-gray-900">{filtered.length}</div>
+                <div className="mt-1 text-[10px] font-mono tracking-[.12em] uppercase text-gray-400">places to stay</div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
-          <h1 className="text-white font-extrabold text-4xl sm:text-5xl md:text-6xl drop-shadow-lg tracking-wide mb-3">
-            Accommodations
-          </h1>
-          <p className="text-white/80 text-base sm:text-lg max-w-xl">
-            Find the perfect place to stay across Cebu
-          </p>
+      </div>
+
+      {/* ── Search bar ── */}
+      <div className="bg-white border-b border-gray-100 py-4">
+        <div className="max-w-[1280px] mx-auto px-6 lg:px-10">
+          <div className="max-w-4xl mx-auto relative hidden sm:flex items-stretch overflow-visible rounded-full bg-white shadow-2xl">
+            <div className="flex items-center gap-3 px-6 py-4 flex-1 min-w-0">
+              <div className="bg-green-50 rounded-full p-2 shrink-0">
+                <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <div className="flex flex-col min-w-0 w-full">
+                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Search</span>
+                <input
+                  type="text"
+                  aria-label="Search accommodations"
+                  placeholder="Search accommodations in Cebu..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="outline-none text-sm font-medium text-gray-800 placeholder-gray-400 w-full bg-transparent"
+                />
+              </div>
+            </div>
+          </div>
+          {/* Mobile search */}
+          <div className="sm:hidden flex items-center gap-3 border border-gray-200 rounded-full px-5 py-3 bg-white shadow-sm">
+            <svg className="w-4 h-4 shrink-0 text-[#008768]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+            </svg>
+            <input
+              type="text"
+              aria-label="Search accommodations"
+              placeholder="Search accommodations..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="outline-none text-sm text-gray-700 placeholder-gray-400 flex-1 bg-transparent"
+            />
+          </div>
         </div>
-      </section>
+      </div>
 
       {/* Filter bar */}
       <div className="sticky top-0 z-20 bg-white border-b border-gray-100 shadow-sm">
@@ -239,20 +279,6 @@ export default function AccommodationsPage() {
       </div>
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 pb-16">
-        {/* Search */}
-        <div className="flex items-center bg-white rounded-full shadow-md border border-gray-100 px-6 py-4 mb-8 max-w-2xl mx-auto">
-          <svg className="w-5 h-5 text-gray-400 mr-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            type="text"
-            placeholder="Search accommodations in Cebu..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="outline-none text-sm text-gray-700 placeholder-gray-400 flex-1 bg-transparent"
-          />
-        </div>
-
         <div className="flex items-center justify-between mb-6">
           <p className="text-sm text-gray-400">
             {filtered.length} {filtered.length === 1 ? 'place' : 'places'} to stay
@@ -266,7 +292,7 @@ export default function AccommodationsPage() {
             </div>
             <p className="text-base font-semibold text-gray-700">No accommodations listed yet</p>
             <p className="mt-1 text-sm text-gray-400">
-              {search || activeType ? 'Try adjusting your search or filters.' : 'Check back soon — listings are coming.'}
+              {search || activeType ? 'Try adjusting your search or filters.' : 'Check back soon. Listings are coming.'}
             </p>
           </div>
         ) : (

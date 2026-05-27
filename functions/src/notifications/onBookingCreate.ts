@@ -52,8 +52,13 @@ export const onBookingCreatedNotifyOperator = onDocumentCreated(
         const srcDoc = await db.collection(col).doc(activityId).get();
         if (srcDoc.exists) {
           const srcData = srcDoc.data() as Record<string, unknown>;
-          const imgs = Array.isArray(srcData[imgField]) ? (srcData[imgField] as string[]) : [];
-          thumbnailUrl = imgs[0] ?? undefined;
+          const imgs = Array.isArray(srcData[imgField]) ? (srcData[imgField] as unknown[]) : [];
+          const first = imgs[0];
+          thumbnailUrl = typeof first === "string"
+            ? first
+            : (first && typeof first === "object" && typeof (first as { url?: string }).url === "string"
+              ? (first as { url: string }).url
+              : undefined);
         }
       } catch {
         // non-fatal — notification still writes without thumbnail

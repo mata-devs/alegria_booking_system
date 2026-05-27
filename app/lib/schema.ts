@@ -1,7 +1,7 @@
 import { z } from 'zod';
+import { PH_LOCAL_PHONE_REGEX, PH_PHONE_INVALID_MSG } from './ph-phone';
 
 // ── PH phone: user types "999 999 9999", stored as "+639999999999" ─────────────
-const phLocalPhoneRegex = /^9\d{9}$/;
 
 export const representativeFormSchema = z.object({
   repName: z
@@ -38,8 +38,8 @@ export const representativeFormSchema = z.object({
     .refine((v) => {
       const local = v.startsWith('+63') ? v.slice(3) : v;
       const digits = local.replace(/\D/g, '');
-      return phLocalPhoneRegex.test(digits);
-    }, 'Enter a valid Philippine mobile number (e.g. 917 123 4567).'),
+      return PH_LOCAL_PHONE_REGEX.test(digits);
+    }, PH_PHONE_INVALID_MSG),
 
   repNationality: z
     .string()

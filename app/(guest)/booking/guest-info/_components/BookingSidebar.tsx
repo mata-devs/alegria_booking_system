@@ -409,7 +409,7 @@ export function BookingSidebar({
                             <span className="text-black">{priceLoading ? "—" : peso(baseAmount)}</span>
                         </div>
                         <div className="flex justify-between text-gray-500 font-medium text-sm">
-                            <span>Service Charge</span>
+                            <span>Convenience Fee</span>
                             <span className="text-black">
                                 {!pricingReady ? "—" : peso(totals.serviceCharge)}
                             </span>

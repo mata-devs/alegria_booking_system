@@ -10,3 +10,4 @@ export { api } from "./booking/api.http";
 export { completeInProgressBookings } from "./reviews/completeInProgressBookings";
 export { onReviewStatusChanged } from "./reviews/onReviewStatusChanged";
 export { onBookingCreatedNotifyOperator } from "./notifications/onBookingCreate";
+export { onOperatorSignupRequestCreatedNotifyAdmins } from "./notifications/onOperatorSignupCreate";

@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
-import { Camera, Check, Loader2, TriangleAlert, User } from 'lucide-react';
+import { Camera, Check, Eye, Loader2, TriangleAlert, User } from 'lucide-react';
 import {
   EmailAuthProvider,
   reauthenticateWithCredential,
@@ -13,6 +13,21 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import { firebaseAuth, firebaseDb, firebaseStorage } from '@/app/lib/firebase';
 import { useAuth } from '@/app/context/AuthContext';
+import { PhPhoneInput } from '@/app/components/ui/PhPhoneInput';
+import { PhLandlineInput } from '@/app/components/ui/PhLandlineInput';
+import { isValidPhE164, PH_PHONE_INVALID_MSG, normalizeStoredMobileE164 } from '@/app/lib/ph-phone';
+import {
+  isValidLandlineE164,
+  PH_LANDLINE_INVALID_MSG,
+  normalizeStoredLandlineE164,
+} from '@/app/lib/ph-landline';
+import { blurUnlessPhoneSibling } from '@/app/lib/phone-field-blur';
+import { DocumentPreviewDrawer, type PreviewDocument } from '@/app/components/admin/DocumentPreviewDrawer';
+import {
+  DOT_CERT_LABEL,
+  isDotCertDocumentName,
+  sortComplianceDocuments,
+} from '@/app/lib/operator-signup-documents';
 
 type Status =
   | { type: 'idle' }
@@ -58,6 +73,8 @@ type StoredPaymentMethod = {
 };
 
 const LABEL = 'block text-[11px] font-semibold uppercase tracking-wide text-gray-500';
+const READONLY_INPUT =
+  'mt-1.5 h-10 w-full cursor-not-allowed rounded-md border border-gray-200 bg-gray-100 px-3 text-sm text-gray-500 outline-none';
 const INPUT =
   'mt-1.5 h-10 w-full rounded-md border border-gray-200 bg-gray-50 px-3 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-[#558B2F] focus:bg-white focus:ring-1 focus:ring-[#558B2F] disabled:cursor-not-allowed disabled:opacity-60';
 const BTN_PRIMARY =
@@ -129,6 +146,8 @@ function fromStoredPaymentMethods(stored: StoredPaymentMethod[] | undefined): Pa
   });
 }
 
+type OperatorFile = { name: string; url: string };
+
 export default function OperatorSettingsPage() {
   const { authState } = useAuth();
   const photoFileRef = useRef<HTMLInputElement | null>(null);
@@ -136,8 +155,16 @@ export default function OperatorSettingsPage() {
 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [profile, setProfile] = useState({ firstName: '', lastName: '', email: '', companyName: '' });
+  const [profile, setProfile] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    companyName: '',
+    phoneNumber: '',
+    mobileNumber: '',
+  });
   const [profileStatus, setProfileStatus] = useState<Status>({ type: 'idle' });
+  const [phoneErrors, setPhoneErrors] = useState<{ phoneNumber?: string; mobileNumber?: string }>({});
 
   const [passwords, setPasswords] = useState({
     currentPassword: '',
@@ -151,32 +178,147 @@ export default function OperatorSettingsPage() {
   );
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deletingOption, setDeletingOption] = useState(false);
+  const [customInclusionChips, setCustomInclusionChips] = useState<string[]>([]);
+  const [customExclusionChips, setCustomExclusionChips] = useState<string[]>([]);
+  const [chipsStatus, setChipsStatus] = useState<Status>({ type: 'idle' });
+
+  const [businessLocation, setBusinessLocation] = useState({
+    address: '',
+    lat: null as number | null,
+    lng: null as number | null,
+  });
+  const [complianceFiles, setComplianceFiles] = useState<OperatorFile[]>([]);
+  const [dotProofUrl, setDotProofUrl] = useState<string | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<PreviewDocument | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   useEffect(() => {
     if (authState.status !== 'authenticated') return;
-    setProfile({
+    setProfile((prev) => ({
+      ...prev,
       firstName: authState.profile.firstName ?? '',
       lastName: authState.profile.lastName ?? '',
       email: authState.profile.email ?? '',
-      companyName: '',
-    });
-    if (authState.user.photoURL) setPhotoPreview(authState.user.photoURL);
+    }));
+    if (authState.user.photoURL) {
+      setPhotoPreview(authState.user.photoURL);
+    }
 
-    getDoc(doc(firebaseDb, 'users', authState.user.uid)).then((snap) => {
+    getDoc(doc(firebaseDb, 'users', authState.user.uid)).then(async (snap) => {
       if (!snap.exists()) return;
       const data = snap.data() as {
         companyName?: string;
+        phoneNumber?: string;
+        mobileNumber?: string;
         paymentMethods?: StoredPaymentMethod[];
+        customInclusionChips?: string[];
+        customExclusionChips?: string[];
+        profileImage?: string;
+        address?: string;
+        lat?: number;
+        lng?: number;
+        files?: OperatorFile[];
+        dotProofUrl?: string | null;
       };
 
       setProfile((prev) => ({
         ...prev,
         companyName: data.companyName ?? '',
+        phoneNumber: normalizeStoredLandlineE164(data.phoneNumber ?? ''),
+        mobileNumber: normalizeStoredMobileE164(data.mobileNumber ?? ''),
       }));
 
       setPaymentOptions(fromStoredPaymentMethods(data.paymentMethods));
+      setCustomInclusionChips(Array.isArray(data.customInclusionChips) ? data.customInclusionChips : []);
+      setCustomExclusionChips(Array.isArray(data.customExclusionChips) ? data.customExclusionChips : []);
+
+      setBusinessLocation({
+        address: data.address ?? '',
+        lat: typeof data.lat === 'number' ? data.lat : null,
+        lng: typeof data.lng === 'number' ? data.lng : null,
+      });
+
+      const rawFiles = Array.isArray(data.files)
+        ? data.files.filter(
+            (f): f is OperatorFile =>
+              f != null && typeof f === 'object' && typeof f.name === 'string',
+          )
+        : [];
+      setComplianceFiles(
+        sortComplianceDocuments(rawFiles.filter((f) => !isDotCertDocumentName(f.name))),
+      );
+      const dotFromFiles = rawFiles.find((f) => isDotCertDocumentName(f.name))?.url;
+      const resolvedDot =
+        typeof data.dotProofUrl === 'string' && data.dotProofUrl.startsWith('http')
+          ? data.dotProofUrl
+          : typeof dotFromFiles === 'string' && dotFromFiles.startsWith('http')
+            ? dotFromFiles
+            : null;
+      setDotProofUrl(resolvedDot);
+
+      if (authState.user.photoURL) return;
+
+      if (typeof data.profileImage === 'string' && data.profileImage.startsWith('http')) {
+        setPhotoPreview(data.profileImage);
+        return;
+      }
+
+      const uid = authState.user.uid;
+      for (const path of [`profile-pictures/${uid}.jpg`, `users/${uid}/avatar.jpg`]) {
+        try {
+          const url = await getDownloadURL(storageRef(firebaseStorage, path));
+          setPhotoPreview(url);
+          return;
+        } catch {
+          // try next path
+        }
+      }
     });
   }, [authState]);
+
+  function openDocumentPreview(file: { name: string; url: string }) {
+    setPreviewDoc({ name: file.name, url: file.url });
+    setPreviewOpen(true);
+  }
+
+  async function saveCustomChips() {
+    if (authState.status !== 'authenticated') return;
+    setChipsStatus({ type: 'saving' });
+    try {
+      await updateDoc(doc(firebaseDb, 'users', authState.user.uid), {
+        customInclusionChips,
+        customExclusionChips,
+      });
+      setChipsStatus({ type: 'success', msg: 'Custom chips saved.' });
+    } catch {
+      setChipsStatus({ type: 'error', msg: 'Failed to save custom chips.' });
+    }
+  }
+
+  function removeCustomChip(kind: 'inclusion' | 'exclusion', chip: string) {
+    if (authState.status !== 'authenticated') return;
+    const field = kind === 'inclusion' ? 'customInclusionChips' : 'customExclusionChips';
+  const uid = authState.user.uid;
+
+    if (kind === 'inclusion') {
+      setCustomInclusionChips((prev) => {
+        const next = prev.filter((c) => c !== chip);
+        void updateDoc(doc(firebaseDb, 'users', uid), { [field]: next }).catch(() => {
+          setChipsStatus({ type: 'error', msg: 'Failed to remove custom chip.' });
+        });
+        return next;
+      });
+      return;
+    }
+
+    setCustomExclusionChips((prev) => {
+      const next = prev.filter((c) => c !== chip);
+      void updateDoc(doc(firebaseDb, 'users', uid), { [field]: next }).catch(() => {
+        setChipsStatus({ type: 'error', msg: 'Failed to remove custom chip.' });
+      });
+      return next;
+    });
+  }
 
   const onPickPhoto = () => photoFileRef.current?.click();
 
@@ -195,9 +337,43 @@ export default function OperatorSettingsPage() {
     setPhotoPreview(URL.createObjectURL(file));
   };
 
+  function validateProfilePhones(): { phoneNumber?: string; mobileNumber?: string; formError?: string } {
+    const errs: { phoneNumber?: string; mobileNumber?: string } = {};
+    const phoneFilled = profile.phoneNumber.trim().length > 0;
+    const mobileFilled = profile.mobileNumber.trim().length > 0;
+
+    if (phoneFilled && !isValidLandlineE164(profile.phoneNumber)) {
+      errs.phoneNumber = PH_LANDLINE_INVALID_MSG;
+    }
+    if (mobileFilled && !isValidPhE164(profile.mobileNumber)) {
+      errs.mobileNumber = PH_PHONE_INVALID_MSG;
+    }
+    if (!phoneFilled && !mobileFilled) {
+      return { ...errs, formError: 'Provide at least one contact number (landline or mobile).' };
+    }
+    const hasValid =
+      (phoneFilled && isValidLandlineE164(profile.phoneNumber)) ||
+      (mobileFilled && isValidPhE164(profile.mobileNumber));
+    if (!hasValid) {
+      return { ...errs, formError: 'Enter at least one valid landline or mobile number.' };
+    }
+    return errs;
+  }
+
   const onSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (authState.status !== 'authenticated') return;
+
+    const phoneResult = validateProfilePhones();
+    setPhoneErrors(phoneResult);
+    if (phoneResult.formError || phoneResult.phoneNumber || phoneResult.mobileNumber) {
+      setProfileStatus({
+        type: 'error',
+        msg: phoneResult.formError ?? 'Fix telephone or mobile number.',
+      });
+      return;
+    }
+
     setProfileStatus({ type: 'saving' });
     try {
       const user = authState.user;
@@ -216,6 +392,9 @@ export default function OperatorSettingsPage() {
       await updateDoc(doc(firebaseDb, 'users', user.uid), {
         firstName: profile.firstName,
         lastName: profile.lastName,
+        phoneNumber: profile.phoneNumber.trim(),
+        mobileNumber: profile.mobileNumber.trim(),
+        ...(photoURL ? { profileImage: photoURL } : {}),
       });
 
       try { sessionStorage.removeItem('vc_auth_v1'); } catch {}
@@ -358,7 +537,7 @@ export default function OperatorSettingsPage() {
       {/* Profile Information */}
       <SettingsSection
         title="Profile Information"
-        description="Update your account's profile information and email address."
+        description="Update your profile, contact numbers, and photo."
       >
         <form onSubmit={onSaveProfile} className="rounded-xl border border-gray-200 bg-white shadow-sm">
           <div className="px-6 py-5 space-y-5">
@@ -425,6 +604,45 @@ export default function OperatorSettingsPage() {
               </div>
             </div>
 
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <PhLandlineInput
+                id="settings-phone"
+                label="Telephone"
+                labelClassName={LABEL}
+                valueE164={profile.phoneNumber}
+                onChangeE164={(v) => {
+                  setProfile((p) => ({ ...p, phoneNumber: v }));
+                  setPhoneErrors(validateProfilePhones());
+                }}
+                error={phoneErrors.phoneNumber}
+                onBlur={(e) =>
+                  blurUnlessPhoneSibling(e, 'settings-mobile', () =>
+                    setPhoneErrors(validateProfilePhones()),
+                  )
+                }
+              />
+              <PhPhoneInput
+                id="settings-mobile"
+                label="Mobile Number"
+                labelClassName={LABEL}
+                valueE164={profile.mobileNumber}
+                onChangeE164={(v) => {
+                  setProfile((p) => ({ ...p, mobileNumber: v }));
+                  setPhoneErrors(validateProfilePhones());
+                }}
+                error={phoneErrors.mobileNumber}
+                onBlur={(e) =>
+                  blurUnlessPhoneSibling(e, 'settings-phone', () =>
+                    setPhoneErrors(validateProfilePhones()),
+                  )
+                }
+                accent="signup"
+              />
+            </div>
+            <p className="text-[11px] text-gray-400 -mt-2">
+              At least one valid number required. Metro 02 8XXX XXXX or provincial 0XX XXX XXXX for landline; 9XX for mobile.
+            </p>
+
             <div>
               <label className={LABEL}>Company Name</label>
               <input
@@ -465,6 +683,108 @@ export default function OperatorSettingsPage() {
           </div>
         </form>
       </SettingsSection>
+
+      <SettingsSection
+        title="Business Location"
+        description="Registered business address from your operator application."
+      >
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="px-6 py-5 space-y-4">
+            <div>
+              <label className={LABEL}>Address</label>
+              <input
+                value={businessLocation.address || '—'}
+                type="text"
+                readOnly
+                className={READONLY_INPUT}
+              />
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className={LABEL}>Latitude</label>
+                <input
+                  value={businessLocation.lat != null ? String(businessLocation.lat) : '—'}
+                  type="text"
+                  readOnly
+                  className={READONLY_INPUT}
+                />
+              </div>
+              <div>
+                <label className={LABEL}>Longitude</label>
+                <input
+                  value={businessLocation.lng != null ? String(businessLocation.lng) : '—'}
+                  type="text"
+                  readOnly
+                  className={READONLY_INPUT}
+                />
+              </div>
+            </div>
+            <p className="text-[11px] text-gray-400">
+              Location details are set during registration and cannot be changed here.
+            </p>
+          </div>
+        </div>
+      </SettingsSection>
+
+      <SettingsSection
+        title="Registration Documents"
+        description="Compliance documents submitted with your operator application."
+      >
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="divide-y divide-gray-100">
+            {complianceFiles.length === 0 ? (
+              <p className="px-6 py-5 text-sm text-gray-400">No registration documents on file.</p>
+            ) : (
+              complianceFiles.map((file) => (
+                <div
+                  key={file.name}
+                  className="flex items-center justify-between gap-3 px-6 py-4"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-gray-900">{file.name}</p>
+                    <p className="text-[11px] text-gray-400">Submitted at registration</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => openDocumentPreview(file)}
+                    disabled={!file.url}
+                    title={file.url ? 'View document' : 'Document unavailable'}
+                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-teal-50 text-teal-600 transition-colors hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Eye className="h-4 w-4" strokeWidth={2} />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </SettingsSection>
+
+      {dotProofUrl ? (
+        <SettingsSection
+          title="DOT Accreditation"
+          description="Optional accreditation certificate from your registration."
+        >
+          <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div className="flex items-center justify-between gap-3 px-6 py-4">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-gray-900">{DOT_CERT_LABEL}</p>
+                <p className="text-[11px] text-gray-400">
+                  Submitted during registration — cannot be modified
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => openDocumentPreview({ name: DOT_CERT_LABEL, url: dotProofUrl })}
+                title="View DOT accreditation"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-teal-50 text-teal-600 transition-colors hover:bg-teal-100"
+              >
+                <Eye className="h-4 w-4" strokeWidth={2} />
+              </button>
+            </div>
+          </div>
+        </SettingsSection>
+      ) : null}
 
       {/* Update Password */}
       <SettingsSection
@@ -548,6 +868,50 @@ export default function OperatorSettingsPage() {
         </div>
       </SettingsSection>
 
+      <SettingsSection
+        title="My Custom Chips"
+        description="Manage inclusion and exclusion chips available when editing your listings."
+      >
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm px-6 py-5 space-y-5">
+          <div>
+            <p className={LABEL}>Custom inclusion chips</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {customInclusionChips.length === 0 ? (
+                <p className="text-xs text-gray-400">None yet — add from a listing edit modal.</p>
+              ) : (
+                customInclusionChips.map((chip) => (
+                  <span key={chip} className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-xs text-green-800">
+                    {chip}
+                    <button type="button" onClick={() => removeCustomChip('inclusion', chip)} className="text-green-600 hover:text-red-600">×</button>
+                  </span>
+                ))
+              )}
+            </div>
+          </div>
+          <div>
+            <p className={LABEL}>Custom exclusion chips</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {customExclusionChips.length === 0 ? (
+                <p className="text-xs text-gray-400">None yet — add from a listing edit modal.</p>
+              ) : (
+                customExclusionChips.map((chip) => (
+                  <span key={chip} className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700">
+                    {chip}
+                    <button type="button" onClick={() => removeCustomChip('exclusion', chip)} className="text-gray-500 hover:text-red-600">×</button>
+                  </span>
+                ))
+              )}
+            </div>
+          </div>
+          <StatusLine status={chipsStatus} />
+          <div className="flex justify-end">
+            <button type="button" onClick={() => void saveCustomChips()} className={BTN_PRIMARY}>
+              Save custom chips
+            </button>
+          </div>
+        </div>
+      </SettingsSection>
+
       {deleteConfirmId && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/45 p-4">
           <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white shadow-2xl">
@@ -578,6 +942,12 @@ export default function OperatorSettingsPage() {
           </div>
         </div>
       )}
+
+      <DocumentPreviewDrawer
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        document={previewDoc}
+      />
     </div>
   );
 }

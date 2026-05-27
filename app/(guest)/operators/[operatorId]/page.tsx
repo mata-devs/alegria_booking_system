@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
@@ -12,6 +12,10 @@ import { GuestReviewCard } from '@/app/components/GuestReviewCard'
 import { firebaseDb } from '@/app/lib/firebase'
 import { getAllApprovedReviewsForCatalog, type CatalogReview } from '@/app/lib/reviews-service'
 import type { Activity } from '@/app/types'
+import { packageImageUrl } from '@/app/lib/package-images'
+import { normalizeActivityTags, formatActivityTagsDisplay, primaryActivityTag } from '@/app/lib/activity-tags'
+import { DotSealBadge } from '@/app/components/ui/DotSealBadge'
+import { normalizePackageLocations, formatLocationSummary } from '@/app/lib/package-locations'
 
 interface OperatorInfo {
   uid: string
@@ -23,6 +27,7 @@ interface OperatorInfo {
   mobileNumber: string
   email: string | null
   memberSince: string | null
+  hasDOTQualitySeal: boolean
 }
 
 interface FirestorePackageRow {
@@ -31,7 +36,7 @@ interface FirestorePackageRow {
   packageDescription: string
   pricePerPerson: number
   minimumNumberOfPeople: number
-  packageLocation: string
+  packageLocations: string[]
   duration: string
   packageTag: string
   packageImages: string[]
@@ -68,6 +73,10 @@ function RatingBar({ star, count, total }: { star: number; count: number; total:
       <span className="text-xs text-gray-400 w-7 text-right">{pct}%</span>
     </div>
   )
+}
+
+function scrollToSection(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 export default function OperatorProfilePage() {
@@ -129,6 +138,7 @@ export default function OperatorProfilePage() {
           mobileNumber: data.mobileNumber ?? '',
           email: data.email ?? null,
           memberSince,
+          hasDOTQualitySeal: data.hasDOTQualitySeal === true,
         })
 
         const actList: Activity[] = actSnap.docs.map((d, idx) => {
@@ -136,14 +146,14 @@ export default function OperatorProfilePage() {
           return {
             id: idx,
             firestoreId: d.id,
-            category: a.activityTag ?? '',
+            category: formatActivityTagsDisplay(normalizeActivityTags(a.activityTags, a.activityTag)) || primaryActivityTag(normalizeActivityTags(a.activityTags, a.activityTag)),
             title: a.activityName ?? '',
             location: a.activityLocation ?? '',
             rating: a.activityRating ?? 0,
             reviewCount: 0,
             price: a.pricePerGuest ?? 0,
             maxGuests: a.maximumNumberOfPeople ?? a.maxSlots ?? 30,
-            image: a.activityImages?.[0] ?? '',
+            image: packageImageUrl(a.activityImages?.[0]) ?? '',
             municipalityId: a.activityLocation ?? '',
           }
         })
@@ -158,7 +168,7 @@ export default function OperatorProfilePage() {
             packageDescription: p.packageDescription ?? '',
             pricePerPerson: p.pricePerPerson ?? 0,
             minimumNumberOfPeople: p.minimumNumberOfPeople ?? 1,
-            packageLocation: p.packageLocation ?? '',
+            packageLocations: normalizePackageLocations(p),
             duration: p.duration ?? '',
             packageTag: p.packageTag ?? '',
             packageImages: p.packageImages ?? [],
@@ -264,7 +274,10 @@ export default function OperatorProfilePage() {
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 leading-tight">{operator.companyName}</h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 leading-tight">{operator.companyName}</h1>
+              <DotSealBadge granted={operator.hasDOTQualitySeal} size="md" />
+            </div>
             {(operator.firstName || operator.lastName) && (
               <p className="text-sm text-gray-500 mt-0.5">{operator.firstName} {operator.lastName}</p>
             )}
@@ -318,15 +331,36 @@ export default function OperatorProfilePage() {
               <p className="text-xs text-gray-400 mt-2">Member since {operator.memberSince}</p>
             )}
 
-            <Link
-              href="/activities"
-              className="mt-4 inline-flex items-center gap-2 rounded-full bg-green-500 px-5 py-2 text-sm font-semibold text-white hover:bg-green-600 transition-colors"
-            >
-              Book an Activity
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </Link>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Link
+                href={activities.length > 0 ? '#operator-activities' : '/activities'}
+                onClick={(e) => {
+                  if (activities.length === 0) return
+                  e.preventDefault()
+                  scrollToSection('operator-activities')
+                }}
+                className="inline-flex items-center gap-2 rounded-full border border-green-500 px-5 py-2 text-sm font-semibold text-green-600 hover:bg-green-50 transition-colors"
+              >
+                Book an Activity
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+              <Link
+                href={packages.length > 0 ? '#operator-tour-packages' : '/tour-packages'}
+                onClick={(e) => {
+                  if (packages.length === 0) return
+                  e.preventDefault()
+                  scrollToSection('operator-tour-packages')
+                }}
+                className="inline-flex items-center gap-2 rounded-full border border-green-500 px-5 py-2 text-sm font-semibold text-green-600 hover:bg-green-50 transition-colors"
+              >
+                Book Tour Package
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
           </div>
 
           {/* Stats column */}
@@ -377,13 +411,13 @@ export default function OperatorProfilePage() {
 
         {/* Activities */}
         {activities.length > 0 && (
-          <section>
+          <section id="operator-activities" className="scroll-mt-24">
             <h2 className="text-xl font-bold text-gray-900 mb-6">
-              Activities by {operator.companyName}
+              Offered Activities by {operator.companyName}
             </h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
               {activities.map((act) => (
-                <ActivityCard key={act.firestoreId ?? act.id} activity={act} />
+                <ActivityCard key={act.firestoreId ?? act.id} activity={act} dotSealGranted={operator.hasDOTQualitySeal} />
               ))}
             </div>
           </section>
@@ -391,15 +425,15 @@ export default function OperatorProfilePage() {
 
         {/* Tour Packages */}
         {packages.length > 0 && (
-          <section>
+          <section id="operator-tour-packages" className="scroll-mt-24">
             <h2 className="text-xl font-bold text-gray-900 mb-6">
-              Tour Packages by {operator.companyName}
+              Offered Tour Packages by {operator.companyName}
             </h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
               {packages.map((pkg) => (
                 <PackageCard
                   key={pkg.id}
-                  image={pkg.packageImages[0] ?? ''}
+                  image={packageImageUrl(pkg.packageImages[0])}
                   title={pkg.packageName}
                   price={pkg.pricePerPerson}
                   pricePrefix="Starting from"
@@ -407,7 +441,9 @@ export default function OperatorProfilePage() {
                   duration={pkg.duration}
                   rating={pkg.packageRating}
                   minGuests={pkg.minimumNumberOfPeople}
+                  location={formatLocationSummary(pkg.packageLocations)}
                   cardKind="tourPackage"
+                  dotSealGranted={operator.hasDOTQualitySeal}
                   href={`/tour-packages/${pkg.slug}`}
                 />
               ))}
@@ -437,7 +473,7 @@ export default function OperatorProfilePage() {
         ) : (activities.length > 0 || packages.length > 0) ? (
           <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
             <h2 className="text-base font-semibold text-gray-700 mb-2">Guest Reviews</h2>
-            <p className="text-sm text-gray-400">No reviews yet — be one of the first to explore and share your experience!</p>
+            <p className="text-sm text-gray-400">No reviews yet. Be the first to explore and share your experience!</p>
           </section>
         ) : null}
       </main>

@@ -13,6 +13,8 @@ import {
   where as firestoreWhere,
 } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
+import { packageImageUrl } from '@/app/lib/package-images'
+import { normalizeActivityTags, formatActivityTagsDisplay, primaryActivityTag } from '@/app/lib/activity-tags'
 import {
   countByActivityLocation,
   countByPackageLocation,
@@ -20,13 +22,14 @@ import {
 } from '@/app/lib/guest-location-list'
 import { getHomepageCmsClient } from '@/app/lib/homepage-cms'
 import type { Activity, Location } from '@/app/types'
+import { normalizePackageLocations, formatLocationSummary } from '@/app/lib/package-locations'
 
 interface FSPackage {
   id: string
   packageName: string
   packageDescription: string
   pricePerPerson: number
-  packageLocation: string
+  packageLocations: string[]
   packageTag: string
   duration: string
   packageImages: string[]
@@ -66,16 +69,17 @@ export default function HomeCarousels() {
 
         const mappedActivities: Activity[] = actSnap.docs.map((d, idx) => {
           const data = d.data()
+          const tags = normalizeActivityTags(data.activityTags, data.activityTag)
           return {
             id: idx,
             firestoreId: d.id,
-            category: data.activityTag ?? '',
+            category: formatActivityTagsDisplay(tags) || primaryActivityTag(tags),
             title: data.activityName ?? '',
             location: data.activityLocation ?? '',
             rating: data.activityRating ?? 0,
             reviewCount: 0,
             price: data.pricePerGuest ?? 0,
-            image: data.activityImages?.[0] ?? '',
+            image: packageImageUrl(data.activityImages?.[0]) ?? '',
             municipalityId: data.activityLocation ?? '',
           }
         })
@@ -119,7 +123,14 @@ export default function HomeCarousels() {
         }
 
         setPackages(
-          pkgSnap.docs.slice(0, 8).map((d) => ({ id: d.id, ...d.data() } as FSPackage)),
+          pkgSnap.docs.slice(0, 8).map((d) => {
+            const data = d.data()
+            return {
+              id: d.id,
+              ...data,
+              packageLocations: normalizePackageLocations(data),
+            } as FSPackage
+          }),
         )
       } catch (err) {
         console.error('Failed to fetch home data:', err)
@@ -184,15 +195,15 @@ export default function HomeCarousels() {
                 icon: (
                   <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-12 w-12">
                     <circle cx="24" cy="24" r="24" fill="#dcfce7" />
-                    <path d="M15 26v-3a9 9 0 0118 0v3" stroke="#16a34a" strokeWidth="2" strokeLinecap="round"/>
-                    <rect x="12" y="26" width="5" height="7" rx="2.5" fill="#16a34a"/>
-                    <rect x="31" y="26" width="5" height="7" rx="2.5" fill="#16a34a"/>
-                    <path d="M36 31.5c0 3.5-2.5 5.5-6 5.5h-2" stroke="#16a34a" strokeWidth="2" strokeLinecap="round"/>
-                    <circle cx="28" cy="37" r="1.5" fill="#16a34a"/>
+                    <path d="M14 28c0-2 1.5-3.5 3.5-3.5H20l2.5 2.5H26l2-2h2.5C32.5 25 34 26.5 34 28.5V34H14V28z" fill="#16a34a" opacity=".2"/>
+                    <path d="M14 28c0-2 1.5-3.5 3.5-3.5H20l2.5 2.5H26l2-2h2.5C32.5 25 34 26.5 34 28.5V34H14V28z" stroke="#16a34a" strokeWidth="1.8" strokeLinejoin="round"/>
+                    <circle cx="19" cy="19" r="3" stroke="#16a34a" strokeWidth="1.8"/>
+                    <circle cx="29" cy="19" r="3" stroke="#16a34a" strokeWidth="1.8"/>
+                    <path d="M22 24.5l2 2 2-2" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 ),
-                title: '24/7 Support',
-                desc: 'Our team is available around the clock to assist you before, during, and after your trip.',
+                title: 'Trusted Local Partners',
+                desc: 'We work with vetted local operators and guides who know Cebu best — ensuring authentic, safe experiences.',
               },
             ].map((feat) => (
               <div key={feat.title} className="rounded-2xl border border-green-100 bg-white p-6 text-center shadow-sm sm:p-8">
@@ -320,14 +331,14 @@ export default function HomeCarousels() {
                 {packages.map((pkg) => (
                   <div key={pkg.id} className="w-64 shrink-0 sm:w-72">
                     <PackageCard
-                      image={pkg.packageImages?.[0] ?? ''}
+                      image={packageImageUrl(pkg.packageImages?.[0])}
                       title={pkg.packageName}
                       price={pkg.pricePerPerson}
                       pricePrefix="From"
                       tag={pkg.packageTag}
                       duration={pkg.duration}
                       rating={pkg.packageRating}
-                      location={pkg.packageLocation}
+                      location={formatLocationSummary(pkg.packageLocations)}
                       cardKind="tourPackage"
                       href={`/tour-packages/${pkg.slug}`}
                     />

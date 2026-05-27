@@ -209,7 +209,7 @@ export default function SuperAdminFilters({
               defaultValue={ageMin}
               className={`${INPUT_BASE} w-16 text-center`}
             />
-            <span className="text-xs font-medium text-gray-500">—</span>
+            <span className="text-xs font-medium text-gray-500">to</span>
             <input
               type="text"
               defaultValue={ageMax}

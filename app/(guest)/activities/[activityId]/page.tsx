@@ -10,6 +10,9 @@ import { Lightbox } from '@/app/components/ui/BentoGallery'
 import { doc, getDoc } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
 import { getApprovedReviewsForItem, type ApprovedReview } from '@/app/lib/reviews-service'
+import { InclusionChipBadges } from '@/app/components/ui/InclusionChipBadges'
+import { normalizePackageImages, packageImageUrl, type PackageImage } from '@/app/lib/package-images'
+import { normalizeActivityTags, primaryActivityTag, formatActivityTagsDisplay } from '@/app/lib/activity-tags'
 
 interface FirestoreActivity {
   id: string
@@ -21,8 +24,11 @@ interface FirestoreActivity {
   maximumNumberOfPeople?: number
   activityLocation: string
   activityTag: string
+  activityTags: string[]
   activityRating: number
-  activityImages: string[]
+  activityImages: PackageImage[]
+  inclusions?: string[]
+  exclusions?: string[]
 }
 
 const STATIC_FAQS = [
@@ -150,7 +156,17 @@ function ActivityDetailInner() {
       try {
         const snap = await getDoc(doc(firebaseDb, 'activities', activityId))
         if (!snap.exists()) { setNotFound(true); setLoading(false); return }
-        const loaded = { id: snap.id, ...snap.data() } as FirestoreActivity
+        const raw = snap.data()
+        const tags = normalizeActivityTags(raw.activityTags, raw.activityTag)
+        const loaded = {
+          id: snap.id,
+          ...raw,
+          activityImages: normalizePackageImages(raw.activityImages),
+          activityTags: tags,
+          activityTag: primaryActivityTag(tags),
+          inclusions: Array.isArray(raw.inclusions) ? raw.inclusions : [],
+          exclusions: Array.isArray(raw.exclusions) ? raw.exclusions : [],
+        } as FirestoreActivity
         setActivity(loaded)
         if (!searchParams.get('travelers')) {
           setTravelers(Math.max(1, loaded.minimumNumberOfPeople ?? 1))
@@ -253,11 +269,11 @@ function ActivityDetailInner() {
               {/* Left: Text */}
               <div className="order-2 lg:order-1">
                 <div className="flex flex-wrap items-center gap-2 mb-5">
-                  {activity.activityTag && (
-                    <span className="inline-flex items-center gap-1.5 bg-gray-900 text-white text-xs font-bold px-3 py-1.5 rounded-full">
-                      ★ {activity.activityTag}
+                  {activity.activityTags.map((tag) => (
+                    <span key={tag} className="inline-flex items-center gap-1.5 bg-gray-900 text-white text-xs font-bold px-3 py-1.5 rounded-full">
+                      ★ {tag}
                     </span>
-                  )}
+                  ))}
                   <span className="inline-flex items-center gap-1.5 border border-gray-300 text-gray-600 text-xs font-medium px-3 py-1.5 rounded-full">
                     <svg className="w-3 h-3 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -304,11 +320,15 @@ function ActivityDetailInner() {
                     onClick={() => heroImages[0] && setLightboxIdx(0)}
                     className="absolute top-7 right-0 z-[1] w-[255px] h-[255px] sm:w-[275px] sm:h-[275px] rounded-[22px] overflow-hidden shadow-lg bg-gray-200 [transform:rotate(-5deg)] hover:z-[10] hover:scale-105 hover:shadow-2xl transition-all duration-300 cursor-zoom-in"
                   >
-                    {heroImages[0] && <Image src={heroImages[0]} alt="" fill className="object-cover" sizes="275px" />}
+                    {heroImages[0] && (
+                      <Image src={packageImageUrl(heroImages[0])} alt="" fill className="object-cover" sizes="275px" />
+                    )}
                     <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors duration-200" />
-                    <div className="absolute bottom-3 left-3 bg-gray-900/70 text-white text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide max-w-[80%] truncate">
-                      {activity.activityLocation.toUpperCase()}
-                    </div>
+                    {(heroImages[0]?.title || activity.activityLocation) && (
+                      <div className="absolute bottom-3 left-3 bg-gray-900/70 text-white text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide max-w-[80%] truncate">
+                        {(heroImages[0]?.title || activity.activityLocation).toUpperCase()}
+                      </div>
+                    )}
                   </button>
 
                   <button
@@ -316,11 +336,15 @@ function ActivityDetailInner() {
                     onClick={() => heroImages[1] && setLightboxIdx(1)}
                     className="absolute bottom-8 left-0 z-[2] w-[248px] h-[248px] sm:w-[265px] sm:h-[265px] rounded-[22px] overflow-hidden shadow-xl bg-gray-200 hover:z-[10] hover:scale-105 hover:shadow-2xl transition-all duration-300 cursor-zoom-in"
                   >
-                    {heroImages[1] && <Image src={heroImages[1]} alt="" fill className="object-cover" sizes="265px" />}
+                    {heroImages[1] && (
+                      <Image src={packageImageUrl(heroImages[1])} alt="" fill className="object-cover" sizes="265px" />
+                    )}
                     <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors duration-200" />
-                    <div className="absolute bottom-3 left-3 bg-gray-900/70 text-white text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide max-w-[80%] truncate">
-                      {activity.activityTag.toUpperCase()}
-                    </div>
+                    {(heroImages[1]?.title || activity.activityTags[1] || activity.activityTags[0]) && (
+                      <div className="absolute bottom-3 left-3 bg-gray-900/70 text-white text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide max-w-[80%] truncate">
+                        {(heroImages[1]?.title || activity.activityTags[1] || activity.activityTags[0]).toUpperCase()}
+                      </div>
+                    )}
                   </button>
 
                   {heroImages[2] && (
@@ -329,10 +353,14 @@ function ActivityDetailInner() {
                       onClick={() => setLightboxIdx(2)}
                       className="absolute bottom-0 right-4 z-[3] w-[140px] h-[140px] sm:w-[155px] sm:h-[155px] rounded-[18px] overflow-hidden shadow-xl bg-gray-200 hover:z-[10] hover:scale-110 hover:shadow-2xl transition-all duration-300 cursor-zoom-in"
                     >
-                      <Image src={heroImages[2]} alt="" fill className="object-cover" sizes="155px" />
+                      <Image src={packageImageUrl(heroImages[2])} alt="" fill className="object-cover" sizes="155px" />
                       <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors duration-200" />
                       <div className="absolute bottom-3 left-3 bg-gray-900/70 text-white text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide max-w-[90%] truncate">
-                        {activity.activityImages.length > 2 ? `${activity.activityImages.length} PHOTOS` : activity.activityLocation.toUpperCase()}
+                        {heroImages[2]?.title
+                          ? heroImages[2].title.toUpperCase()
+                          : activity.activityImages.length > 2
+                            ? `${activity.activityImages.length} PHOTOS`
+                            : activity.activityLocation.toUpperCase()}
                       </div>
                     </button>
                   )}
@@ -349,7 +377,7 @@ function ActivityDetailInner() {
               {[
                 { label: 'Location',   value: activity.activityLocation },
                 { label: 'Group size', value: `Up to ${maxGuests}` },
-                { label: 'Category',   value: activity.activityTag },
+                { label: 'Category',   value: formatActivityTagsDisplay(activity.activityTags) || activity.activityTag },
                 { label: 'From',       value: `₱${activity.pricePerGuest.toLocaleString()} / pax` },
               ].map(({ label, value }) => (
                 <div key={label} className="flex-1 px-6 py-4 text-center">
@@ -389,8 +417,27 @@ function ActivityDetailInner() {
                 </p>
               </SectionBlock>
 
-              {/* 02 Reviews */}
-              <SectionBlock num="02" title={`Reviews · ${avgRating.toFixed(1)}★`}>
+              {((activity.inclusions?.length ?? 0) > 0 || (activity.exclusions?.length ?? 0) > 0) && (
+                <SectionBlock num="02" title="What's included">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                    {(activity.inclusions?.length ?? 0) > 0 && (
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-widest text-green-600 mb-4">Included</p>
+                        <InclusionChipBadges chips={activity.inclusions ?? []} variant="inclusion" />
+                      </div>
+                    )}
+                    {(activity.exclusions?.length ?? 0) > 0 && (
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-widest text-red-500 mb-4">Not included</p>
+                        <InclusionChipBadges chips={activity.exclusions ?? []} variant="exclusion" />
+                      </div>
+                    )}
+                  </div>
+                </SectionBlock>
+              )}
+
+              {/* Reviews */}
+              <SectionBlock num="03" title={`Reviews · ${avgRating.toFixed(1)}★`}>
                 <div className="flex flex-col sm:flex-row gap-8 mb-8">
                   <div className="flex flex-col items-center justify-center shrink-0">
                     <span className="text-6xl font-extrabold text-gray-900 leading-none">{avgRating.toFixed(1)}</span>
@@ -421,7 +468,7 @@ function ActivityDetailInner() {
                 </div>
 
                 {filteredReviews.length === 0 ? (
-                  <p className="text-sm text-gray-400 italic">No reviews yet — be one of the first!</p>
+                  <p className="text-sm text-gray-400 italic">No reviews yet. Be the first!</p>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {filteredReviews.slice(0, reviewsVisible).map((review) => (
@@ -439,8 +486,8 @@ function ActivityDetailInner() {
                 </p>
               </SectionBlock>
 
-              {/* 03 Frequently asked */}
-              <SectionBlock num="03" title="Frequently asked">
+              {/* Frequently asked */}
+              <SectionBlock num="04" title="Frequently asked">
                 <div className="border-t border-gray-100">
                   {STATIC_FAQS.map((faq, i) => (
                     <div key={i} className="border-b border-gray-100">
@@ -615,7 +662,7 @@ function ActivityDetailInner() {
             >
               Confirm & Continue →
             </button>
-            <p className="text-center text-xs text-gray-400">No charges yet — review before paying</p>
+            <p className="text-center text-xs text-gray-400">No charges yet. Review before paying.</p>
           </div>
         </DrawerContent>
       </Drawer>

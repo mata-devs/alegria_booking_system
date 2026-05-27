@@ -98,7 +98,7 @@ export async function setServiceChargePerBooking(amount: number, uid: string): P
   )
 }
 
-/** Matches backend `calculatePricing` (discount applied to subtotal incl. service charge). */
+/** Matches backend `calculatePricing` (discount applied to subtotal incl. convenience fee). */
 export function computeBookingTotals(
   baseAmount: number,
   serviceChargePerBooking: number,

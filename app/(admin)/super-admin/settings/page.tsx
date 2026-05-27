@@ -109,11 +109,11 @@ export default function SuperAdminSettingsPage() {
     setPricingStatus({ type: 'saving' });
     try {
       await setServiceChargePerBooking(amount, authState.user.uid);
-      setPricingStatus({ type: 'success', msg: 'Service charge updated.' });
+      setPricingStatus({ type: 'success', msg: 'Convenience fee updated.' });
     } catch (err) {
       setPricingStatus({
         type: 'error',
-        msg: err instanceof Error ? err.message : 'Failed to update service charge.',
+        msg: err instanceof Error ? err.message : 'Failed to update convenience fee.',
       });
     }
   };
@@ -419,9 +419,9 @@ export default function SuperAdminSettingsPage() {
           className="rounded-lg border border-gray-200 bg-white shadow-sm"
         >
           <div className="border-b border-gray-200 px-6 py-4">
-            <h2 className="text-base font-semibold text-gray-900">Platform pricing</h2>
+            <h2 className="text-base font-semibold text-gray-900">Convenience Fee</h2>
             <p className="mt-0.5 text-xs text-gray-500">
-              Flat service fee added once per reservation for all activities and tour packages.
+              Flat convenience fee added once per reservation for all activities and tour packages. Shown to guests at checkout.
             </p>
           </div>
 
@@ -432,7 +432,7 @@ export default function SuperAdminSettingsPage() {
               </span>
               <div className="flex-1 min-w-0">
                 <label className={LABEL} htmlFor="serviceChargePerBooking">
-                  Service charge (per booking)
+                  Convenience fee (per booking)
                 </label>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2">
                   <span className="text-sm font-semibold text-gray-500">₱</span>
@@ -451,7 +451,7 @@ export default function SuperAdminSettingsPage() {
                   />
                 </div>
                 <p className="mt-1.5 text-[11px] text-gray-400">
-                  Not multiplied by guest count. Guests see this amount at checkout; new bookings store the same peso value.
+                  Not multiplied by guest count. Guests see this fee at checkout; new bookings store the same peso value.
                 </p>
                 {platformPricing?.updatedAt ? (
                   <p className="mt-1 text-[11px] text-gray-400">
@@ -476,7 +476,7 @@ export default function SuperAdminSettingsPage() {
                   Saving
                 </>
               ) : (
-                'Save service charge'
+                'Save convenience fee'
               )}
             </button>
           </div>

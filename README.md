@@ -73,6 +73,24 @@ npm run build
 
 Deploy with `firebase deploy --only functions`.
 
+**CORS (required for browser booking):** copy `functions/.env.example` to `functions/.env` and set `ALLOWED_ORIGINS` to every origin that calls the API (comma-separated), for example:
+
+```env
+ALLOWED_ORIGINS=http://localhost:3000,https://your-app.web.app,https://your-app.firebaseapp.com
+```
+
+Redeploy functions after changing `functions/.env`. Without this, production blocks all cross-origin requests and the browser shows a CORS / "Failed to fetch" error.
+
+### Firestore Rules, Indexes & Storage Rules
+
+Deploy `firestore.rules`, `firestore.indexes.json`, and `storage.rules` in one shot:
+
+```powershell
+npx -y firebase-tools@latest deploy --only firestore:rules,firestore:indexes,storage
+```
+
+Note: storage uses `storage` (not `storage:rules`) — `storage:<name>` is reserved for `firebase target:apply` deploy targets.
+
 ### Environment Variables
 
 Create `.env.local` in the project root:
@@ -84,7 +102,10 @@ NEXT_PUBLIC_FIREBASE_PROJECT_ID=
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
 NEXT_PUBLIC_FIREBASE_APP_ID=
+NEXT_PUBLIC_FUNCTIONS_BASE_URL=https://asia-southeast1-alegria-booking-system.cloudfunctions.net/api
 ```
+
+Use the Cloud Run URL from `apphosting.yaml` if that is what you deploy with (`https://api-….run.app`). `next.config.ts` allows both `*.cloudfunctions.net` and `*.run.app` in `connect-src`.
 
 ### Other Scripts
 
@@ -177,6 +198,8 @@ app/
 │   │   └── HomeHero.tsx                 # Hero slideshow + SearchBar — CMS-driven images with FallbackHero fallback
 │   ├── layout.tsx                       # Guest layout (Navbar + Footer)
 │   ├── page.tsx                         # Landing page (hero slideshow, carousels, ticker)
+│   ├── accommodations/
+│   │   └── page.tsx                     # Filterable accommodations grid with sorting
 │   ├── activities/
 │   │   ├── page.tsx                     # Filterable activity grid + overlapping SearchBar (filters by location/date/travelers)
 │   │   └── [activityId]/
@@ -218,11 +241,48 @@ app/
 │   └── operator/
 │       ├── layout.tsx                   # Operator layout (sidebar nav)
 │       ├── page.tsx                     # Operator home / redirect
-│       ├── _components/
-│       │   └── ui/                      # Local chart UI primitives (shadcn-style)
-│       │       ├── chart.tsx
-│       │       ├── card.tsx
-│       │       └── button.tsx
+│       ├── _components/                 # Shared operator-portal components (decoupled from pages)
+│       │   ├── ui/                      # Local chart UI primitives (shadcn-style)
+│       │   │   ├── chart.tsx
+│       │   │   ├── card.tsx
+│       │   │   └── button.tsx
+│       │   ├── shared/                  # Cross-feature primitives (used by activities + tour-packages)
+│       │   │   ├── StarDisplay.tsx
+│       │   │   ├── StatusBadge.tsx
+│       │   │   ├── FormSectionHeader.tsx
+│       │   │   ├── LivePreviewPane.tsx  # Desktop/mobile preview switcher shell
+│       │   │   ├── compress-image.ts    # Canvas-based JPEG compression
+│       │   │   ├── constants.ts         # MIN_IMAGES, MAX_IMAGES, MAX_SIZE_MB
+│       │   │   ├── types.ts             # ImageSlot discriminated union
+│       │   │   └── images/
+│       │   │       ├── SortableImageCard.tsx   # dnd-kit sortable image slot
+│       │   │       └── PackageImagesEditor.tsx # Image grid + reorder + upload
+│       │   ├── activities/              # Activities CRUD modals + helpers
+│       │   │   ├── AddActivityModal.tsx
+│       │   │   ├── EditActivityModal.tsx
+│       │   │   ├── DeleteActivityModal.tsx
+│       │   │   ├── ViewDetailsModal.tsx
+│       │   │   ├── FiltersModal.tsx
+│       │   │   ├── ActivityPreviewPanel.tsx    # Live preview body
+│       │   │   ├── OperatorActivityCard.tsx
+│       │   │   ├── MunicipalityCombobox.tsx
+│       │   │   ├── compress-image.ts
+│       │   │   ├── constants.ts         # EMPTY_FORM, EMPTY_FILTERS, image limits
+│       │   │   ├── types.ts             # OperatorActivity, Filters, form state, FormErrors
+│       │   │   └── images/
+│       │   │       └── ActivityImagesEditor.tsx
+│       │   └── tour-packages/           # Tour-package CRUD modals + helpers
+│       │       ├── AddPackageModal.tsx
+│       │       ├── EditPackageModal.tsx
+│       │       ├── DeletePackageModal.tsx
+│       │       ├── ViewDetailsModal.tsx
+│       │       ├── FiltersModal.tsx
+│       │       ├── PackagePreviewPanel.tsx     # Live preview body
+│       │       ├── OperatorPackageCard.tsx
+│       │       ├── ItineraryEditor.tsx
+│       │       ├── TagCombobox.tsx
+│       │       ├── constants.ts
+│       │       └── types.ts
 │       ├── bookings/                    # Live booking management (calendar + list)
 │       │   ├── page.tsx
 │       │   ├── calendar.tsx             # Week-view calendar component
@@ -249,9 +309,9 @@ app/
 │       │   ├── piechart2.tsx            # Promo code usage
 │       │   └── payment.tsx              # Payment methods
 │       ├── activities/
-│       │   └── page.tsx                 # Operator-managed activities CRUD
+│       │   └── page.tsx                 # Operator-managed activities CRUD (thin shell; modals + form live in _components/activities/)
 │       ├── tour-packages/
-│       │   └── page.tsx                 # Operator-managed tour packages CRUD
+│       │   └── page.tsx                 # Operator-managed tour packages CRUD (thin shell; modals + form live in _components/tour-packages/)
 │       ├── voucher-codes/
 │       │   └── page.tsx                 # Operator promo / voucher codes
 │       └── settings/
@@ -328,6 +388,7 @@ app/
 │   ├── GuestReviewCard.tsx              # Approved guest review display
 │   ├── MunicipalityTicker.tsx           # Scrolling news ticker with municipality highlights
 │   ├── CategoryFilterCollapsible.tsx    # Collapsible category filter chip group
+│   ├── LocationPicker.tsx               # Leaflet map picker (value/onChange) — used in operator signup
 │   ├── AccountAvatar.tsx                # User avatar with initials fallback
 │   ├── NotificationsBell.tsx            # Bell icon with unread badge
 │   ├── NotificationToast.tsx            # In-app toast for new notifications
@@ -422,6 +483,7 @@ functions/src/
 | Route | Page | Description |
 |-------|------|-------------|
 | `/` | LandingPage | Auto-rotating hero slideshow + discovery carousels + municipality ticker |
+| `/accommodations` | AccommodationsPage | Filterable accommodations grid with sorting |
 | `/locations` | LocationsPage | Browse and search Cebu locations; CMS-ordered with approved reviews |
 | `/locations/[municipalityId]` | MunicipalityView | CMS hero image, linked activities + packages, reviews, other locations carousel |
 | `/activities` | ActivitiesPage | All activities with SearchBar, filter chips, and same-day capacity hints |

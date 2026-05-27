@@ -307,7 +307,7 @@ function PaymentPageContent() {
                         <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#74C00F]">Reservation Received!</p>
                         <h1 className="mb-4 text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">Payment submitted</h1>
                         <p className="mx-auto mb-10 max-w-md text-base leading-relaxed text-gray-600">
-                            Your booking is reserved while we verify your payment. An operator will review your proof and confirm — usually within{" "}
+                            Your booking is reserved while we verify your payment. An operator will review your proof and confirm, usually within{" "}
                             <span className="font-semibold text-gray-800">24 hours</span>. Check your email for updates.
                         </p>
 
@@ -370,7 +370,7 @@ function PaymentPageContent() {
                     </div>
                     <h1 className="text-2xl font-bold text-gray-900">No booking details found</h1>
                     <p className="mt-3 text-gray-600 leading-relaxed">
-                        Start from guest information and continue to payment — your details are saved in this browser session.
+                        Start from guest information and continue to payment. Your details are saved in this browser session.
                     </p>
                     <Link
                         href="/activities"
