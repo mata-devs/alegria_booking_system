@@ -67,14 +67,14 @@ export default function ActivityCardUI({
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* ── IMAGE SECTION ─────────────────────────────────────────────── */}
-      <div className="relative w-[120px] sm:w-full aspect-square sm:aspect-[4/3.5] flex-shrink-0 overflow-hidden rounded-l-2xl sm:rounded-none sm:rounded-t-2xl">
+      <div className="relative w-[170px] sm:w-full aspect-[3.5/4] sm:aspect-[4/3.5] flex-shrink-0 overflow-hidden rounded-l-2xl sm:rounded-none sm:rounded-t-2xl">
         {activeImg ? (
           <Image
             key={activeImg}
             src={activeImg}
             alt={title}
             fill
-            sizes="(max-width: 640px) 120px, (max-width: 1024px) 50vw, 280px"
+            sizes="(max-width: 640px) 170px, (max-width: 1024px) 50vw, 280px"
             className={cn(
               'object-cover transition-transform duration-500',
               isInteractive && !hasMultiple ? 'group-hover:scale-105' : ''
@@ -136,14 +136,14 @@ export default function ActivityCardUI({
       </div>
 
       {/* ── CONTENT AREA ──────────────────────────────────────────────── */}
-      <div className="flex flex-col flex-1 p-2.5 sm:p-3 sm:pb-12 min-w-0">
+      <div className="flex flex-col flex-1 p-3 sm:p-3 sm:pb-12 min-w-0">
         {/* Tags chips — mobile only */}
         {tagList.length > 0 && (
           <div className="flex sm:hidden flex-wrap gap-1 mb-1.5">
             {tagList.map((t) => (
               <span
                 key={t}
-                className="bg-green-50 text-green-700 border border-green-200 text-xs font-bold px-1.5 py-0.5 rounded"
+                className="bg-green-500 text-white border shadow-sm text-xs font-semibold px-1.5 py-0.5 rounded-full"
               >
                 {t}
               </span>
@@ -191,7 +191,7 @@ export default function ActivityCardUI({
         {/* Price — mobile only; mt-auto pushes to bottom of content area */}
         <p className="flex sm:hidden items-baseline justify-end gap-1 text-xs text-gray-500 mt-auto pt-2">
           from{' '}
-          <span className="font-bold text-sm text-gray-900">₱{price.toLocaleString()}</span>
+          <span className="font-bold text-base text-gray-900">₱{price.toLocaleString()}</span>
         </p>
       </div>
 
