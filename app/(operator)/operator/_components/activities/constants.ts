@@ -1,3 +1,4 @@
+import { makeDefaultTier } from '@/app/lib/pricing-tiers';
 import type { AddFormState, Filters } from './types';
 
 export { MIN_IMAGES, MAX_IMAGES, MAX_SIZE_MB } from '../shared/constants';
@@ -5,9 +6,8 @@ export { MIN_IMAGES, MAX_IMAGES, MAX_SIZE_MB } from '../shared/constants';
 export const EMPTY_FORM: AddFormState = {
   activityName: '',
   activityDetails: '',
-  pricePerGuest: '',
-  priceAdult: '',
-  priceChild: '',
+  pricingMode: 'standard',
+  pricingTiers: [makeDefaultTier(1, 30)],
   childAgeMax: '',
   minimumNumberOfPeople: '1',
   maximumNumberOfPeople: '30',

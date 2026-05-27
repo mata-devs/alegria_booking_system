@@ -23,6 +23,7 @@ import { firebaseDb } from '@/app/lib/firebase';
 import { useAuth } from '@/app/context/AuthContext';
 import { normalizePackageLocations, formatLocationSummary } from '@/app/lib/package-locations';
 import { normalizePackageImages } from '@/app/lib/package-images';
+import { normalizeActivityTags, activityHasTag, formatActivityTagsDisplay } from '@/app/lib/activity-tags';
 import { StatusBadge } from '@/app/(operator)/operator/_components/shared/StatusBadge';
 import { AddPackageModal } from '@/app/(operator)/operator/_components/tour-packages/AddPackageModal';
 import { EditPackageModal } from '@/app/(operator)/operator/_components/tour-packages/EditPackageModal';
@@ -73,6 +74,9 @@ export default function OperatorTourPackagesPage() {
             packageImages: normalizePackageImages(data.packageImages),
             inclusions: Array.isArray(data.inclusions) ? data.inclusions : [],
             exclusions: Array.isArray(data.exclusions) ? data.exclusions : [],
+            pricingMode: data.pricingMode === 'adultChild' ? 'adultChild' : 'standard',
+            pricingTiers: Array.isArray(data.pricingTiers) ? data.pricingTiers : [],
+            packageTags: normalizeActivityTags(data.packageTags, data.packageTag),
           } as OperatorPackage;
         }),
       );
@@ -145,7 +149,7 @@ export default function OperatorTourPackagesPage() {
       packages.filter((p) => {
         if (p.id === pendingDeleteId) return false;
         if (search && !p.packageName.toLowerCase().includes(search.toLowerCase())) return false;
-        if (filters.tag && p.packageTag !== filters.tag) return false;
+        if (filters.tag && !activityHasTag(p.packageTags, filters.tag)) return false;
         if (filters.status !== 'all' && p.status !== filters.status) return false;
         if (filters.location && !p.packageLocations.includes(filters.location)) return false;
         if (filters.priceMin && p.pricePerPerson < Number(filters.priceMin)) return false;
@@ -167,7 +171,12 @@ export default function OperatorTourPackagesPage() {
           </button>
         ),
       },
-      { accessorKey: 'packageTag', header: 'Tag', meta: { tdClassName: 'px-4 py-3 text-gray-600' } },
+      {
+        id: 'packageTags',
+        header: 'Tags',
+        meta: { tdClassName: 'px-4 py-3 text-gray-600' },
+        cell: ({ row }) => formatActivityTagsDisplay(row.original.packageTags),
+      },
       {
         id: 'packageLocations',
         header: 'Location',

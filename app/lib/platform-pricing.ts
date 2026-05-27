@@ -98,16 +98,35 @@ export async function setServiceChargePerBooking(amount: number, uid: string): P
   )
 }
 
+import {
+  computeDiscountAmount,
+  normalizeBookingDiscount,
+  type BookingDiscount,
+} from './voucher-discount'
+
+export type { BookingDiscount }
+
 /** Matches backend `calculatePricing` (discount applied to subtotal incl. convenience fee). */
 export function computeBookingTotals(
   baseAmount: number,
   serviceChargePerBooking: number,
-  discountPercent: number | null | undefined,
+  discount?: BookingDiscount | number | null,
 ) {
   const serviceCharge = serviceChargePerBooking
   const subtotal = baseAmount + serviceCharge
-  const discount = discountPercent && discountPercent > 0 ? discountPercent : 0
-  const discountAmount = discount > 0 ? (subtotal * discount) / 100 : 0
+  const parsed = normalizeBookingDiscount(discount)
+  const discountAmount = computeDiscountAmount(subtotal, parsed)
   const total = subtotal - discountAmount
-  return { baseAmount, serviceCharge, subtotal, discountAmount, discountPercent: discount, total }
+  const discountPercent =
+    parsed?.discountType === 'percent' ? parsed.discountValue : 0
+  return {
+    baseAmount,
+    serviceCharge,
+    subtotal,
+    discountAmount,
+    discountPercent,
+    discountType: parsed?.discountType ?? null,
+    discountValue: parsed?.discountValue ?? 0,
+    total,
+  }
 }

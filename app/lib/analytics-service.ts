@@ -1,5 +1,22 @@
-const API_URL = process.env.NEXT_PUBLIC_FUNCTIONS_BASE_URL
-  ?? "http://localhost:5001/alegria-booking-system/asia-southeast1/api";
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  getDocs,
+  doc,
+  getDoc,
+  type Query,
+} from 'firebase/firestore';
+import { firestore } from './firebase';
+import {
+  computeAnalyticsDashboard,
+  type AnalyticsScope,
+  type OperatorOption,
+  type EntityByPromo,
+} from './analytics-compute';
+
+export type { AnalyticsScope } from './analytics-compute';
 
 /**
  * When `NEXT_PUBLIC_ANALYTICS_FORCE_SAMPLE` is `true` or `1`, the client never calls `/analytics`
@@ -163,86 +180,116 @@ function cloneSampleDashboard(): AnalyticsDashboardResponse {
   };
 }
 
-const ANALYTICS_CACHE_TTL_MS = 60_000;
-type AnalyticsCacheEntry = { data: AnalyticsDashboardResponse; fetchedAt: number };
-const analyticsCache = new Map<string, AnalyticsCacheEntry>();
+// ── Firestore-backed analytics (Client SDK, real-time via onSnapshot) ─────────
+// Operator scope reads ONLY bookings where operatorUid == uid (Firestore rules
+// enforce the same). Super-admin reads all, or a filtered operator subset.
 
-function analyticsCacheKey(filters: AnalyticsQueryFilters): string {
-  const norm = {
-    operators: [...(filters.operators ?? [])].sort(),
-    startDate: filters.startDate ?? null,
-    endDate: filters.endDate ?? null,
-    minAge: filters.minAge ?? null,
-    maxAge: filters.maxAge ?? null,
-    genders: [...(filters.genders ?? [])].sort(),
-    nationalities: [...(filters.nationalities ?? [])].sort(),
-    topNationalities: filters.topNationalities ?? null,
-    topEntities: filters.topEntities ?? null,
-  };
-  return JSON.stringify(norm);
+function buildBookingsQuery(scope: AnalyticsScope, filters: AnalyticsQueryFilters): Query {
+  const base = collection(firestore, 'bookings');
+  if (scope.role === 'operator') {
+    return query(base, where('operatorUid', '==', scope.uid));
+  }
+  const ops = filters.operators ?? [];
+  if (ops.length === 1) return query(base, where('operatorUid', '==', ops[0]));
+  if (ops.length > 1 && ops.length <= 10) return query(base, where('operatorUid', 'in', ops));
+  return query(base);
 }
 
-export function invalidateAnalyticsCache() {
-  analyticsCache.clear();
+let operatorOptionsCache: OperatorOption[] | null = null;
+async function loadOperatorOptions(scope: AnalyticsScope): Promise<OperatorOption[]> {
+  // Operators don't need (and shouldn't enumerate) the cross-operator list.
+  if (scope.role === 'operator') return [];
+  if (operatorOptionsCache) return operatorOptionsCache;
+  const snap = await getDocs(query(collection(firestore, 'users'), where('role', '==', 'operator')));
+  operatorOptionsCache = snap.docs.map((d) => {
+    const u = d.data();
+    const name =
+      (typeof u.companyName === 'string' && u.companyName) ||
+      `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() ||
+      d.id;
+    return { uid: d.id, name, operatorCode: typeof u.operatorId === 'string' ? u.operatorId : null };
+  });
+  return operatorOptionsCache;
 }
 
-export async function getAnalyticsDashboard(filters: AnalyticsQueryFilters = {}): Promise<AnalyticsDashboardResponse> {
+async function loadEntityByPromo(bookings: Record<string, unknown>[]): Promise<EntityByPromo> {
+  const codes = Array.from(
+    new Set(bookings.map((b) => (b.promoCode ? String(b.promoCode).toUpperCase() : '')).filter(Boolean)),
+  );
+  const map: EntityByPromo = new Map();
+  if (codes.length === 0) return map;
+
+  const codeToEntityId = new Map<string, string>();
+  for (let i = 0; i < codes.length; i += 10) {
+    const chunk = codes.slice(i, i + 10);
+    const vsnap = await getDocs(query(collection(firestore, 'voucherCodes'), where('code', 'in', chunk)));
+    vsnap.docs.forEach((d) => {
+      const v = d.data();
+      if (v.code && typeof v.entityId === 'string' && v.entityId) {
+        codeToEntityId.set(String(v.code).toUpperCase(), v.entityId);
+      }
+    });
+  }
+  const entityIds = Array.from(new Set(codeToEntityId.values()));
+  const entityName = new Map<string, string>();
+  await Promise.all(
+    entityIds.map(async (id) => {
+      try {
+        const esnap = await getDoc(doc(firestore, 'entities', id));
+        if (esnap.exists()) entityName.set(id, String(esnap.data()?.entityName ?? ''));
+      } catch {
+        // entity not readable by this operator — skip
+      }
+    }),
+  );
+  codeToEntityId.forEach((entityId, code) => {
+    map.set(code, { entityId, entityName: entityName.get(entityId) ?? '' });
+  });
+  return map;
+}
+
+/** Real-time analytics via onSnapshot over the scoped bookings query. Returns an unsubscribe fn. */
+export function subscribeAnalyticsDashboard(
+  filters: AnalyticsQueryFilters,
+  scope: AnalyticsScope,
+  onData: (d: AnalyticsDashboardResponse) => void,
+  onError?: (e: Error) => void,
+): () => void {
+  if (isAnalyticsSampleForced()) {
+    onData({ ...cloneSampleDashboard(), _demo: true });
+    return () => {};
+  }
+  return onSnapshot(
+    buildBookingsQuery(scope, filters),
+    async (snap) => {
+      try {
+        const bookings = snap.docs.map((d) => d.data() as Record<string, unknown>);
+        const [operators, entityByPromo] = await Promise.all([
+          loadOperatorOptions(scope),
+          loadEntityByPromo(bookings),
+        ]);
+        onData(computeAnalyticsDashboard({ bookings, operators, entityByPromo, filters }));
+      } catch (e) {
+        onError?.(e instanceof Error ? e : new Error('Failed to compute analytics'));
+      }
+    },
+    (err) => onError?.(err instanceof Error ? err : new Error('Analytics subscription failed')),
+  );
+}
+
+/** One-shot (non-realtime) fetch — for callers that don't need a live subscription. */
+export async function getAnalyticsDashboard(
+  filters: AnalyticsQueryFilters,
+  scope: AnalyticsScope,
+): Promise<AnalyticsDashboardResponse> {
   if (isAnalyticsSampleForced()) {
     return { ...cloneSampleDashboard(), _demo: true };
   }
-
-  const key = analyticsCacheKey(filters);
-  const cached = analyticsCache.get(key);
-  if (cached && Date.now() - cached.fetchedAt < ANALYTICS_CACHE_TTL_MS) {
-    return cached.data;
-  }
-
-  const url = new URL(`${API_URL}/analytics`);
-
-  setCsvParam(url, "operators", filters.operators);
-  setOptionalParam(url, "startDate", filters.startDate);
-  setOptionalParam(url, "endDate", filters.endDate);
-  setOptionalParam(url, "minAge", filters.minAge);
-  setOptionalParam(url, "maxAge", filters.maxAge);
-  setCsvParam(url, "genders", filters.genders);
-  setCsvParam(url, "nationalities", filters.nationalities);
-  setOptionalParam(url, "topNationalities", filters.topNationalities);
-  setOptionalParam(url, "topEntities", filters.topEntities);
-
-  try {
-    const response = await fetch(url.toString(), { cache: "no-store" });
-    let data: unknown;
-    try {
-      data = await response.json();
-    } catch {
-      throw new Error("Invalid JSON from analytics API");
-    }
-
-    if (!response.ok) {
-      throw new Error(
-        typeof data === "object" && data !== null && "error" in data && typeof (data as { error?: unknown }).error === "string"
-          ? (data as { error: string }).error
-          : "Failed to fetch analytics dashboard",
-      );
-    }
-
-    const result = data as AnalyticsDashboardResponse;
-    analyticsCache.set(key, { data: result, fetchedAt: Date.now() });
-    return result;
-  } catch (e) {
-    if (process.env.NODE_ENV === "development") {
-      console.warn("[analytics] API unavailable, using sample dashboard:", e);
-    }
-    return { ...cloneSampleDashboard(), _demo: true };
-  }
-}
-
-function setOptionalParam(url: URL, key: string, value: string | number | undefined) {
-  if (value === undefined || value === null || value === "") return;
-  url.searchParams.set(key, String(value));
-}
-
-function setCsvParam(url: URL, key: string, values?: string[]) {
-  if (!values?.length) return;
-  url.searchParams.set(key, values.join(","));
+  const snap = await getDocs(buildBookingsQuery(scope, filters));
+  const bookings = snap.docs.map((d) => d.data() as Record<string, unknown>);
+  const [operators, entityByPromo] = await Promise.all([
+    loadOperatorOptions(scope),
+    loadEntityByPromo(bookings),
+  ]);
+  return computeAnalyticsDashboard({ bookings, operators, entityByPromo, filters });
 }

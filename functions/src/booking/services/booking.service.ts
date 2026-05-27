@@ -2,6 +2,15 @@ import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import * as QRCode from "qrcode";
 import { db, storage } from "../../shared/firebase";
 import { createTransporter, getFromAddress } from "../../shared/mailer";
+import {
+  parseTiers,
+  parsePricingMode,
+  resolveTier,
+  computeTierBase,
+  splitGuestsByAge,
+  type PricingMode,
+  type PricingTier,
+} from "./pricing-tiers";
 
 const BOOKING_ADVANCE_DAYS = 180;
 const MAX_PERSONS_PER_SLOT = 30; //this is for the time slot (should be in the dedicated `activity` collection)
@@ -51,7 +60,8 @@ export interface CreateBookingInput {
 }
 
 type VoucherValidation = {
-  discount: number;
+  discountType: "percent" | "fixed";
+  discountValue: number;
   operatorUid?: string;
   voucherId: string;
 } | null;
@@ -147,8 +157,23 @@ async function validatePromoCode(code: string, requiredOperatorUid?: string): Pr
     }
   }
 
+  const discountType = voucher.discountType === "fixed" ? "fixed" : "percent";
+  const discountValue = Number(
+    voucher.discountValue !== undefined && voucher.discountValue !== null
+      ? voucher.discountValue
+      : voucher.discount,
+  ) || 0;
+
+  if (discountType === "percent" && (discountValue < 1 || discountValue > 100)) {
+    return null;
+  }
+  if (discountType === "fixed" && discountValue <= 0) {
+    return null;
+  }
+
   return {
-    discount: Number(voucher.discount) || 0,
+    discountType,
+    discountValue,
     operatorUid: typeof voucher.operatorUid === "string" ? voucher.operatorUid : undefined,
     voucherId: voucherDoc.id,
   };
@@ -242,27 +267,39 @@ async function getServiceChargePerBooking(): Promise<number> {
   }
 }
 
+function formatDiscountEmailLabel(args: {
+  discountType?: string;
+  discountValue?: number;
+  discountPercentage?: number;
+  promoCode?: string | null;
+}): string {
+  const codeSuffix = args.promoCode ? ` · ${args.promoCode}` : "";
+  if (args.discountType === "fixed") {
+    const amount = Number(args.discountValue) || 0;
+    return `₱${amount.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} off${codeSuffix}`;
+  }
+  const pct = args.discountPercentage ?? args.discountValue ?? 0;
+  return `${pct}%${codeSuffix}`;
+}
+
 function calculatePricing(
   numberOfGuests: number,
-  pricePerGuest: number,
+  baseAmount: number,
   serviceChargePerBooking: number,
-  discount = 0,
-  adultCount?: number,
-  childCount?: number,
+  discountType: "percent" | "fixed" = "percent",
+  discountValue = 0,
   priceAdult?: number,
   priceChild?: number,
 ) {
-  const useAdultChildPricing =
-    priceAdult !== undefined && priceChild !== undefined &&
-    adultCount !== undefined && childCount !== undefined;
-
-  const baseAmount = useAdultChildPricing
-    ? adultCount! * priceAdult! + childCount! * priceChild!
-    : numberOfGuests * pricePerGuest;
-
+  const pricePerGuest = numberOfGuests > 0 ? baseAmount / numberOfGuests : 0;
   const serviceCharge = serviceChargePerBooking;
   const subtotal = baseAmount + serviceCharge;
-  const discountAmount = discount > 0 ? (subtotal * discount) / 100 : 0;
+  const discountAmount =
+    discountValue <= 0
+      ? 0
+      : discountType === "percent"
+        ? (subtotal * discountValue) / 100
+        : Math.min(discountValue, subtotal);
   const finalPrice = subtotal - discountAmount;
 
   return {
@@ -272,7 +309,9 @@ function calculatePricing(
     baseAmount,
     serviceCharge,
     subtotal,
-    discountPercentage: discount,
+    discountType,
+    discountValue,
+    discountPercentage: discountType === "percent" ? discountValue : 0,
     discountAmount,
     finalPrice,
   };
@@ -344,33 +383,36 @@ export async function createBooking(data: CreateBookingInput) {
   const isTourPackage = data.sourceType === "tourPackage";
 
   let pricePerGuest: number;
-  let priceAdult: number | undefined;
-  let priceChild: number | undefined;
+  let pricingMode: PricingMode = "standard";
+  let pricingTiers: PricingTier[] = [];
+  let childAgeMax: number | undefined;
   let sourceOperatorId: string | undefined;
   let sourceDisplayName: string | undefined;
   let maxSlotsForSource: number;
 
   if (isTourPackage) {
     const tourPkg = (await getTourPackage(data.activityId)) as
-      | (Record<string, unknown> & { pricePerPerson?: number; priceAdult?: number; priceChild?: number; operatorId?: string; status?: string; packageName?: string; maximumNumberOfPeople?: number })
+      | (Record<string, unknown> & { pricePerPerson?: number; pricingMode?: unknown; pricingTiers?: unknown; childAgeMax?: number; operatorId?: string; status?: string; packageName?: string; maximumNumberOfPeople?: number })
       | null;
     if (!tourPkg) throw new Error("Tour package not found");
     if (tourPkg.status !== "active") throw new Error("Tour package is not active");
     pricePerGuest = Number(tourPkg.pricePerPerson) || 0;
-    priceAdult = typeof tourPkg.priceAdult === "number" ? tourPkg.priceAdult : undefined;
-    priceChild = typeof tourPkg.priceChild === "number" ? tourPkg.priceChild : undefined;
+    pricingMode = parsePricingMode(tourPkg.pricingMode);
+    pricingTiers = parseTiers(tourPkg.pricingTiers);
+    childAgeMax = typeof tourPkg.childAgeMax === "number" ? tourPkg.childAgeMax : undefined;
     sourceOperatorId = typeof tourPkg.operatorId === "string" ? tourPkg.operatorId : undefined;
     sourceDisplayName = typeof tourPkg.packageName === "string" ? tourPkg.packageName : undefined;
     maxSlotsForSource = Number(tourPkg.maximumNumberOfPeople) || MAX_PERSONS_PER_SLOT;
   } else {
     const activity = (await getActivity(data.activityId)) as
-      | (Record<string, unknown> & { maxSlots?: number; pricePerGuest?: number; priceAdult?: number; priceChild?: number; status?: string; activityName?: string; operatorId?: string })
+      | (Record<string, unknown> & { maxSlots?: number; pricePerGuest?: number; pricingMode?: unknown; pricingTiers?: unknown; childAgeMax?: number; status?: string; activityName?: string; operatorId?: string })
       | null;
     if (!activity) throw new Error("Activity not found");
     if (activity.status !== "active") throw new Error("Activity is not active");
     pricePerGuest = Number(activity.pricePerGuest) || 0;
-    priceAdult = typeof activity.priceAdult === "number" ? activity.priceAdult : undefined;
-    priceChild = typeof activity.priceChild === "number" ? activity.priceChild : undefined;
+    pricingMode = parsePricingMode(activity.pricingMode);
+    pricingTiers = parseTiers(activity.pricingTiers);
+    childAgeMax = typeof activity.childAgeMax === "number" ? activity.childAgeMax : undefined;
     sourceOperatorId = typeof activity.operatorId === "string" ? activity.operatorId : undefined;
     sourceDisplayName = typeof activity.activityName === "string" ? activity.activityName : undefined;
     maxSlotsForSource = Number(activity.maxSlots) || MAX_PERSONS_PER_SLOT;
@@ -385,6 +427,29 @@ export async function createBooking(data: CreateBookingInput) {
     throw new Error(`Maximum ${MAX_PERSONS_PER_SLOT} persons per slot`);
   }
 
+  // Adult/child split derived from guest ages server-side — client counts are not trusted.
+  const guestAges = [data.representative.age, ...data.guests.map((g) => g.age)].filter((n) =>
+    Number.isFinite(n),
+  );
+  const { adults, children } = splitGuestsByAge(guestAges, childAgeMax);
+
+  let baseAmount: number;
+  let tierPriceAdult: number | undefined;
+  let tierPriceChild: number | undefined;
+  if (pricingTiers.length) {
+    const tier = resolveTier(pricingTiers, numberOfGuests);
+    if (!tier) {
+      throw new Error(`No price bracket configured for ${numberOfGuests} guests`);
+    }
+    baseAmount = computeTierBase(pricingMode, tier, adults, children);
+    if (pricingMode === "adultChild") {
+      tierPriceAdult = tier.priceAdult;
+      tierPriceChild = tier.priceChild;
+    }
+  } else {
+    baseAmount = numberOfGuests * pricePerGuest;
+  }
+
   const promoData = data.promoCode
     ? await validatePromoCode(data.promoCode, sourceOperatorId)
     : null;
@@ -396,13 +461,12 @@ export async function createBooking(data: CreateBookingInput) {
 
   const pricing = calculatePricing(
     numberOfGuests,
-    pricePerGuest,
+    baseAmount,
     serviceChargePerBooking,
-    promoData?.discount ?? 0,
-    data.adultCount,
-    data.childCount,
-    priceAdult,
-    priceChild,
+    promoData?.discountType ?? "percent",
+    promoData?.discountValue ?? 0,
+    tierPriceAdult,
+    tierPriceChild,
   );
 
   const operatorUid = sourceOperatorId;
@@ -473,8 +537,8 @@ export async function createBooking(data: CreateBookingInput) {
           tourDate: tourDateTs,
           status: "reserved",
           numberOfGuests,
-          adultCount: data.adultCount ?? null,
-          childCount: data.childCount ?? null,
+          adultCount: adults,
+          childCount: children,
           operatorUid,
           assignmentType,
           paymentMethod: data.paymentMethod,
@@ -813,7 +877,7 @@ export async function confirmPayment(bookingId: string) {
               <tr style="border-top:1px solid #f3f4f6"><td style="padding:6px 0;color:#6b7280">Base Amount</td><td style="padding:6px 0">${fmt(booking.baseAmount ?? 0)}</td></tr>
               <tr style="border-top:1px solid #f3f4f6"><td style="padding:6px 0;color:#6b7280">Convenience fee</td><td style="padding:6px 0">${fmt(booking.serviceCharge ?? 0)}</td></tr>
               ${(booking.discountAmount ?? 0) > 0 ? `
-              <tr style="border-top:1px solid #f3f4f6"><td style="padding:6px 0;color:#6b7280">Discount (${booking.discountPercentage ?? 0}%${booking.promoCode ? ` · ${booking.promoCode}` : ""})</td><td style="padding:6px 0;color:#16a34a">− ${fmt(booking.discountAmount)}</td></tr>` : ""}
+              <tr style="border-top:1px solid #f3f4f6"><td style="padding:6px 0;color:#6b7280">Discount (${formatDiscountEmailLabel(booking)})</td><td style="padding:6px 0;color:#16a34a">− ${fmt(booking.discountAmount)}</td></tr>` : ""}
               <tr style="border-top:2px solid #e5e7eb">
                 <td style="padding:10px 0;font-weight:700;font-size:15px">Total Paid</td>
                 <td style="padding:10px 0;font-weight:700;font-size:15px;color:#558B2F">${fmt(booking.finalPrice ?? 0)}</td>

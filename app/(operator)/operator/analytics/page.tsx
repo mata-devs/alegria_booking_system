@@ -2,8 +2,6 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
-import { doc, getDoc } from "firebase/firestore";
-import type { User } from "firebase/auth";
 import {
   BookOpen,
   CreditCard,
@@ -14,12 +12,11 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/app/context/AuthContext";
 import {
-  getAnalyticsDashboard,
+  subscribeAnalyticsDashboard,
   type AnalyticsDashboardResponse,
   type AnalyticsQueryFilters,
 } from "@/app/lib/analytics-service";
 import { downloadCsv } from "@/app/lib/csvExport";
-import { firestore } from "@/app/lib/firebase";
 import type {
   FilterGranularity,
   OperatorFilterState,
@@ -40,40 +37,6 @@ function formatPeso(value: number) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
-}
-
-type UserRecord = {
-  role?: string;
-  operatorId?: string;
-  operatorID?: string;
-  operatorCode?: string;
-};
-
-function normalizeText(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function resolveOperatorUid(
-  currentUid: string,
-  userData: UserRecord,
-  options: AnalyticsDashboardResponse["filters"]["options"]["operators"]
-) {
-  const candidates = [
-    currentUid,
-    normalizeText(userData.operatorId),
-    normalizeText(userData.operatorID),
-    normalizeText(userData.operatorCode),
-  ].filter(Boolean);
-
-  for (const candidate of candidates) {
-    const byUid = options.find((operator) => operator.uid === candidate);
-    if (byUid) return byUid.uid;
-
-    const byCode = options.find((operator) => (operator.operatorCode || "").toLowerCase() === candidate.toLowerCase());
-    if (byCode) return byCode.uid;
-  }
-
-  return currentUid;
 }
 
 /**
@@ -113,63 +76,21 @@ export default function Analytics() {
   const [appliedFilters, setAppliedFilters] = useState<OperatorFilterState>(DEFAULT_FILTERS);
 
   useEffect(() => {
-    if (authState.status === "loading") return;
+    if (authState.status !== "authenticated") return;
+    const operatorUid = authState.user.uid;
 
-    let cancelled = false;
-    const currentUser: User | null = authState.status === "authenticated" ? authState.user : null;
+    setLoading(true);
+    setError(null);
+    setScopeLabel("Operator Overview");
 
-    const loadDashboard = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const queryExtra = toQuery(appliedFilters);
-        const baseDashboard = await getAnalyticsDashboard(queryExtra);
-
-        if (!currentUser) {
-          if (!cancelled) {
-            setDashboard(baseDashboard);
-            setScopeLabel("Admin Overview");
-          }
-          return;
-        }
-
-        const userSnapshot = await getDoc(doc(firestore, "users", currentUser.uid));
-        const userData = (userSnapshot.exists() ? (userSnapshot.data() as UserRecord) : {}) as UserRecord;
-        const role = normalizeText(userData.role).toLowerCase();
-
-        if (role !== "operator") {
-          if (!cancelled) {
-            setDashboard(baseDashboard);
-            setScopeLabel("Admin Overview");
-          }
-          return;
-        }
-
-        const operatorUid = resolveOperatorUid(currentUser.uid, userData, baseDashboard.filters.options.operators);
-        const operatorDashboard = await getAnalyticsDashboard({
-          ...queryExtra,
-          operators: [operatorUid],
-        });
-
-        if (!cancelled) {
-          setDashboard(operatorDashboard);
-          setScopeLabel("Operator Overview");
-        }
-      } catch (loadError: unknown) {
-        if (!cancelled) {
-          const message = loadError instanceof Error ? loadError.message : "Failed to fetch analytics.";
-          setError(message);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    void loadDashboard();
-    return () => { cancelled = true; };
+    // Operator scope: reads ONLY bookings where operatorUid == own uid (rules enforce too).
+    const unsub = subscribeAnalyticsDashboard(
+      toQuery(appliedFilters),
+      { role: "operator", uid: operatorUid },
+      (d) => { setDashboard(d); setLoading(false); },
+      (e) => { setError(e.message); setLoading(false); },
+    );
+    return () => unsub();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authState.status, uid, appliedFilters]);
 
