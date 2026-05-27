@@ -535,7 +535,7 @@ function TourPackagesContent() {
                   ))}
                 </select>
 
-                <div className="flex border border-gray-200 rounded-full bg-white p-1">
+                {/* <div className="flex border border-gray-200 rounded-full bg-white p-1">
                   {(['grid', 'list'] as const).map((v) => (
                     <button
                       key={v}
@@ -548,7 +548,7 @@ function TourPackagesContent() {
                       {v}
                     </button>
                   ))}
-                </div>
+                </div> */}
               </div>
             </div>
 
