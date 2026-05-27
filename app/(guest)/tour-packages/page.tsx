@@ -562,7 +562,7 @@ function TourPackagesContent() {
               </div>
             ) : (
               <div className={viewMode === 'grid'
-                ? `grid grid-cols-2 ${sidebarVisible ? 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3' : 'sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4'} gap-4 mb-8 items-stretch`
+                ? `grid ${sidebarVisible ? 'lg:grid-cols-3 xl:grid-cols-3' : 'sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4'} gap-4 mb-8 items-stretch`
                 : 'flex flex-col gap-4 mb-8'
               }>
                 {visible.map((pkg) => (
@@ -623,7 +623,7 @@ function TourPackagesContent() {
       </div>
 
       {popularActivities.length > 0 && (
-        <section className="max-w-[1280px] mx-auto w-full px-6 lg:px-10 pb-16">
+        <section className="sm:max-w-[1280px] sm:mx-auto w-full px-6 lg:px-10 pb-14">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-gray-900">Popular Activities</h2>
             <Link href="/activities" className="text-sm text-[#008768] font-medium hover:underline">See more</Link>
@@ -644,7 +644,7 @@ function TourPackagesContent() {
               className="flex gap-4 overflow-x-auto scrollbar-hide pb-2 snap-x snap-mandatory"
             >
               {popularActivities.map((act) => (
-                <div key={act.id} className="shrink-0 w-44 sm:w-52 snap-start">
+                <div key={act.id} className="shrink-0 w-full sm:w-[285px] snap-start">
                   <ActivityCard
                     activity={{
                       id: 0,
@@ -665,15 +665,15 @@ function TourPackagesContent() {
                   />
                 </div>
               ))}
-              <div className="shrink-0 w-44 sm:w-52 snap-start">
+              <div className="shrink-0 sm:w-[285px] snap-start">
                 <Link href="/activities" className="block h-full">
-                  <div className="relative rounded-2xl overflow-hidden aspect-[3/4] bg-[#008768] flex flex-col items-center justify-center gap-3 group hover:bg-[#003a2d] transition-colors">
-                    <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="relative rounded-2xl overflow-hidden aspect-[3/4] flex flex-col items-center justify-center gap-3 group transition-colors">
+                    <div className="w-12 h-12 rounded-full border border-black/50 flex items-center justify-center">
+                      <svg className="w-6 h-6 text-black/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                       </svg>
                     </div>
-                    <p className="text-white font-bold text-sm text-center px-4">See All Activities</p>
+                    <p className="text-black/50 font-bold text-sm text-center px-4">See All Activities</p>
                   </div>
                 </Link>
               </div>
