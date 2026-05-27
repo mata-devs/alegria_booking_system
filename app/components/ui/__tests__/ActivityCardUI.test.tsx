@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+/// <reference types="@testing-library/jest-dom" />
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import * as matchers from '@testing-library/jest-dom/matchers'
