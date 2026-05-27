@@ -5,16 +5,13 @@ export function useImageCarousel(images: string[] | undefined, fallback: string)
   // Stabilise imgList by deep-comparing input so that re-renders with the same
   // content (but a new array reference) don't produce a new imgList reference.
   const prevKeyRef = useRef<string | null>(null)
-  const stableImagesRef = useRef<string[] | undefined>(images)
   const stableImgListRef = useRef<string[]>([])
 
   const imgList = useMemo(() => {
     const key = (images ?? []).filter(Boolean).join('\x00')
-    const fallbackKey = fallback ?? ''
-    const fullKey = key + '\x01' + fallbackKey
+    const fullKey = key + '\x01' + (fallback ?? '')
     if (fullKey !== prevKeyRef.current) {
       prevKeyRef.current = fullKey
-      stableImagesRef.current = images
       const filtered = (images ?? []).filter(Boolean) as string[]
       stableImgListRef.current = filtered.length > 0 ? filtered : fallback ? [fallback] : []
     }
