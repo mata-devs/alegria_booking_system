@@ -1,7 +1,7 @@
 'use client'
 
 import type { Activity } from '../types'
-import PackageCard from './ui/PackageCard'
+import ActivityCardUI from './ui/ActivityCardUI'
 
 interface Props {
   activity: Activity
@@ -20,17 +20,22 @@ export default function ActivityCard({ activity, date, travelers, dotSealGranted
     : undefined
 
   return (
-    <PackageCard
+    <ActivityCardUI
       image={activity.image}
       images={activity.images}
       title={activity.title}
       price={activity.price}
-      pricePrefix="From"
-      tags={activity.categories && activity.categories.length > 0 ? activity.categories : (activity.category ? [activity.category] : [])}
-      location={activity.location}
       rating={activity.rating}
-      duration={activity.duration || undefined}
-      cardKind="activity"
+      reviewCount={activity.reviewCount}
+      duration={activity.duration}
+      location={activity.location}
+      tags={
+        activity.categories && activity.categories.length > 0
+          ? activity.categories
+          : activity.category
+          ? [activity.category]
+          : []
+      }
       dotSealGranted={dotSealGranted}
       href={href}
     />
