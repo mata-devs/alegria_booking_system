@@ -55,13 +55,13 @@ export default function ActivityCardUI({
 
   const card = (
     <div
-      className={`group relative rounded-2xl overflow-hidden bg-white shadow-md w-full min-w-0 ${isInteractive ? 'cursor-pointer' : ''} ${className}`}
+      className={`group relative rounded-2xl overflow-hidden aspect-[3/4] bg-white shadow-md w-full min-w-0 flex flex-col ${isInteractive ? 'cursor-pointer' : ''} ${className}`}
       onClick={onClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* ── IMAGE SECTION ─────────────────────────────────────────────── */}
-      <div className="relative aspect-[4/3] overflow-hidden">
+      <div className="relative aspect-[4/3.5] overflow-hidden">
         {activeImg ? (
           <Image
             key={activeImg}
@@ -79,7 +79,7 @@ export default function ActivityCardUI({
         {hasMultiple && (
           <>
             {/* Dot indicators */}
-            <div className="absolute top-2 left-0 right-0 z-30 flex justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+            <div className="absolute bottom-2 left-0 right-0 z-30 flex justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
               {imgList.map((_, i) => (
                 <button
                   key={i}
@@ -136,42 +136,49 @@ export default function ActivityCardUI({
       </div>
 
       {/* ── CONTENT BELOW IMAGE ───────────────────────────────────────── */}
-      <div className="p-3">
+      <div className="p-3 pb-12">
         {/* Title + DOT seal */}
-        <div className="flex items-start gap-1.5 mb-1">
-          <h3 className="font-semibold text-sm text-gray-900 line-clamp-2 flex-1 min-w-0 leading-snug">
-            {title}
-          </h3>
-          <DotSealBadge granted={dotSealGranted} size="sm" showLabel={false} />
-        </div>
-
-        {/* Location */}
-        {location && (
-          <div className="flex items-center gap-1 text-xs text-gray-500 mb-0.5">
-            <MapPin className="w-3 h-3 shrink-0" aria-hidden />
-            <span className="truncate">{location}</span>
+        <div className="h-11">
+          <div className="flex items-start mb-1 min-w-0">
+            <h3 className="font-bold text-base sm:text-lg text-gray-900 leading-tight flex-1 min-w-0 overflow-hidden text-ellipsis line-clamp-2">
+              {title}
+            </h3>
+            <div className="shrink-0">
+              <DotSealBadge granted={dotSealGranted} size="sm" showLabel={false} />
+            </div>
           </div>
-        )}
 
-        {/* Duration */}
-        {duration && (
-          <p className="text-xs text-gray-500 mb-2">{duration}</p>
-        )}
+          {/* Location */}
+          {location && (
+            <div className="flex items-center gap-1 text-sm text-gray-500 mb-0.5">
+              <MapPin className="w-3.5 h-3.5 shrink-0" aria-hidden />
+              <span className="truncate">{location}</span>
+            </div>
+          )}
 
-        {/* Rating + Price row */}
+          {/* Duration */}
+          {duration && (
+            <p className="text-sm text-gray-500">{duration}</p>
+          )}
+
+        </div>
+      </div>
+
+      {/* Rating + Price row — absolutely pinned to card bottom */}
+      <div className="absolute bottom-0 left-0 right-0 px-3 pb-3 bg-white">
         <div className="flex items-center justify-between">
           {rating !== undefined && (
-            <div className="flex items-center gap-1 text-xs text-gray-900">
-              <span className="text-amber-400 text-sm leading-none" aria-hidden>★</span>
-              <span className="font-bold">{rating.toFixed(1)}</span>
+            <div className="flex items-center gap-1 text-sm text-gray-900">
+              <span className="text-amber-400 text-base leading-none" aria-hidden>★</span>
+              <span className="font-semibold">{rating.toFixed(1)}</span>
               {reviewCount !== undefined && (
-                <span className="text-gray-400">({reviewCount.toLocaleString()})</span>
+                <span className="text-gray-400 text-xs">({reviewCount.toLocaleString()})</span>
               )}
             </div>
           )}
-          <p className="text-xs text-gray-700 ml-auto">
+          <p className="text-xs text-gray-500 ml-auto">
             from{' '}
-            <span className="font-bold text-gray-900">₱{price.toLocaleString()}</span>
+            <span className="font-bold text-lg text-gray-900">₱{price.toLocaleString()}</span>
           </p>
         </div>
       </div>
