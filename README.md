@@ -381,13 +381,11 @@ app/
 │   ├── Navbar.tsx                       # Logo + nav links + currency converter (guest layout)
 │   ├── Footer.tsx                       # Dark green footer
 │   ├── SearchBar.tsx                    # Where / When / Travelers search bar — CMS location thumbnails, activity + package counts
-│   ├── ActivityCard.tsx                 # Activity card with rating + price
-│   ├── TourPackageCard.tsx              # Tour package card with overlay
+│   ├── ActivityCard.tsx                 # Activity listing wrapper → ui/PackageCard (cardKind=activity)
 │   ├── LocationCard.tsx                 # Location card with activity count
 │   ├── LocationOfferCounts.tsx          # Activity + package count badges for location cards
 │   ├── GuestReviewCard.tsx              # Approved guest review display
 │   ├── MunicipalityTicker.tsx           # Scrolling news ticker with municipality highlights
-│   ├── CategoryFilterCollapsible.tsx    # Collapsible category filter chip group
 │   ├── LocationPicker.tsx               # Leaflet map picker (value/onChange) — used in operator signup
 │   ├── AccountAvatar.tsx                # User avatar with initials fallback
 │   ├── NotificationsBell.tsx            # Bell icon with unread badge
@@ -404,7 +402,7 @@ app/
 │   ├── ui/
 │   │   ├── Skeleton.tsx                 # Skeleton loader primitives (Skeleton, SkeletonCard, SkeletonRow)
 │   │   ├── BentoGallery.tsx             # Bento-grid image gallery with Lightbox
-│   │   ├── PackageCard.tsx              # Reusable card — activities + tour packages (gray placeholder when no image)
+│   │   ├── PackageCard.tsx              # Shared listing card — activities + tour packages (cardKind badge, gray placeholder when no image)
 │   │   ├── ToggleSwitch.tsx             # Toggle switch primitive
 │   │   └── drawer.tsx                   # Slide-out drawer (Drawer, DrawerHeader, DrawerFooter)
 │   ├── (operator)/
@@ -424,10 +422,8 @@ app/
 │
 ├── lib/
 │   ├── firebase.ts                      # Firebase client SDK init + exports
-│   ├── firebase-admin.ts                # Firebase Admin SDK init (server-side, guarded)
 │   ├── types.ts                         # UserRole, UserStatus, UserProfile types
 │   ├── schema.ts                        # Firestore schema constants + form value types
-│   ├── bookingStatus.ts                 # BookingStatus enum / type
 │   ├── analytics-service.ts             # Analytics data fetch + sample dashboard
 │   ├── booking-service.ts               # Client-side booking helpers (payment status, operator info)
 │   ├── firestoreToBooking.ts            # Firestore document → Booking type mapper
@@ -454,9 +450,7 @@ functions/src/
 │   └── mailer.ts                        # Nodemailer transporter + from-address resolver
 ├── booking/
 │   ├── api.http.ts                      # onRequest wrapper (asia-southeast1)
-│   ├── app.ts                           # Express app — CORS, Helmet, rate-limit, auth middleware, all booking + operator routes
-│   ├── checkInBooking.ts                # Check-in logic (QR scan → mark attended)
-│   ├── operatorRescheduleBooking.ts     # Operator booking reschedule handler
+│   ├── app.ts                           # Express app — CORS, Helmet, rate-limit, auth; public booking/review routes; operator check-in, complete, reschedule, resend-review
 │   ├── routes/bookings.routes.ts        # POST /bookings, POST /bookings/:bookingId/confirm
 │   ├── controllers/booking.controller.ts
 │   └── services/booking.service.ts      # Full booking creation logic (idempotency, slots, promos)
