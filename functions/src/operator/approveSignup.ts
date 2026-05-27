@@ -8,7 +8,6 @@ import {
   generateOperatorId,
   copyFile,
   extractPathFromUrl,
-  getFileDownloadUrl,
 } from "../shared/helpers";
 import { sendOperatorSignupApprovedEmail } from "./operatorSignupEmails";
 import { getAppUrl, buildAppPasswordResetUrl } from "../shared/appUrl";
@@ -73,9 +72,6 @@ export const approveOperatorSignup = onCall(
     const operatorId = generateOperatorId();
     const now = FieldValue.serverTimestamp();
 
-    const files: { name: string; url: string; path?: string }[] = [];
-    let dotProofUrl: string | null = null;
-
     const resolveStoragePath = (item: { path?: string; url?: string }): string | null => {
       if (typeof item.path === "string" && item.path.length > 0) return item.path;
       if (typeof item.url === "string" && item.url.length > 0) return extractPathFromUrl(item.url);
@@ -83,101 +79,100 @@ export const approveOperatorSignup = onCall(
     };
 
     const destPhotoPath = `profile-pictures/${operatorUid}.jpg`;
-    let profileImageUrl: string | null =
-      typeof reqData.photoUrl === "string" && reqData.photoUrl.trim()
-        ? reqData.photoUrl.trim()
-        : null;
     const signupPhotoPath =
       (typeof reqData.photoPath === "string" && reqData.photoPath) ||
       (typeof reqData.photoUrl === "string" ? extractPathFromUrl(reqData.photoUrl) : null);
-    if (signupPhotoPath) {
-      try {
-        await copyFile(signupPhotoPath, destPhotoPath);
-        profileImageUrl = (await getFileDownloadUrl(destPhotoPath)) ?? profileImageUrl;
-      } catch (err) {
-        logger.warn("Failed to copy profile photo:", err);
-      }
-    }
+    const originalPhotoUrl: string | null =
+      typeof reqData.photoUrl === "string" && reqData.photoUrl.trim()
+        ? reqData.photoUrl.trim()
+        : null;
 
-    if (profileImageUrl) {
-      try {
-        await auth.updateUser(operatorUid, { photoURL: profileImageUrl });
-      } catch (err) {
-        logger.warn("Failed to set auth photoURL for approved operator:", err);
-      }
-    }
+    type DocCopyResult =
+      | { kind: "dot"; url: string | null }
+      | { kind: "file"; entry: { name: string; url: string; path?: string } };
 
-    if (Array.isArray(reqData.documents)) {
-      for (const doc of reqData.documents as { name: string; path?: string; url?: string }[]) {
+    const docInputs = Array.isArray(reqData.documents)
+      ? (reqData.documents as { name: string; path?: string; url?: string }[])
+      : [];
+
+    // Copy profile photo and all documents in parallel.
+    const [copiedPhotoUrl, ...docResults] = await Promise.all([
+      signupPhotoPath
+        ? copyFile(signupPhotoPath, destPhotoPath).catch((err) => {
+            logger.warn("Failed to copy profile photo:", err);
+            return null;
+          })
+        : Promise.resolve(null),
+
+      ...docInputs.map(async (docItem): Promise<DocCopyResult | null> => {
         try {
-          const srcPath = resolveStoragePath(doc);
+          const srcPath = resolveStoragePath(docItem);
           if (!srcPath) {
-            if (doc.name !== DOT_CERT_LABEL) {
-              files.push({ name: doc.name, url: typeof doc.url === "string" ? doc.url : "" });
+            if (docItem.name !== DOT_CERT_LABEL) {
+              return {
+                kind: "file",
+                entry: { name: docItem.name, url: typeof docItem.url === "string" ? docItem.url : "" },
+              };
             }
-            continue;
+            return null;
           }
 
-          if (doc.name === DOT_CERT_LABEL) {
+          if (docItem.name === DOT_CERT_LABEL) {
             const ext = extensionFromStoragePath(srcPath);
             const dotDest = `operators/${operatorUid}/dot-proof/cert.${ext}`;
-            await copyFile(srcPath, dotDest);
-            dotProofUrl = (await getFileDownloadUrl(dotDest)) ?? null;
-            continue;
+            const url = await copyFile(srcPath, dotDest);
+            return { kind: "dot", url };
           }
 
-          const destPath = `operator-documents/${operatorUid}/${doc.name}`;
-          await copyFile(srcPath, destPath);
-          const url = (await getFileDownloadUrl(destPath)) ?? (typeof doc.url === "string" ? doc.url : "");
-          files.push({ name: doc.name, url, path: destPath });
+          const destPath = `operator-documents/${operatorUid}/${docItem.name}`;
+          const url = await copyFile(srcPath, destPath);
+          return {
+            kind: "file",
+            entry: {
+              name: docItem.name,
+              url: url ?? (typeof docItem.url === "string" ? docItem.url : ""),
+              path: destPath,
+            },
+          };
         } catch (err) {
-          logger.warn(`Failed to copy document ${doc.name}:`, err);
-          if (doc.name !== DOT_CERT_LABEL) {
-            files.push({ name: doc.name, url: typeof doc.url === "string" ? doc.url : "" });
+          logger.warn(`Failed to copy document ${docItem.name}:`, err);
+          if (docItem.name !== DOT_CERT_LABEL) {
+            return {
+              kind: "file",
+              entry: { name: docItem.name, url: typeof docItem.url === "string" ? docItem.url : "" },
+            };
           }
+          return null;
         }
+      }),
+    ]);
+
+    const profileImageUrl: string | null = copiedPhotoUrl ?? originalPhotoUrl;
+    const files: { name: string; url: string; path?: string }[] = [];
+    let dotProofUrl: string | null = null;
+
+    for (const result of docResults) {
+      if (!result) continue;
+      if (result.kind === "dot") {
+        dotProofUrl = result.url;
+      } else {
+        files.push(result.entry);
       }
     }
 
     const lat = readCoord(reqData.lat);
     const lng = readCoord(reqData.lng);
 
-    await db.doc(`users/${operatorUid}`).set({
-      uid: operatorUid,
-      email: reqData.email,
-      role: "operator",
-      firstName,
-      lastName,
-      companyName: reqData.companyName ?? "",
-      operatorId,
-      applicantId: reqData.applicantId ?? null,
-      phoneNumber: reqData.phoneNumber ?? "",
-      mobileNumber: reqData.mobileNumber ?? "",
-      address: reqData.address ?? "",
-      ...(lat != null && lng != null ? { lat, lng } : {}),
-      profileImage: profileImageUrl,
-      dotProofUrl,
-      files,
-      paymentMethods: [],
-      customInclusionChips: [],
-      customExclusionChips: [],
-      status: "active",
-      submittedAt: reqData.submittedAt ?? null,
-      createdAt: now,
-      approvedAt: now,
-    });
-
-    await reqRef.update({
-      status: "approved",
-      reviewedAt: FieldValue.serverTimestamp(),
-    });
-
-    const applicantEmail = String(reqData.email ?? "").trim();
-    let setPasswordUrl: string | undefined;
     let emailSent = false;
     let emailError: string | undefined;
+    const applicantEmail = String(reqData.email ?? "").trim();
 
-    if (applicantEmail) {
+    const emailChain = async () => {
+      if (!applicantEmail) {
+        emailError = "Applicant email is missing on the signup request.";
+        return;
+      }
+      let setPasswordUrl: string | undefined;
       try {
         const firebaseResetLink = await auth.generatePasswordResetLink(applicantEmail, {
           url: `${getAppUrl()}/reset-password`,
@@ -186,7 +181,6 @@ export const approveOperatorSignup = onCall(
       } catch (err) {
         logger.warn("Failed to generate password reset link for approved operator:", err);
       }
-
       try {
         await sendOperatorSignupApprovedEmail({
           to: applicantEmail,
@@ -199,8 +193,47 @@ export const approveOperatorSignup = onCall(
         emailError = emailFailureMessage(err);
         logger.error(`Failed to send operator approval email to ${applicantEmail}`, err);
       }
-    } else {
-      emailError = "Applicant email is missing on the signup request.";
+    };
+
+    const [userDocResult] = await Promise.allSettled([
+      db.doc(`users/${operatorUid}`).set({
+        uid: operatorUid,
+        email: reqData.email,
+        role: "operator",
+        firstName,
+        lastName,
+        companyName: reqData.companyName ?? "",
+        operatorId,
+        applicantId: reqData.applicantId ?? null,
+        phoneNumber: reqData.phoneNumber ?? "",
+        mobileNumber: reqData.mobileNumber ?? "",
+        address: reqData.address ?? "",
+        ...(lat != null && lng != null ? { lat, lng } : {}),
+        profileImage: profileImageUrl,
+        dotProofUrl,
+        files,
+        paymentMethods: [],
+        customInclusionChips: [],
+        customExclusionChips: [],
+        status: "active",
+        submittedAt: reqData.submittedAt ?? null,
+        createdAt: now,
+        approvedAt: now,
+      }),
+      reqRef.update({
+        status: "approved",
+        reviewedAt: FieldValue.serverTimestamp(),
+      }),
+      profileImageUrl
+        ? auth.updateUser(operatorUid, { photoURL: profileImageUrl }).catch((err) => {
+            logger.warn("Failed to set auth photoURL for approved operator:", err);
+          })
+        : Promise.resolve(),
+      emailChain(),
+    ]);
+
+    if (userDocResult.status === "rejected") {
+      throw new HttpsError("internal", "Failed to create operator user record.");
     }
 
     logger.info(`Operator ${operatorUid} (${reqData.email}) approved by ${request.auth.uid}`);

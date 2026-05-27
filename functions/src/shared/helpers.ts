@@ -20,25 +20,23 @@ export function generateOperatorId(): string {
   return String(num);
 }
 
-export async function copyFile(source: string, dest: string) {
-  const srcFile = bucket.file(source);
-  const [exists] = await srcFile.exists();
-  if (!exists) {
-    logger.warn(`copyFile: source not found – ${source}`);
-    return;
-  }
-  const destFile = bucket.file(dest);
-  await srcFile.copy(destFile);
-  // `bucket.file().copy()` does not reliably carry over the
-  // `firebaseStorageDownloadTokens` system metadata, so getFileDownloadUrl
-  // would return null on the destination. Mint a fresh token here so the
-  // copied file is reachable via a public ?token= URL bypassing rules.
+export async function copyFile(source: string, dest: string): Promise<string | null> {
   try {
+    const srcFile = bucket.file(source);
+    const destFile = bucket.file(dest);
+    await srcFile.copy(destFile);
+    // `bucket.file().copy()` does not reliably carry over the
+    // `firebaseStorageDownloadTokens` system metadata, so mint a fresh token
+    // and return the URL directly — avoids a second getMetadata round-trip.
+    const token = randomUUID();
     await destFile.setMetadata({
-      metadata: { firebaseStorageDownloadTokens: randomUUID() },
+      metadata: { firebaseStorageDownloadTokens: token },
     });
+    const encodedPath = encodeURIComponent(dest);
+    return `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodedPath}?alt=media&token=${token}`;
   } catch (err) {
-    logger.warn(`copyFile: failed to set download token on ${dest}`, err);
+    logger.warn(`copyFile: failed ${source} → ${dest}`, err);
+    return null;
   }
 }
 

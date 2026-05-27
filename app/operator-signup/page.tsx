@@ -413,30 +413,31 @@ function OperatorSignUpContent() {
         return storagePath;
       }
 
-      let photoPath: string | null = null;
-      if (photo) {
-        photoPath = await uploadSignupFile(`signup-requests/${tempId}/photo.jpg`, photo);
-      }
-
-      const uploadedDocs: { name: string; path: string }[] = [];
-
-      if (dotCert) {
-        uploadedDocs.push({
-          name: DOT_CERT_LABEL,
-          path: await uploadSignupFile(`signup-requests/${tempId}/documents/${dotCert.name}`, dotCert),
-        });
-      }
-
-      for (const slot of DOCUMENT_SLOTS) {
-        const file = docSlots[slot.id]!;
-        uploadedDocs.push({
-          name: slot.label,
-          path: await uploadSignupFile(
-            `signup-requests/${tempId}/documents/${slot.id}-${file.name}`,
+      const docEntries = [
+        ...(dotCert
+          ? [{ name: DOT_CERT_LABEL, file: dotCert, storagePath: `signup-requests/${tempId}/documents/${dotCert.name}` }]
+          : []),
+        ...DOCUMENT_SLOTS.map((slot) => {
+          const file = docSlots[slot.id]!;
+          return {
+            name: slot.label,
             file,
-          ),
-        });
-      }
+            storagePath: `signup-requests/${tempId}/documents/${slot.id}-${file.name}`,
+          };
+        }),
+      ];
+
+      const [photoPath, ...docPaths] = await Promise.all([
+        photo
+          ? uploadSignupFile(`signup-requests/${tempId}/photo.jpg`, photo)
+          : Promise.resolve(null),
+        ...docEntries.map(({ storagePath, file }) => uploadSignupFile(storagePath, file)),
+      ]);
+
+      const uploadedDocs = docEntries.map(({ name }, i) => ({
+        name,
+        path: docPaths[i] as string,
+      }));
 
       await addDoc(collection(firebaseDb, 'operator_signup_requests'), {
         applicantId: `I${tempId.replace(/-/g, '').slice(0, 5).toUpperCase()}`,
