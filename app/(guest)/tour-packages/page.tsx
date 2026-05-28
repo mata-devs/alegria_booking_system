@@ -122,11 +122,10 @@ function FiltersSidebar({
                     key={tag}
                     type="button"
                     onClick={() => toggleTag(tag)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-colors border ${
-                      active
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-colors border ${active
                         ? 'border-[#008768] bg-[#d9efe6] text-[#003a2d]'
                         : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
-                    }`}
+                      }`}
                   >
                     {tag}
                     <span className={`ml-1 font-semibold text-[10px] ${active ? 'text-[#008768]' : 'text-gray-400'}`}>{cnt}</span>
@@ -194,11 +193,10 @@ function FiltersSidebar({
               key={loc}
               type="button"
               onClick={() => setActiveLocationChip(activeLocationChip === loc ? null : loc)}
-              className={`px-2.5 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-colors ${
-                activeLocationChip === loc
+              className={`px-2.5 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-colors ${activeLocationChip === loc
                   ? 'border-[1.5px] border-[#008768] bg-[#d9efe6] text-[#003a2d]'
                   : 'border border-gray-200 bg-white text-gray-600 hover:border-gray-300'
-              }`}
+                }`}
             >
               {loc}
               <span className={`ml-1 font-semibold ${activeLocationChip === loc ? 'text-[#008768]' : 'text-gray-400'}`}>{count}</span>
@@ -263,6 +261,34 @@ function TourPackagesContent() {
     pricePerGuest: number; activityImages: string[];
   }[]>([])
   const carouselRef = useRef<HTMLDivElement>(null)
+
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(false)
+
+  const updateCarouselButtons = () => {
+    const el = carouselRef.current
+    if (!el) return
+
+    const maxScrollLeft = el.scrollWidth - el.clientWidth
+
+    setCanScrollLeft(el.scrollLeft > 0)
+    setCanScrollRight(el.scrollLeft < maxScrollLeft - 1)
+  }
+
+  useEffect(() => {
+    updateCarouselButtons()
+
+    const el = carouselRef.current
+    if (!el) return
+
+    el.addEventListener('scroll', updateCarouselButtons)
+    window.addEventListener('resize', updateCarouselButtons)
+
+    return () => {
+      el.removeEventListener('scroll', updateCarouselButtons)
+      window.removeEventListener('resize', updateCarouselButtons)
+    }
+  }, [popularActivities.length])
 
   useEffect(() => {
     const p = parseGuestListingSearchParams(new URLSearchParams(queryKey))
@@ -497,11 +523,10 @@ function TourPackagesContent() {
                 <button
                   type="button"
                   onClick={() => setSidebarVisible((v) => !v)}
-                  className={`hidden lg:flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium shadow-sm transition-colors ${
-                    sidebarVisible
+                  className={`hidden lg:flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium shadow-sm transition-colors ${sidebarVisible
                       ? 'bg-gray-900 text-white border-gray-900'
                       : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
-                  }`}
+                    }`}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h18M7 8h10M11 12h4" />
@@ -562,7 +587,7 @@ function TourPackagesContent() {
               </div>
             ) : (
               <div className={viewMode === 'grid'
-                ? `grid ${sidebarVisible ? 'lg:grid-cols-3 xl:grid-cols-3' : 'sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4'} gap-4 mb-8 items-stretch`
+                ? `grid grid-cols-2 ${sidebarVisible ? 'lg:grid-cols-3 xl:grid-cols-3' : 'sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4'} gap-4 mb-8 items-stretch`
                 : 'flex flex-col gap-4 mb-8'
               }>
                 {visible.map((pkg) => (
@@ -629,18 +654,22 @@ function TourPackagesContent() {
             <Link href="/activities" className="text-sm text-[#008768] font-medium hover:underline">See more</Link>
           </div>
           <div className="relative">
-            <button
-              type="button"
-              onClick={() => carouselRef.current?.scrollBy({ left: -320, behavior: 'smooth' })}
-              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 bg-white shadow-md border border-gray-200 rounded-full p-2 hover:bg-gray-50 transition-colors hidden sm:flex"
-              aria-label="Scroll left"
-            >
-              <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
+            {canScrollLeft && (
+              <button
+                type="button"
+                onClick={() => carouselRef.current?.scrollBy({ left: -320, behavior: 'smooth' })}
+                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 bg-white shadow-md border border-gray-200 rounded-full p-2 hover:bg-gray-50 transition-colors "
+                aria-label="Scroll left"
+              >
+                <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+            )}
+
             <div
               ref={carouselRef}
+              onScroll={updateCarouselButtons}
               className="flex gap-4 overflow-x-auto scrollbar-hide pb-2 snap-x snap-mandatory"
             >
               {popularActivities.map((act) => (
@@ -665,6 +694,7 @@ function TourPackagesContent() {
                   />
                 </div>
               ))}
+
               <div className="shrink-0 sm:w-[285px] snap-start">
                 <Link href="/activities" className="block h-full">
                   <div className="relative rounded-2xl overflow-hidden aspect-[3/4] flex flex-col items-center justify-center gap-3 group transition-colors">
@@ -673,21 +703,26 @@ function TourPackagesContent() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                       </svg>
                     </div>
-                    <p className="text-black/50 font-bold text-sm text-center px-4">See All Activities</p>
+                    <p className="text-black/50 font-bold text-sm text-center px-4">
+                      See All Activities
+                    </p>
                   </div>
                 </Link>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => carouselRef.current?.scrollBy({ left: 320, behavior: 'smooth' })}
-              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 bg-white shadow-md border border-gray-200 rounded-full p-2 hover:bg-gray-50 transition-colors hidden sm:flex"
-              aria-label="Scroll right"
-            >
-              <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
+
+            {canScrollRight && (
+              <button
+                type="button"
+                onClick={() => carouselRef.current?.scrollBy({ left: 320, behavior: 'smooth' })}
+                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 bg-white shadow-md border border-gray-200 rounded-full p-2 hover:bg-gray-50 transition-colors "
+                aria-label="Scroll right"
+              >
+                <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            )}
           </div>
         </section>
       )}

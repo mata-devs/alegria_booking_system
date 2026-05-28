@@ -26,6 +26,7 @@ export interface ActivityCardUIProps {
   topRightAction?: ReactNode
   dotSealGranted?: boolean
   className?: string
+  disableAutoCarousel?: boolean
 }
 
 export default function ActivityCardUI({
@@ -44,9 +45,10 @@ export default function ActivityCardUI({
   topRightAction,
   dotSealGranted = false,
   className = '',
+  disableAutoCarousel = true,
 }: ActivityCardUIProps) {
   const { imgList, hasMultiple, imgIdx, isHovered, setIsHovered, activeImg, goPrev, goNext, goTo } =
-    useImageCarousel(images, image)
+    useImageCarousel(images, image, disableAutoCarousel)
 
   const tagList = (
     tags && tags.length > 0 ? tags : tag ? [tag] : []
@@ -57,7 +59,7 @@ export default function ActivityCardUI({
   const card = (
     <div
       className={cn(
-        'group relative rounded-2xl overflow-hidden bg-white shadow-md w-full min-w-0',
+        'group relative rounded-2xl overflow-hidden border border-black/20 bg-white w-full min-w-0 hover:shadow-lg transition-all duration-300 hover:scale-[1.02]',
         'flex flex-row sm:flex-col sm:aspect-[3/4]',
         isInteractive ? 'cursor-pointer' : '',
         className
@@ -67,7 +69,7 @@ export default function ActivityCardUI({
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* ── IMAGE SECTION ─────────────────────────────────────────────── */}
-      <div className="relative w-[170px] sm:w-full aspect-[3.5/4] sm:aspect-[4/3.5] flex-shrink-0 overflow-hidden rounded-l-2xl sm:rounded-none sm:rounded-t-2xl">
+      <div className="relative w-[170px] sm:w-full aspect-[3.5/4] sm:aspect-[4/3.5]  flex-shrink-0 overflow-hidden rounded-l-2xl sm:rounded-none sm:rounded-t-2xl">
         {activeImg ? (
           <Image
             key={activeImg}
@@ -77,7 +79,7 @@ export default function ActivityCardUI({
             sizes="(max-width: 640px) 170px, (max-width: 1024px) 50vw, 280px"
             className={cn(
               'object-cover transition-transform duration-500',
-              isInteractive && !hasMultiple ? 'group-hover:scale-105' : ''
+              isInteractive? 'group-hover:scale-[1.08]' : ''
             )}
           />
         ) : (

@@ -108,6 +108,7 @@ export interface PackageCardProps {
   images?: string[]
   wide?: boolean
   className?: string
+  disableAutoCarousel?: boolean
 }
 
 export default function PackageCard({
@@ -134,6 +135,7 @@ export default function PackageCard({
   images,
   wide = false,
   className = '',
+  disableAutoCarousel = true,
 }: PackageCardProps) {
   const tagList = (tags && tags.length > 0
     ? tags
@@ -144,7 +146,7 @@ export default function PackageCard({
   const isInteractive = !!(onClick || href)
 
   const { imgList, hasMultiple, imgIdx, isHovered, setIsHovered, activeImg, goPrev, goNext, goTo } =
-    useImageCarousel(images, image)
+    useImageCarousel(images, image, disableAutoCarousel)
 
   const card = (
     <div
@@ -212,7 +214,11 @@ export default function PackageCard({
       {/* Gradient overlay — image clear top ~40%, transitions to near-black at bottom
           Adjust the rgba stop values to control gradient strength */}
       <div
-        className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent_35%,rgba(0,0,0,0.55)_60%,rgba(0,0,0,0.93)_100%)]"
+        className="
+          absolute inset-0
+          bg-[linear-gradient(to_bottom,transparent_35%,rgba(0,0,0,0.70)_70%,rgba(0,0,0,1)_100%)]
+          sm:bg-[linear-gradient(to_bottom,transparent_35%,rgba(0,0,0,0.55)_60%,rgba(0,0,0,0.93)_100%)]
+        "
       />
 
       {/* Top-left tag chips — supports single (`tag`) or multi (`tags`). */}
@@ -242,7 +248,7 @@ export default function PackageCard({
         {/* Title — wraps to 2 lines; min-h reserves space so 1-line titles don't push the
             short cards up out of alignment with adjacent 2-line titles in a grid. */}
         <div className="flex flex-wrap items-start gap-2">
-          <h3 className="text-white font-bold text-base sm:text-xl leading-tight drop-shadow line-clamp-2 flex-1 min-w-0 break-words min-h-[2lh]">
+          <h3 className="text-white font-bold text-base sm:text-xl leading-tight drop-shadow line-clamp-2 flex-1 min-w-0 break-words ">
             {title}
           </h3>
           <DotSealBadge granted={dotSealGranted} size="sm" showLabel={false} />
@@ -274,19 +280,23 @@ export default function PackageCard({
         {(rating !== undefined || duration || status || minGuests !== undefined) && (
           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap mt-1">
             {rating !== undefined && (
-              <span className="flex items-center gap-1 sm:gap-1.5 bg-black/45 text-white text-xs px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full backdrop-blur-sm">
+              // <span className="flex items-center gap-1 sm:gap-1.5 bg-black/45 text-white text-xs px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full backdrop-blur-sm">
+              //   <span className="font-semibold">{rating.toFixed(1)}</span>
+              //   <Stars rating={rating} />
+              // </span>
+              <div className="flex items-center gap-1 text-sm text-white">
+                <span className="text-amber-400 text-base leading-none" aria-hidden>★</span>
                 <span className="font-semibold">{rating.toFixed(1)}</span>
-                <Stars rating={rating} />
-              </span>
+              </div>
             )}
             {duration && (
-              <span className="bg-black/45 text-white text-xs px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full backdrop-blur-sm font-medium">
+              <span className="bg-black/45 hidden sm:block text-white text-xs px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full backdrop-blur-sm font-medium">
                 {duration}
               </span>
             )}
             {minGuests !== undefined && minGuests > 1 && (
               <span
-                className="flex items-center gap-1 bg-black/45 text-white text-xs px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full backdrop-blur-sm font-medium"
+                className="hidden sm:flex items-center gap-1 bg-black/45 text-white text-xs px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full backdrop-blur-sm font-medium"
                 title={`Minimum ${minGuests} guests required to book`}
               >
                 <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20">
