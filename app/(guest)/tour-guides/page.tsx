@@ -6,10 +6,8 @@ import Image from 'next/image'
 import Footer from '@/app/components/Footer'
 import { tourGuides } from '@/app/data/mockData'
 import type { TourGuide } from '@/app/types'
-
-const ALL_SPECIALTIES = Array.from(
-  new Set(tourGuides.flatMap((g) => g.specialties))
-).sort()
+import { Lightbox } from '@/app/components/ui/BentoGallery'
+import type { LightboxImage } from '@/app/components/ui/BentoGallery'
 
 const ALL_LANGUAGES = Array.from(
   new Set(tourGuides.flatMap((g) => g.languages))
@@ -19,152 +17,193 @@ const ALL_LOCATIONS = Array.from(
   new Set(tourGuides.map((g) => g.location))
 ).sort()
 
-function StarRating({ rating }: { rating: number }) {
+
+function CertificationBadges({ certifications }: { certifications: { name: string; logo: string }[] }) {
+  const [first, second] = certifications
+  const mobileOverflow = certifications.length - 1
+  const desktopOverflow = certifications.length - 2
   return (
-    <span className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map((n) => {
-        const filled = n <= Math.floor(rating)
-        const half = !filled && n - 0.5 <= rating
-        return (
-          <svg key={n} width="11" height="11" viewBox="0 0 20 20" className="text-[#f1a500]">
-            <defs>
-              {half && (
-                <linearGradient id={`half-${n}`}>
-                  <stop offset="50%" stopColor="currentColor" />
-                  <stop offset="50%" stopColor="transparent" />
-                </linearGradient>
-              )}
-            </defs>
-            <path
-              fill={half ? `url(#half-${n})` : filled ? 'currentColor' : 'none'}
-              stroke="currentColor"
-              strokeWidth={filled || half ? 0 : 1}
-              d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-            />
-          </svg>
-        )
-      })}
-    </span>
+    <div className="flex flex-wrap gap-1.5">
+      {/* First badge — always visible */}
+      {first && (
+        <span className="inline-flex items-center px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-[9px] sm:text-[10px] font-semibold bg-[#d9efe6] text-[#003a2d]">
+          {first.name}
+        </span>
+      )}
+      {/* Second badge — desktop only */}
+      {second && (
+        <span className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold bg-[#d9efe6] text-[#003a2d]">
+          {second.name}
+        </span>
+      )}
+      {/* Mobile overflow (+N after 1st) */}
+      {mobileOverflow > 0 && (
+        <span className="inline-flex sm:hidden items-center px-2 py-0.5 rounded-full text-[9px] font-semibold bg-[#d9efe6] text-[#003a2d]">
+          +{mobileOverflow}
+        </span>
+      )}
+      {/* Desktop overflow (+N after 2nd) */}
+      {desktopOverflow > 0 && (
+        <span className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold bg-[#d9efe6] text-[#003a2d]">
+          +{desktopOverflow}
+        </span>
+      )}
+    </div>
   )
 }
 
-function AvailabilityBadge({ availability }: { availability: TourGuide['availability'] }) {
-  const config = {
-    available: { dot: 'bg-[#008768]', label: 'Available', text: 'text-[#003a2d]', bg: 'bg-[#d9efe6]' },
-    limited: { dot: 'bg-amber-400', label: 'Limited', text: 'text-amber-800', bg: 'bg-amber-50' },
-    unavailable: { dot: 'bg-gray-400', label: 'Unavailable', text: 'text-gray-600', bg: 'bg-gray-100' },
-  }[availability]
+function CertificationsModal({ guide, onClose }: { guide: TourGuide; onClose: () => void }) {
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null)
+
+  const certImages: LightboxImage[] = guide.certifications.map((c) => ({
+    url: c.logo,
+    title: c.name,
+  }))
 
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold tracking-wide ${config.bg} ${config.text}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`} />
-      {config.label}
-    </span>
+    <>
+      <div
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+        onClick={onClose}
+      >
+        <div
+          className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 relative"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Close button */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+            aria-label="Close"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M2 2l8 8M10 2l-8 8" />
+            </svg>
+          </button>
+
+          {/* Guide header */}
+          <div className="flex items-center gap-3 mb-5">
+            <div className="relative w-14 h-14 rounded-full overflow-hidden shrink-0 bg-gray-100">
+              <Image src={guide.photo} alt={guide.name} fill className="object-cover" />
+            </div>
+            <div>
+              <h3 className="font-extrabold text-gray-900 text-base leading-tight">{guide.name}</h3>
+              <p className="text-xs text-gray-400 mt-0.5">{guide.location}</p>
+            </div>
+          </div>
+
+          {/* Certifications */}
+          <p className="text-[10px] font-mono tracking-[.14em] uppercase text-gray-400 mb-3">
+            Certifications
+          </p>
+          <div className="flex flex-col gap-3">
+            {guide.certifications.map((cert, i) => (
+              <div
+                key={cert.name}
+                className="flex items-center gap-3 cursor-pointer rounded-xl p-1 -m-1 hover:bg-gray-50 transition-colors"
+                onClick={() => setLightboxIdx(i)}
+              >
+                <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-gray-100">
+                  <Image src={cert.logo} alt={cert.name} fill className="object-cover" />
+                </div>
+                <span className="text-sm font-semibold text-gray-800">{cert.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {lightboxIdx !== null && (
+        <Lightbox
+          images={certImages}
+          idx={lightboxIdx}
+          onClose={() => setLightboxIdx(null)}
+          onChange={(i) => setLightboxIdx(i)}
+        />
+      )}
+    </>
   )
 }
 
 function TourGuideCard({ guide }: { guide: TourGuide }) {
-  const shownSpecialties = guide.specialties.slice(0, 2)
-  const overflowCount = guide.specialties.length - 2
+  const [modalOpen, setModalOpen] = useState(false)
 
   return (
-    <div className="group bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md hover:scale-[1.02] transition-all duration-300 hover:cursor-pointer flex flex-col">
-      {/* Photo */}
-      <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
-        <Image
-          src={guide.photo}
-          alt={guide.name}
-          fill
-          className="object-cover transition-transform duration-500 group-hover:scale-105"
-          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-        />
-        {/* Availability badge */}
-        <div className="absolute top-3 left-3">
-          <AvailabilityBadge availability={guide.availability} />
+    <>
+      <div className="group bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md hover:scale-[1.02] transition-all duration-300 hover:cursor-pointer flex flex-col">
+        {/* Photo */}
+        <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
+          <Image
+            src={guide.photo}
+            alt={guide.name}
+            fill
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+          />
+          <div className="absolute top-3 left-3">
+            <CertificationBadges certifications={guide.certifications} />
+          </div>
         </div>
-        {/* Price tag */}
-        {/* <div className="absolute bottom-3 right-3 bg-black/70 backdrop-blur-sm text-white text-xs font-bold px-2.5 py-1 rounded-full">
-          ₱{guide.pricePerDay.toLocaleString()}<span className="font-normal opacity-75">/day</span>
-        </div> */}
+
+        {/* Info */}
+        <div className="p-4 flex flex-col gap-2.5 flex-1">
+          <div>
+            <h3 className="font-extrabold text-gray-900 text-[15px] leading-tight">{guide.name}</h3>
+            <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+              <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              {guide.location}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-1 text-sm text-gray-900">
+            <span className="text-amber-400 text-base leading-none" aria-hidden>★</span>
+            <span className="font-semibold">{guide.rating.toFixed(1)}</span>
+            <span className="text-gray-400 text-xs">({guide.reviewCount.toLocaleString()})</span>
+          </div>
+
+          <div className="sm:flex hidden items-center gap-3 text-[11px] text-gray-400 font-mono tracking-wide">
+            <span>{guide.yearsOfExperience} yrs exp</span>
+            <span className="w-px h-3 bg-gray-200" />
+            <span className="truncate">
+              {guide.languages.slice(0, 2).join(', ')}
+              {guide.languages.length > 2 ? ` +${guide.languages.length - 2}` : ''}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setModalOpen(true)}
+            className="mt-auto block w-full text-center bg-gray-900 hover:bg-[#008768] text-white text-xs font-semibold py-2.5 rounded-full transition-colors duration-200"
+          >
+            Certifications
+          </button>
+        </div>
       </div>
 
-      {/* Info */}
-      <div className="p-4 flex flex-col gap-2.5 flex-1">
-        {/* Name & location */}
-        <div>
-          <h3 className="font-extrabold text-gray-900 text-[15px] leading-tight">{guide.name}</h3>
-          <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
-            <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            {guide.location}
-          </p>
-        </div>
-
-        {/* Specialty chips */}
-        <div className="flex flex-wrap gap-1.5">
-          {shownSpecialties.map((s) => (
-            <span key={s} className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#d9efe6] text-[#003a2d]">
-              {s}
-            </span>
-          ))}
-          {overflowCount > 0 && (
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-500">
-              +{overflowCount}
-            </span>
-          )}
-        </div>
-
-        {/* Rating */}
-        <div className="flex items-center gap-1.5">
-          <StarRating rating={guide.rating} />
-          <span className="text-xs font-bold text-gray-700">{guide.rating.toFixed(1)}</span>
-          <span className="text-xs text-gray-400">({guide.reviewCount.toLocaleString()})</span>
-        </div>
-
-        {/* Meta row */}
-        <div className="flex items-center gap-3 text-[11px] text-gray-400 font-mono tracking-wide">
-          <span>{guide.yearsOfExperience} yrs exp</span>
-          <span className="w-px h-3 bg-gray-200" />
-          <span className="truncate">{guide.languages.slice(0, 2).join(', ')}{guide.languages.length > 2 ? ` +${guide.languages.length - 2}` : ''}</span>
-        </div>
-
-        {/* CTA */}
-        <Link
-          href={`/tour-guides/${guide.id}`}
-          className="mt-auto block w-full text-center bg-gray-900 hover:bg-[#008768] text-white text-xs font-semibold py-2.5 rounded-full transition-colors duration-200"
-        >
-          View Profile
-        </Link>
-      </div>
-    </div>
+      {modalOpen && <CertificationsModal guide={guide} onClose={() => setModalOpen(false)} />}
+    </>
   )
 }
 
 type SortOption = 'Recommended' | 'Highest rated' | 'Most experienced' | 'Price · low to high' | 'Price · high to low'
 
 export default function TourGuidesPage() {
-  const [activeSpecialties, setActiveSpecialties] = useState<string[]>([])
   const [activeLanguage, setActiveLanguage] = useState<string | null>(null)
   const [activeLocation, setActiveLocation] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<SortOption>('Recommended')
   const [visibleCount, setVisibleCount] = useState(8)
 
-  const toggleSpecialty = (s: string) =>
-    setActiveSpecialties((prev) => prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s])
-
-  const activeFiltersCount =
-    activeSpecialties.length + (activeLanguage ? 1 : 0) + (activeLocation ? 1 : 0)
+  const activeFiltersCount = (activeLanguage ? 1 : 0) + (activeLocation ? 1 : 0)
 
   const filtered = useMemo(() => {
     let list = tourGuides.filter((g) => {
-      const matchesSpecialty =
-        activeSpecialties.length === 0 ||
-        activeSpecialties.some((s) => g.specialties.includes(s))
       const matchesLanguage = !activeLanguage || g.languages.includes(activeLanguage)
       const matchesLocation = !activeLocation || g.location === activeLocation
-      return matchesSpecialty && matchesLanguage && matchesLocation
+      return matchesLanguage && matchesLocation
     })
 
     if (sortBy === 'Highest rated') list = [...list].sort((a, b) => b.rating - a.rating)
@@ -172,7 +211,7 @@ export default function TourGuidesPage() {
     else if (sortBy === 'Price · low to high') list = [...list].sort((a, b) => a.pricePerDay - b.pricePerDay)
     else if (sortBy === 'Price · high to low') list = [...list].sort((a, b) => b.pricePerDay - a.pricePerDay)
     return list
-  }, [activeSpecialties, activeLanguage, activeLocation, sortBy])
+  }, [activeLanguage, activeLocation, sortBy])
 
   const visible = filtered.slice(0, visibleCount)
 
@@ -222,30 +261,7 @@ export default function TourGuidesPage() {
         <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-10 py-3">
           <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide pb-1">
 
-            {/* Specialties */}
-            <span className="text-[10px] font-mono tracking-[.14em] uppercase text-gray-400 shrink-0">Specialty</span>
-            {ALL_SPECIALTIES.map((s) => {
-              const active = activeSpecialties.includes(s)
-              return (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => toggleSpecialty(s)}
-                  className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
-                    active
-                      ? 'border-[#008768] bg-[#d9efe6] text-[#003a2d]'
-                      : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
-                  }`}
-                >
-                  {s}
-                </button>
-              )
-            })}
-
-            <div className="w-px h-5 bg-gray-200 shrink-0 mx-1" />
-
-            {/* Languages */}
-            <span className="text-[10px] font-mono tracking-[.14em] uppercase text-gray-400 shrink-0">Language</span>
+            {/* <span className="text-[10px] font-mono tracking-[.14em] uppercase text-gray-400 shrink-0">Language</span>
             {ALL_LANGUAGES.map((lang) => {
               const active = activeLanguage === lang
               return (
@@ -262,11 +278,10 @@ export default function TourGuidesPage() {
                   {lang}
                 </button>
               )
-            })}
+            })} */}
 
-            <div className="w-px h-5 bg-gray-200 shrink-0 mx-1" />
+            {/* <div className="w-px h-5 bg-gray-200 shrink-0 mx-1" /> */}
 
-            {/* Location */}
             <span className="text-[10px] font-mono tracking-[.14em] uppercase text-gray-400 shrink-0">Location</span>
             {ALL_LOCATIONS.map((loc) => {
               const active = activeLocation === loc
@@ -291,7 +306,7 @@ export default function TourGuidesPage() {
                 <div className="w-px h-5 bg-gray-200 shrink-0 mx-1" />
                 <button
                   type="button"
-                  onClick={() => { setActiveSpecialties([]); setActiveLanguage(null); setActiveLocation(null) }}
+                  onClick={() => { setActiveLanguage(null); setActiveLocation(null) }}
                   className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border border-gray-300 bg-white text-gray-500 hover:text-gray-800 transition-colors"
                 >
                   Clear all ({activeFiltersCount})
@@ -305,7 +320,6 @@ export default function TourGuidesPage() {
       {/* Main content */}
       <div className="max-w-[1280px] mx-auto w-full px-4 sm:px-6 lg:px-10 py-8 pb-20 lg:pb-16 flex-1">
 
-        {/* Results header */}
         <div className="flex items-center justify-between mb-6">
           <div>
             <span className="text-2xl font-extrabold text-gray-900 tracking-[-0.02em]">
@@ -327,7 +341,6 @@ export default function TourGuidesPage() {
           </select>
         </div>
 
-        {/* Grid */}
         {filtered.length === 0 ? (
           <div className="py-20 text-center text-sm text-gray-400">No guides match your filters.</div>
         ) : (
@@ -338,7 +351,6 @@ export default function TourGuidesPage() {
           </div>
         )}
 
-        {/* Load more */}
         {filtered.length > 0 && (
           <div className="flex items-center justify-between">
             <span className="text-[13px] text-gray-400">

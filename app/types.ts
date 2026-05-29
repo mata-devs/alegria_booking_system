@@ -66,7 +66,7 @@ export interface TourGuide {
   reviewCount: number
   yearsOfExperience: number
   pricePerDay: number
-  certifications: string[]
+  certifications: { name: string; logo: string }[]
   availability: 'available' | 'limited' | 'unavailable'
   operatorId?: string
 }
