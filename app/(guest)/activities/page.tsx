@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense, useMemo } from 'react'
+import { useState, useEffect, useRef, Suspense, useMemo } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import Link from 'next/link'
 import Footer from '@/app/components/Footer'
@@ -8,13 +8,15 @@ import ActivityCard from '@/app/components/ActivityCard'
 import { useSearchParams } from 'next/navigation'
 import { parseGuestListingSearchParams } from '@/app/lib/searchSchema'
 import { getDayCapacity } from '@/app/lib/getDayCapacity'
-import { collection, query, where, getDocs } from 'firebase/firestore'
+import { collection, query, where, getDocs, limit } from 'firebase/firestore'
 import { firebaseDb } from '@/app/lib/firebase'
 import { ACTIVITY_TAGS, normalizeActivityTags, primaryActivityTag, activityHasTag } from '@/app/lib/activity-tags'
 import { packageImageUrl } from '@/app/lib/package-images'
 import type { Activity } from '@/app/types'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/app/components/ui/drawer'
 import SearchBar from '@/app/components/SearchBar'
+import PackageCard from '@/app/components/ui/PackageCard'
+import { normalizePackageLocations, formatLocationSummary } from '@/app/lib/package-locations'
 
 export default function ActivitiesPage() {
   return (
@@ -252,6 +254,63 @@ function ActivitiesContent() {
   const [loading, setLoading] = useState(true)
   const [dayCapacity, setDayCapacity] = useState<Record<string, number | null>>({})
 
+  // Popular packages carousel
+  const [popularPackages, setPopularPackages] = useState<{
+    id: string; packageName: string; packageTag: string;
+    packageLocations: string[]; packageRating: number;
+    pricePerPerson: number; packageImages: string[]; duration: string; slug: string;
+  }[]>([])
+  const packagesCarouselRef = useRef<HTMLDivElement>(null)
+  const [canScrollPackagesLeft, setCanScrollPackagesLeft] = useState(false)
+  const [canScrollPackagesRight, setCanScrollPackagesRight] = useState(false)
+
+  const updatePackagesCarouselButtons = () => {
+    const el = packagesCarouselRef.current
+    if (!el) return
+    const maxScrollLeft = el.scrollWidth - el.clientWidth
+    setCanScrollPackagesLeft(el.scrollLeft > 0)
+    setCanScrollPackagesRight(el.scrollLeft < maxScrollLeft - 1)
+  }
+
+  useEffect(() => {
+    updatePackagesCarouselButtons()
+    const el = packagesCarouselRef.current
+    if (!el) return
+    el.addEventListener('scroll', updatePackagesCarouselButtons)
+    window.addEventListener('resize', updatePackagesCarouselButtons)
+    return () => {
+      el.removeEventListener('scroll', updatePackagesCarouselButtons)
+      window.removeEventListener('resize', updatePackagesCarouselButtons)
+    }
+  }, [popularPackages.length])
+
+  useEffect(() => {
+    async function fetchPopularPackages() {
+      try {
+        const snap = await getDocs(query(
+          collection(firebaseDb, 'tourPackages'),
+          where('status', '==', 'active'),
+          limit(7),
+        ))
+        setPopularPackages(snap.docs.map((d) => {
+          const data = d.data()
+          return {
+            id: d.id,
+            packageName: data.packageName ?? '',
+            packageTag: data.packageTag ?? '',
+            packageLocations: normalizePackageLocations(data),
+            packageRating: data.packageRating ?? 0,
+            pricePerPerson: data.pricePerPerson ?? 0,
+            packageImages: Array.isArray(data.packageImages) ? data.packageImages : [],
+            duration: data.duration ?? '',
+            slug: data.slug ?? d.id,
+          }
+        }))
+      } catch { /* ignore */ }
+    }
+    fetchPopularPackages()
+  }, [])
+
   useEffect(() => {
     const p = parseGuestListingSearchParams(new URLSearchParams(queryKey))
     setSearchLocation(p.location)
@@ -391,7 +450,7 @@ function ActivitiesContent() {
 
       {/* ── Compact search bar ── */}
       <div className="bg-white border-b border-gray-100 py-4">
-        <div className="max-w-[1280px] mx-auto px-6 lg:px-10">
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-10">
           {/* Desktop search bar */}
           <div className="hidden sm:block">
             <SearchBar
@@ -424,7 +483,7 @@ function ActivitiesContent() {
       </div>
 
       {/* ── Main grid ── */}
-      <div className="max-w-[1280px] mx-auto w-full px-6 lg:px-10 py-8 pb-20 lg:pb-16">
+      <div className="max-w-[1280px] mx-auto w-full px-4 sm:px-6 lg:px-10 py-8 pb-20 lg:pb-16">
         <div className="flex gap-8 items-start">
 
           {/* ── Sidebar (desktop) ── */}
@@ -530,7 +589,7 @@ function ActivitiesContent() {
                   ))}
                 </select>
 
-                <div className="flex border border-gray-200 rounded-full bg-white p-1">
+                {/* <div className="flex border border-gray-200 rounded-full bg-white p-1">
                   {(['grid', 'list'] as const).map((v) => (
                     <button
                       key={v}
@@ -543,7 +602,7 @@ function ActivitiesContent() {
                       {v}
                     </button>
                   ))}
-                </div>
+                </div> */}
               </div>
             </div>
 
@@ -554,7 +613,7 @@ function ActivitiesContent() {
               <div className="py-16 text-center text-sm text-gray-400">No activities match your filters.</div>
             ) : (
               <div className={viewMode === 'grid'
-                ? `grid grid-cols-2 ${sidebarVisible ? 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3' : 'sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4'} gap-4 mb-8`
+                ? `grid ${sidebarVisible ? ' lg:grid-cols-3 xl:grid-cols-3' : 'sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4'} gap-2 sm:gap-4 mb-8`
                 : 'flex flex-col gap-4 mb-8'
               }>
                 {visible.map((act) => (
@@ -599,6 +658,81 @@ function ActivitiesContent() {
           </main>
         </div>
       </div>
+
+      {popularPackages.length > 0 && (
+        <section className="sm:max-w-[1280px] sm:mx-auto w-full px-6 lg:px-10 pb-14">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-gray-900">Popular Packages</h2>
+            <Link href="/tour-packages" className="text-sm text-[#008768] font-medium hover:underline">See more</Link>
+          </div>
+          <div className="relative">
+            {canScrollPackagesLeft && (
+              <button
+                type="button"
+                onClick={() => packagesCarouselRef.current?.scrollBy({ left: -320, behavior: 'smooth' })}
+                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 bg-white shadow-md border border-gray-200 rounded-full p-2 hover:bg-gray-50 transition-colors"
+                aria-label="Scroll left"
+              >
+                <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+            )}
+
+            <div
+              ref={packagesCarouselRef}
+              onScroll={updatePackagesCarouselButtons}
+              className="flex gap-4 overflow-x-auto scrollbar-hide pb-2 snap-x snap-mandatory"
+            >
+              {popularPackages.map((pkg) => (
+                <div key={pkg.id} className="shrink-0 w-40 sm:w-[285px] snap-start">
+                  <PackageCard
+                    image={packageImageUrl(pkg.packageImages[0])}
+                    images={pkg.packageImages.filter(Boolean).map(packageImageUrl)}
+                    title={pkg.packageName}
+                    price={pkg.pricePerPerson}
+                    pricePrefix="Starting from"
+                    tag={pkg.packageTag}
+                    duration={pkg.duration}
+                    rating={pkg.packageRating}
+                    location={formatLocationSummary(pkg.packageLocations)}
+                    cardKind="tourPackage"
+                    href={`/tour-packages/${pkg.slug}`}
+                  />
+                </div>
+              ))}
+
+              <div className="shrink-0 sm:w-[285px] snap-start">
+                <Link href="/tour-packages" className="flex h-full items-center justify-center flex-col ">
+                  <div className="relative rounded-2xl overflow-hidden aspect-[3/4] flex flex-col items-center justify-center gap-3 group transition-colors">
+                    <div className="w-12 h-12 rounded-full border border-black/50 flex items-center justify-center">
+                      <svg className="w-6 h-6 text-black/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                      </svg>
+                    </div>
+                    <p className="text-black/50 font-bold text-sm text-center px-4">
+                      See All Packages
+                    </p>
+                  </div>
+                </Link>
+              </div>
+            </div>
+
+            {canScrollPackagesRight && (
+              <button
+                type="button"
+                onClick={() => packagesCarouselRef.current?.scrollBy({ left: 320, behavior: 'smooth' })}
+                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 bg-white shadow-md border border-gray-200 rounded-full p-2 hover:bg-gray-50 transition-colors"
+                aria-label="Scroll right"
+              >
+                <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </section>
+      )}
 
       <Footer />
 

@@ -53,6 +53,24 @@ export interface TravelerReview {
   text: string
 }
 
+export interface TourGuide {
+  id: string
+  name: string
+  photo: string
+  bio: string
+  specialties: string[]
+  languages: string[]
+  location: string
+  municipalityId: string
+  rating: number
+  reviewCount: number
+  yearsOfExperience: number
+  pricePerDay: number
+  certifications: string[]
+  availability: 'available' | 'limited' | 'unavailable'
+  operatorId?: string
+}
+
 export interface Representative {
   name: string
   age: string
