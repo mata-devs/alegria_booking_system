@@ -12,6 +12,16 @@ import {
 } from 'firebase/firestore';
 import { firebaseDb } from '@/app/lib/firebase';
 import { useAuth } from '@/app/context/AuthContext';
+import { VoucherDiscountFields } from '@/app/components/ui/VoucherDiscountFields';
+import {
+    formatVoucherDiscountLabel,
+    parseVoucherDiscount,
+    parseVoucherDiscountValue,
+    validateVoucherDiscountInput,
+    voucherDiscountToFirestoreFields,
+    type VoucherDiscount,
+    type VoucherDiscountType,
+} from '@/app/lib/voucher-discount';
 
 const ROWS_PER_PAGE = 10;
 
@@ -40,7 +50,7 @@ interface OperatorOption {
 interface VoucherResponse {
     voucherId: string;
     code: string;
-    discount: number;
+    discount: VoucherDiscount;
     numberOfUsesAllowed: number;
     usageCount: number;
     operatorUid: string | null;
@@ -116,7 +126,7 @@ export default function Page() {
                 return {
                     voucherId: d.id,
                     code: v.code ?? '',
-                    discount: Number(v.discount) || 0,
+                    discount: parseVoucherDiscount(v as Record<string, unknown>),
                     numberOfUsesAllowed: Number(v.numberOfUsersAllowed) || 0,
                     usageCount: Number(v.numberOfUsersUsed) || 0,
                     operatorUid: v.operatorUid ?? null,
@@ -271,9 +281,7 @@ export default function Page() {
                                 >
                                     <span className="font-mono font-bold text-sm text-gray-900 tracking-wide">{v.code}</span>
                                     <span className="text-sm text-gray-700 font-medium">
-                                        {v.discount === 100 ? (
-                                            <span className="text-green-600 font-bold">Free</span>
-                                        ) : `${v.discount}%`}
+                                        {formatVoucherDiscountLabel(v.discount)}
                                     </span>
                                     <span className="text-sm text-gray-600 truncate pr-2">{v.entityName || <span className="text-gray-400 italic">No entity</span>}</span>
                                     <span className="text-sm text-gray-500">{formatDate(v.expirationDate)}</span>
@@ -377,7 +385,7 @@ function VoucherDetailPanel({
                 <div className="rounded-lg bg-gradient-to-br from-[#f0fde4] to-[#e4f9c8] border border-green-200 p-4 text-center">
                     <p className="text-xs font-semibold text-green-600 uppercase tracking-wide mb-1">Discount</p>
                     <p className="text-3xl font-extrabold text-[#4a8c00]">
-                        {voucher.discount === 100 ? 'FREE' : `${voucher.discount}%`}
+                        {formatVoucherDiscountLabel(voucher.discount)}
                     </p>
                 </div>
 
@@ -471,7 +479,10 @@ function CreateCodeModal({ isOpen, onClose, onSaved }: CreateCodeModalProps) {
     const superAdminUid = authState.status === 'authenticated' ? authState.user.uid : null;
 
     const [formData, setFormData] = useState({
-        code: '', discount: '', numberOfUsesAllowed: '',
+        code: '',
+        discountType: 'percent' as VoucherDiscountType,
+        discountValue: '',
+        numberOfUsesAllowed: '',
         entityId: '', operatorUid: '', expirationDate: '',
     });
     const [entities, setEntities] = useState<EntityOption[]>([]);
@@ -535,6 +546,8 @@ function CreateCodeModal({ isOpen, onClose, onSaved }: CreateCodeModalProps) {
     const handleSave = async () => {
         if (!formData.code) { setError('Code is required'); return; }
         if (!superAdminUid) { setError('Not authenticated'); return; }
+        const discountErr = validateVoucherDiscountInput(formData.discountType, formData.discountValue);
+        if (discountErr) { setError(discountErr); return; }
         setError(null);
         setSubmitting(true);
         try {
@@ -544,9 +557,10 @@ function CreateCodeModal({ isOpen, onClose, onSaved }: CreateCodeModalProps) {
             ));
             if (!dupSnap.empty) { setError('Code already exists'); return; }
 
+            const discountValue = parseVoucherDiscountValue(formData.discountType, formData.discountValue);
             await addDoc(collection(firebaseDb, 'voucherCodes'), {
-                code: formData.code.trim(),
-                discount: parseInt(formData.discount) || 0,
+                code: formData.code.trim().toUpperCase(),
+                ...voucherDiscountToFirestoreFields(formData.discountType, discountValue),
                 numberOfUsersAllowed: parseInt(formData.numberOfUsesAllowed) || 0,
                 numberOfUsersUsed: 0,
                 entityId: formData.entityId || null,
@@ -565,7 +579,10 @@ function CreateCodeModal({ isOpen, onClose, onSaved }: CreateCodeModalProps) {
             setSuccess(true);
             setTimeout(() => {
                 setSuccess(false);
-                setFormData({ code: '', discount: '', numberOfUsesAllowed: '', entityId: '', operatorUid: '', expirationDate: '' });
+                setFormData({
+                    code: '', discountType: 'percent', discountValue: '',
+                    numberOfUsesAllowed: '', entityId: '', operatorUid: '', expirationDate: '',
+                });
                 onSaved();
             }, 1400);
         } catch (err: unknown) {
@@ -601,17 +618,22 @@ function CreateCodeModal({ isOpen, onClose, onSaved }: CreateCodeModalProps) {
                     </select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                    <div>
-                        <label className="field-label">Discount (%)</label>
-                        <input type="number" name="discount" min="1" max="100" value={formData.discount} onChange={handleChange}
-                            placeholder="20" disabled={submitting} className="w-full field-input" />
-                    </div>
-                    <div>
-                        <label className="field-label">Max Uses</label>
-                        <input type="number" name="numberOfUsesAllowed" min="1" value={formData.numberOfUsesAllowed} onChange={handleChange}
-                            placeholder="100" disabled={submitting} className="w-full field-input" />
-                    </div>
+                <VoucherDiscountFields
+                    discountType={formData.discountType}
+                    onDiscountTypeChange={(discountType) =>
+                        setFormData((prev) => ({ ...prev, discountType, discountValue: '' }))
+                    }
+                    discountValue={formData.discountValue}
+                    onDiscountValueChange={(discountValue) =>
+                        setFormData((prev) => ({ ...prev, discountValue }))
+                    }
+                    disabled={submitting}
+                />
+
+                <div>
+                    <label className="field-label">Max Uses</label>
+                    <input type="number" name="numberOfUsesAllowed" min="1" value={formData.numberOfUsesAllowed} onChange={handleChange}
+                        placeholder="100" disabled={submitting} className="w-full field-input" />
                 </div>
 
                 <div>

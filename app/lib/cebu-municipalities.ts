@@ -4,7 +4,7 @@ export const CEBU_MUNICIPALITIES = [
   'Asturias', 'Badian', 'Balamban', 'Bantayan', 'Barili',
   'Bogo City', 'Boljoon', 'Borbon', 'Carcar City', 'Carmen',
   'Catmon', 'Cebu City', 'Compostela', 'Consolacion', 'Cordova',
-  'Dalaguete', 'Danao City', 'Dumanjug', 'Ginatilan', 'Lapu-Lapu City',
+  'Dalaguete', 'Danao City', 'Daanbantayan', 'Dumanjug', 'Ginatilan', 'Lapu-Lapu City',
   'Liloan', 'Madridejos', 'Malabuyoc', 'Mandaue City', 'Medellin',
   'Minglanilla', 'Moalboal', 'Naga City', 'Oslob', 'Pilar',
   'Pinamungajan', 'Poro', 'Ronda', 'Samboan', 'San Fernando',

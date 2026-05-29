@@ -6,6 +6,7 @@ import { useBooking } from '../context/BookingContext'
 import type { TourPackage } from '../types'
 import PackageCard from './ui/PackageCard'
 import { formatLocationSummary } from '@/app/lib/package-locations'
+import { formatDuration } from '@/app/lib/format-duration'
 
 interface Props {
   pkg: TourPackage
@@ -38,7 +39,7 @@ export default function TourPackageCard({ pkg, wide = false, dotSealGranted }: P
       description={pkg.description}
       price={pkg.price}
       pricePrefix="Starting from"
-      duration={pkg.duration}
+      duration={formatDuration(pkg.duration) ?? undefined}
       location={pkg.municipalityIds?.length ? formatLocationSummary(pkg.municipalityIds) : undefined}
       cardKind="tourPackage"
       dotSealGranted={dotSealGranted}

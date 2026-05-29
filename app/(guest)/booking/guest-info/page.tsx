@@ -12,6 +12,7 @@ import { TourOperatorDropdown } from "./_components/TourOperatorDropdown";
 import { FormActions } from "./_components/FormActions";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/app/components/ui/drawer";
 import { Loader2 } from "lucide-react";
+import type { VoucherDiscount } from "@/app/lib/voucher-discount";
 
 const MAX_GUESTS = 30;
 const PAYMENT_METHODS: PaymentMethod[] = ["Gcash / Maya", "BDO", "BPI"];
@@ -240,7 +241,7 @@ function GuestBookingContent() {
         packageOperatorId: lockedSourceOperatorUid,
         onDateChange: setBookingDate,
         sourceType,
-        onPromoApplied: (promo: { code: string; discount: number; operatorUid?: string }) => {
+        onPromoApplied: (promo: { code: string; discount: VoucherDiscount; operatorUid?: string }) => {
             setAppliedPromo(promo.code);
             if (promo.operatorUid) {
                 setFormData((prev) => ({ ...prev, tourOperator: promo.operatorUid || "" }));

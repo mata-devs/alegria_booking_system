@@ -1,6 +1,7 @@
 import type { Timestamp } from 'firebase/firestore';
 import type { ActivityTag, StoredActivityTag } from '@/app/lib/activity-tags';
 import type { PackageImage } from '@/app/lib/package-images';
+import type { PricingMode, PricingTier } from '@/app/lib/pricing-tiers';
 
 export type { ImageSlot } from '@/app/(operator)/operator/_components/shared/types';
 
@@ -10,10 +11,10 @@ export interface OperatorActivity {
   id: string;
   activityName: string;
   activityDetails: string;
-  pricePerGuest: number;
-  priceAdult?: number;
-  priceChild?: number;
-  childAgeMax?: number;
+  pricePerGuest: number; // denormalized "from" price (lowest per-person across tiers)
+  pricingMode: PricingMode;
+  pricingTiers: PricingTier[];
+  childAgeMax?: number; // adultChild only
   minimumNumberOfPeople: number;
   maximumNumberOfPeople: number;
   activityLocation: string;
@@ -39,9 +40,8 @@ export interface Filters {
 export interface AddFormState {
   activityName: string;
   activityDetails: string;
-  pricePerGuest: string;
-  priceAdult: string;
-  priceChild: string;
+  pricingMode: PricingMode;
+  pricingTiers: PricingTier[];
   childAgeMax: string;
   minimumNumberOfPeople: string;
   maximumNumberOfPeople: string;
@@ -54,9 +54,8 @@ export interface AddFormState {
 export interface EditFormState {
   activityName: string;
   activityDetails: string;
-  pricePerGuest: string;
-  priceAdult: string;
-  priceChild: string;
+  pricingMode: PricingMode;
+  pricingTiers: PricingTier[];
   childAgeMax: string;
   minimumNumberOfPeople: string;
   maximumNumberOfPeople: string;

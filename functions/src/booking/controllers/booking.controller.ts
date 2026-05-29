@@ -150,7 +150,11 @@ export async function create(req: Request, res: Response) {
                   </tr>
                   ${pricing.discountAmount > 0 ? `
                   <tr style="border-top:1px solid #f3f4f6">
-                    <td style="padding:6px 0;color:#6b7280">Discount (${pricing.discountPercentage}%${payload.promoCode ? ` · ${payload.promoCode}` : ""})</td>
+                    <td style="padding:6px 0;color:#6b7280">Discount (${
+                      pricing.discountType === "fixed"
+                        ? `₱${Number(pricing.discountValue).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} off`
+                        : `${pricing.discountPercentage}%`
+                    }${payload.promoCode ? ` · ${payload.promoCode}` : ""})</td>
                     <td style="padding:6px 0;color:#16a34a">− ${fmt(pricing.discountAmount)}</td>
                   </tr>` : ""}
                   <tr style="border-top:2px solid #e5e7eb">

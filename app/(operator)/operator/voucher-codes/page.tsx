@@ -10,13 +10,23 @@ import {
 } from 'firebase/firestore';
 import { firebaseDb } from '@/app/lib/firebase';
 import { useAuth } from '@/app/context/AuthContext';
+import { VoucherDiscountFields } from '@/app/components/ui/VoucherDiscountFields';
+import {
+  formatVoucherDiscountLabel,
+  parseVoucherDiscount,
+  parseVoucherDiscountValue,
+  validateVoucherDiscountInput,
+  voucherDiscountToFirestoreFields,
+  type VoucherDiscount,
+  type VoucherDiscountType,
+} from '@/app/lib/voucher-discount';
 
 const ROWS_PER_PAGE = 10;
 
 interface VoucherCode {
   voucherId: string;
   code: string;
-  discount: number;
+  discount: VoucherDiscount;
   numberOfUsersAllowed: number;
   numberOfUsersUsed: number;
   operatorUid: string | null;
@@ -122,7 +132,7 @@ function VoucherDetailPanel({
         <div className="rounded-lg bg-gradient-to-br from-[#f0fde4] to-[#e4f9c8] border border-green-200 p-4 text-center">
           <p className="text-xs font-semibold text-green-600 uppercase tracking-wide mb-1">Discount</p>
           <p className="text-3xl font-extrabold text-[#4a8c00]">
-            {voucher.discount === 100 ? 'FREE' : `${voucher.discount}%`}
+            {formatVoucherDiscountLabel(voucher.discount)}
           </p>
         </div>
 
@@ -203,7 +213,8 @@ function CreateOperatorVoucherModal({
 }) {
   const [form, setForm] = useState({
     code: '',
-    discount: '',
+    discountType: 'percent' as VoucherDiscountType,
+    discountValue: '',
     numberOfUsersAllowed: '',
     entityId: '',
     expirationDate: '',
@@ -248,6 +259,11 @@ function CreateOperatorVoucherModal({
       setError('Code is required');
       return;
     }
+    const discountErr = validateVoucherDiscountInput(form.discountType, form.discountValue);
+    if (discountErr) {
+      setError(discountErr);
+      return;
+    }
     setError(null);
     setSubmitting(true);
     try {
@@ -257,9 +273,10 @@ function CreateOperatorVoucherModal({
         return;
       }
 
+      const discountValue = parseVoucherDiscountValue(form.discountType, form.discountValue);
       await addDoc(collection(firebaseDb, 'voucherCodes'), {
         code: form.code.trim().toUpperCase(),
-        discount: parseInt(form.discount, 10) || 0,
+        ...voucherDiscountToFirestoreFields(form.discountType, discountValue),
         numberOfUsersAllowed: parseInt(form.numberOfUsersAllowed, 10) || 0,
         numberOfUsersUsed: 0,
         operatorUid,
@@ -310,32 +327,29 @@ function CreateOperatorVoucherModal({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="field-label">Discount (%)</label>
-            <input
-              type="number"
-              min="1"
-              max="100"
-              value={form.discount}
-              onChange={(e) => setForm((prev) => ({ ...prev, discount: e.target.value }))}
-              className="w-full field-input"
-              placeholder="20"
-              disabled={submitting}
-            />
-          </div>
-          <div>
-            <label className="field-label">Max Uses</label>
-            <input
-              type="number"
-              min="1"
-              value={form.numberOfUsersAllowed}
-              onChange={(e) => setForm((prev) => ({ ...prev, numberOfUsersAllowed: e.target.value }))}
-              className="w-full field-input"
-              placeholder="100"
-              disabled={submitting}
-            />
-          </div>
+        <VoucherDiscountFields
+          discountType={form.discountType}
+          onDiscountTypeChange={(discountType) =>
+            setForm((prev) => ({ ...prev, discountType, discountValue: '' }))
+          }
+          discountValue={form.discountValue}
+          onDiscountValueChange={(discountValue) =>
+            setForm((prev) => ({ ...prev, discountValue }))
+          }
+          disabled={submitting}
+        />
+
+        <div>
+          <label className="field-label">Max Uses</label>
+          <input
+            type="number"
+            min="1"
+            value={form.numberOfUsersAllowed}
+            onChange={(e) => setForm((prev) => ({ ...prev, numberOfUsersAllowed: e.target.value }))}
+            className="w-full field-input"
+            placeholder="100"
+            disabled={submitting}
+          />
         </div>
 
         <div>
@@ -738,7 +752,7 @@ export default function OperatorVoucherCodesPage() {
         return {
           voucherId: d.id,
           code: v.code ?? '',
-          discount: Number(v.discount) || 0,
+          discount: parseVoucherDiscount(v as Record<string, unknown>),
           numberOfUsersAllowed: Number(v.numberOfUsersAllowed) || 0,
           numberOfUsersUsed: Number(v.numberOfUsersUsed) || 0,
           operatorUid: v.operatorUid ?? null,
@@ -914,7 +928,7 @@ export default function OperatorVoucherCodesPage() {
                 >
                   <span className="font-mono font-bold text-sm text-gray-900 tracking-wide">{v.code}</span>
                   <span className="text-sm text-gray-700 font-medium">
-                    {v.discount === 100 ? <span className="text-green-600 font-bold">Free</span> : `${v.discount}%`}
+                    <span className="text-gray-700 font-medium">{formatVoucherDiscountLabel(v.discount)}</span>
                   </span>
                   <span className="text-sm text-gray-600 truncate pr-2">
                     {v.entityName || <span className="text-gray-400 italic">No entity</span>}

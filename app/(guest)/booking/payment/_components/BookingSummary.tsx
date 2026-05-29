@@ -10,6 +10,17 @@ import {
     computeBookingTotals,
     DEFAULT_SERVICE_CHARGE_PER_BOOKING,
 } from '@/app/lib/platform-pricing';
+import {
+    formatVoucherDiscountDetail,
+    parseVoucherDiscount,
+    type VoucherDiscount,
+} from '@/app/lib/voucher-discount';
+import {
+    resolveTier,
+    computeTierBase,
+    type PricingMode,
+    type PricingTier,
+} from '@/app/lib/pricing-tiers';
 import { ItemDetailModal } from '@/app/(guest)/booking/_components/ItemDetailModal';
 
 const peso = (n: number) =>
@@ -20,6 +31,8 @@ interface BookingSummaryProps {
     activityName?: string;
     bookingDate?: string;
     guestTotal?: number;
+    adultCount?: number;
+    childCount?: number;
     paymentMethod?: PaymentMethod;
     representativeName?: string;
     representativeEmail?: string;
@@ -33,6 +46,8 @@ export function BookingSummary({
     activityName,
     bookingDate,
     guestTotal,
+    adultCount,
+    childCount,
     paymentMethod,
     representativeName,
     representativeEmail,
@@ -42,7 +57,9 @@ export function BookingSummary({
 }: BookingSummaryProps) {
     const [showItemModal, setShowItemModal] = useState(false);
     const [pricePerGuest, setPricePerGuest] = useState<number | null>(null);
-    const [discountPercent, setDiscountPercent] = useState<number | null>(null);
+    const [pricingMode, setPricingMode] = useState<PricingMode>('standard');
+    const [pricingTiers, setPricingTiers] = useState<PricingTier[]>([]);
+    const [appliedDiscount, setAppliedDiscount] = useState<VoucherDiscount | null>(null);
     const [serviceChargePerBooking, setServiceChargePerBooking] = useState<number | null>(null);
 
     useEffect(() => {
@@ -61,7 +78,11 @@ export function BookingSummary({
                 const snap = await getDoc(doc(firestore, collectionName, activityId));
                 if (!snap.exists() || cancelled) return;
                 const data = snap.data() as Record<string, unknown>;
-                if (!cancelled) setPricePerGuest(typeof data[priceField] === "number" ? data[priceField] as number : null);
+                if (!cancelled) {
+                    setPricePerGuest(typeof data[priceField] === "number" ? data[priceField] as number : null);
+                    setPricingMode(data.pricingMode === "adultChild" ? "adultChild" : "standard");
+                    setPricingTiers(Array.isArray(data.pricingTiers) ? (data.pricingTiers as PricingTier[]) : []);
+                }
             } catch {
                 if (!cancelled) setPricePerGuest(null);
             }
@@ -70,7 +91,7 @@ export function BookingSummary({
     }, [activityId, sourceType]);
 
     useEffect(() => {
-        if (!appliedPromo) { setDiscountPercent(null); return; }
+        if (!appliedPromo) { setAppliedDiscount(null); return; }
         let cancelled = false;
         (async () => {
             try {
@@ -78,9 +99,12 @@ export function BookingSummary({
                 const snap = await getDocs(query(collection(firestore, "voucherCodes"), where("code", "==", codeUpper)));
                 if (cancelled || snap.empty) return;
                 const voucher = snap.docs[0].data() as Record<string, unknown>;
-                if (!cancelled) setDiscountPercent(typeof voucher.discount === "number" ? voucher.discount : null);
+                const parsed = parseVoucherDiscount(voucher);
+                if (!cancelled) {
+                    setAppliedDiscount(parsed.discountValue > 0 ? parsed : null);
+                }
             } catch {
-                if (!cancelled) setDiscountPercent(null);
+                if (!cancelled) setAppliedDiscount(null);
             }
         })();
         return () => { cancelled = true; };
@@ -88,23 +112,36 @@ export function BookingSummary({
 
     const pricing = useMemo(() => {
         const guests = typeof guestTotal === "number" && guestTotal > 0 ? guestTotal : null;
-        const price = pricePerGuest;
-        if (!guests || !price || serviceChargePerBooking === null) return null;
+        if (!guests || serviceChargePerBooking === null) return null;
 
-        const baseAmount = price * guests;
+        const hasTiers = pricingTiers.length > 0;
+        const adults = typeof adultCount === "number" ? adultCount : guests;
+        const children = typeof childCount === "number" ? childCount : 0;
+        const activeTier = hasTiers ? resolveTier(pricingTiers, guests) : null;
+
+        if (!hasTiers && !pricePerGuest) return null;
+
+        const baseAmount = hasTiers
+            ? computeTierBase(pricingMode, activeTier, adults, children)
+            : (pricePerGuest ?? 0) * guests;
         const charge = serviceChargePerBooking ?? DEFAULT_SERVICE_CHARGE_PER_BOOKING;
-        const totals = computeBookingTotals(baseAmount, charge, discountPercent);
+        const totals = computeBookingTotals(baseAmount, charge, appliedDiscount);
 
         return {
             guests,
-            price,
+            adults,
+            children,
+            hasTiers,
+            pricingMode,
+            activeTier,
+            price: pricePerGuest ?? 0,
             baseAmount,
             discountAmount: totals.discountAmount,
-            discountPercent: totals.discountPercent,
+            appliedDiscount,
             serviceCharge: totals.serviceCharge,
             total: totals.total,
         };
-    }, [guestTotal, pricePerGuest, discountPercent, serviceChargePerBooking]);
+    }, [guestTotal, adultCount, childCount, pricePerGuest, pricingMode, pricingTiers, appliedDiscount, serviceChargePerBooking]);
 
     return (
         <aside className="w-full max-w-md rounded-3xl border border-gray-200 bg-white p-6 shadow-sm md:p-8 lg:max-w-none">
@@ -161,23 +198,55 @@ export function BookingSummary({
                 <div className="pt-2">
                     <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Price Details</p>
                     <div className="mt-3 space-y-2">
-                        <div className="flex items-baseline justify-between gap-4">
-                            <span className="font-semibold text-gray-900">
-                                {pricing ? `₱${pricing.price.toLocaleString("en-PH")} x ${pricing.guests}` : "—"}
+                        {pricing?.hasTiers && pricing.activeTier && (
+                            <span className="inline-flex items-center gap-1.5 bg-[#f0fce0] text-[#5a9608] text-[11px] font-bold px-3 py-1 rounded-full">
+                                ★ {pricing.activeTier.minPax} to {pricing.activeTier.maxPax} pax bracket
                             </span>
-                            <span className="font-mono text-sm font-bold text-gray-900">
-                                {pricing ? peso(pricing.baseAmount) : "—"}
-                            </span>
-                        </div>
+                        )}
+                        {pricing?.hasTiers && pricing.pricingMode === 'adultChild' && pricing.activeTier ? (
+                            <>
+                                <div className="flex items-baseline justify-between gap-4">
+                                    <span className="font-semibold text-gray-900">
+                                        ₱{(pricing.activeTier.priceAdult ?? 0).toLocaleString("en-PH")} x {pricing.adults} {pricing.adults === 1 ? "adult" : "adults"}
+                                    </span>
+                                    <span className="font-mono text-sm font-bold text-gray-900">
+                                        {peso((pricing.activeTier.priceAdult ?? 0) * pricing.adults)}
+                                    </span>
+                                </div>
+                                {pricing.children > 0 && (
+                                    <div className="flex items-baseline justify-between gap-4">
+                                        <span className="font-semibold text-gray-900">
+                                            ₱{(pricing.activeTier.priceChild ?? 0).toLocaleString("en-PH")} x {pricing.children} {pricing.children === 1 ? "child" : "children"}
+                                        </span>
+                                        <span className="font-mono text-sm font-bold text-gray-900">
+                                            {peso((pricing.activeTier.priceChild ?? 0) * pricing.children)}
+                                        </span>
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            <div className="flex items-baseline justify-between gap-4">
+                                <span className="font-semibold text-gray-900">
+                                    {pricing
+                                        ? `₱${(pricing.hasTiers && pricing.activeTier ? (pricing.activeTier.price ?? 0) : pricing.price).toLocaleString("en-PH")} x ${pricing.guests}`
+                                        : "—"}
+                                </span>
+                                <span className="font-mono text-sm font-bold text-gray-900">
+                                    {pricing ? peso(pricing.baseAmount) : "—"}
+                                </span>
+                            </div>
+                        )}
                         <div className="flex items-baseline justify-between gap-4">
                             <span className="font-semibold text-gray-900">Convenience fee</span>
                             <span className="font-mono text-sm font-bold text-gray-900">
                                 {pricing ? peso(pricing.serviceCharge) : "—"}
                             </span>
                         </div>
-                        {pricing?.discountPercent ? (
+                        {pricing?.appliedDiscount && pricing.discountAmount > 0 ? (
                             <div className="flex items-baseline justify-between gap-4">
-                                <span className="font-semibold text-[#74C00F]">Discount ({pricing.discountPercent}%)</span>
+                                <span className="font-semibold text-[#74C00F]">
+                                    Discount ({formatVoucherDiscountDetail(pricing.appliedDiscount)})
+                                </span>
                                 <span className="font-mono text-sm font-bold text-[#74C00F]">-{peso(pricing.discountAmount)}</span>
                             </div>
                         ) : null}

@@ -75,6 +75,25 @@ export const guestSchema = z.object({
 export type RepresentativeFormValues = z.infer<typeof representativeFormSchema>;
 export type GuestValues = z.infer<typeof guestSchema>;
 
+// ── Pricing tiers (group-size brackets) ───────────────────────────────────────
+// Shape-only parse; cross-field rules (contiguity, Min..Max span) live in
+// validateTiers (app/lib/pricing-tiers.ts). Used as a fail-closed guard at
+// operator write and server read.
+
+const pricingTierSchema = z.object({
+  minPax: z.number().int().positive(),
+  maxPax: z.number().int().positive(),
+  price: z.number().positive().optional(),
+  priceAdult: z.number().positive().optional(),
+  priceChild: z.number().positive().optional(),
+});
+
+export const pricingTiersSchema = z.array(pricingTierSchema).min(1).max(10);
+
+export const pricingModeSchema = z.enum(['standard', 'adultChild']);
+
+export type PricingTierValues = z.infer<typeof pricingTierSchema>;
+
 export const emailPasswordSignInSchema = z.object({
   email: z
     .string()

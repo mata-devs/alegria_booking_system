@@ -18,6 +18,8 @@ import { DEFAULT_EXCLUSION_CHIPS, DEFAULT_INCLUSION_CHIPS } from '@/app/lib/incl
 import { packageImageUrl, type PackageImage } from '@/app/lib/package-images';
 import { MIN_IMAGES, MAX_IMAGES, MAX_SIZE_MB } from './constants';
 import { compressImage } from './compress-image';
+import { PricingTierBuilder } from '@/app/(operator)/operator/_components/shared/PricingTierBuilder';
+import { serializeTiers, lowestFromPrice, validateTiers, makeDefaultTier, tiersBounds } from '@/app/lib/pricing-tiers';
 import type { OperatorActivity, EditFormState, FormErrors, ImageSlot } from './types';
 import { MunicipalityCombobox } from './MunicipalityCombobox';
 import { ActivityImagesEditor } from './images/ActivityImagesEditor';
@@ -30,9 +32,17 @@ export function EditActivityModal({ activity, onClose, operatorId }: { activity:
   const [form, setForm] = useState<EditFormState>({
     activityName: activity.activityName,
     activityDetails: activity.activityDetails,
-    pricePerGuest: String(activity.pricePerGuest),
-    priceAdult: String(activity.priceAdult ?? ''),
-    priceChild: String(activity.priceChild ?? ''),
+    pricingMode: activity.pricingMode ?? 'standard',
+    pricingTiers: (activity.pricingTiers?.length
+      ? activity.pricingTiers
+      : [makeDefaultTier(activity.minimumNumberOfPeople ?? 1, activity.maximumNumberOfPeople ?? 30)]
+    ).map((t) => ({
+      minPax: t.minPax,
+      maxPax: t.maxPax,
+      price: t.price ?? 0,
+      priceAdult: t.priceAdult ?? 0,
+      priceChild: t.priceChild ?? 0,
+    })),
     childAgeMax: String(activity.childAgeMax ?? ''),
     minimumNumberOfPeople: String(activity.minimumNumberOfPeople ?? 1),
     maximumNumberOfPeople: String(activity.maximumNumberOfPeople ?? 30),
@@ -106,10 +116,8 @@ export function EditActivityModal({ activity, onClose, operatorId }: { activity:
     const e: FormErrors = {};
     if (!form.activityName.trim()) e.activityName = 'Required';
     if (!form.activityDetails.trim()) e.activityDetails = 'Required';
-    if (!form.pricePerGuest || Number(form.pricePerGuest) <= 0) e.pricePerGuest = 'Enter a valid price';
-    if (!form.minimumNumberOfPeople || Number(form.minimumNumberOfPeople) < 1) e.minimumNumberOfPeople = 'Minimum 1';
-    if (!form.maximumNumberOfPeople || Number(form.maximumNumberOfPeople) < 1) e.maximumNumberOfPeople = 'Minimum 1';
-    if (Number(form.maximumNumberOfPeople) < Number(form.minimumNumberOfPeople)) e.maximumNumberOfPeople = 'Must be ≥ minimum';
+    const tierErrors = validateTiers(form.pricingMode, form.pricingTiers);
+    if (tierErrors.length) e.pricingTiers = tierErrors[0];
     if (!CEBU_MUNICIPALITIES.includes(form.activityLocation as typeof CEBU_MUNICIPALITIES[number]))
       e.activityLocation = 'Select a valid municipality';
     if (!form.activityTags.length) e.activityTags = 'Select at least one tag';
@@ -145,12 +153,17 @@ export function EditActivityModal({ activity, onClose, operatorId }: { activity:
       await updateDoc(doc(firebaseDb, 'activities', activity.id), {
         activityName: form.activityName.trim(),
         activityDetails: form.activityDetails.trim(),
-        pricePerGuest: parseFloat(form.pricePerGuest),
-        priceAdult: form.priceAdult ? parseFloat(form.priceAdult) : deleteField(),
-        priceChild: form.priceChild ? parseFloat(form.priceChild) : deleteField(),
-        childAgeMax: form.childAgeMax ? Number(form.childAgeMax) : deleteField(),
-        minimumNumberOfPeople: Number(form.minimumNumberOfPeople),
-        maximumNumberOfPeople: Number(form.maximumNumberOfPeople),
+        pricingMode: form.pricingMode,
+        pricingTiers: serializeTiers(form.pricingMode, form.pricingTiers),
+        pricePerGuest: lowestFromPrice(form.pricingMode, form.pricingTiers),
+        childAgeMax:
+          form.pricingMode === 'adultChild' && form.childAgeMax
+            ? Number(form.childAgeMax)
+            : deleteField(),
+        priceAdult: deleteField(),
+        priceChild: deleteField(),
+        minimumNumberOfPeople: tiersBounds(form.pricingTiers).minPax,
+        maximumNumberOfPeople: tiersBounds(form.pricingTiers).maxPax,
         activityLocation: form.activityLocation.trim(),
         activityTags: form.activityTags,
         activityTag: primaryActivityTag(form.activityTags),
@@ -249,49 +262,14 @@ export function EditActivityModal({ activity, onClose, operatorId }: { activity:
                   <span className="text-xs font-bold text-gray-700 uppercase tracking-widest">Pricing &amp; Group Size</span>
                 </div>
                 <div className="px-6 py-4 space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Price per Guest (₱)</label>
-                    <input type="number" min="0" value={form.pricePerGuest} onChange={(e) => field('pricePerGuest', e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="e.g. 1500" />
-                    {errors.pricePerGuest && <p className="text-red-500 text-xs mt-1">{errors.pricePerGuest}</p>}
-                  </div>
-                  <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-3 space-y-2">
-                    <p className="text-[11px] font-semibold text-gray-500">Optional: separate adult / child pricing</p>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div>
-                        <label className="block text-[10px] font-semibold text-gray-500 mb-1">Adult (₱)</label>
-                        <input type="number" min="0" value={form.priceAdult} onChange={(e) => field('priceAdult', e.target.value)}
-                          className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 bg-white" placeholder="Optional" />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-semibold text-gray-500 mb-1">Child (₱)</label>
-                        <input type="number" min="0" value={form.priceChild} onChange={(e) => field('priceChild', e.target.value)}
-                          className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 bg-white" placeholder="Optional" />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-semibold text-gray-500 mb-1">Child max age</label>
-                        <input type="number" min="0" value={form.childAgeMax} onChange={(e) => field('childAgeMax', e.target.value)}
-                          className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 bg-white" placeholder="e.g. 12" />
-                      </div>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-2">Group Size</label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[10px] text-gray-500 mb-1">Min guests</label>
-                        <input type="number" min="1" value={form.minimumNumberOfPeople} onChange={(e) => field('minimumNumberOfPeople', e.target.value)}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
-                        {errors.minimumNumberOfPeople && <p className="text-red-500 text-xs mt-1">{errors.minimumNumberOfPeople}</p>}
-                      </div>
-                      <div>
-                        <label className="block text-[10px] text-gray-500 mb-1">Max guests</label>
-                        <input type="number" min="1" value={form.maximumNumberOfPeople} onChange={(e) => field('maximumNumberOfPeople', e.target.value)}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
-                        {errors.maximumNumberOfPeople && <p className="text-red-500 text-xs mt-1">{errors.maximumNumberOfPeople}</p>}
-                      </div>
-                    </div>
-                  </div>
+                  <PricingTierBuilder
+                    mode={form.pricingMode}
+                    onModeChange={(m) => field('pricingMode', m)}
+                    tiers={form.pricingTiers}
+                    onTiersChange={(t) => field('pricingTiers', t)}
+                    childAgeMax={form.childAgeMax}
+                    onChildAgeMaxChange={(v) => field('childAgeMax', v)}
+                  />
                 </div>
               </div>
 

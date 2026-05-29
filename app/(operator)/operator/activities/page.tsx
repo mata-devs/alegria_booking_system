@@ -80,6 +80,8 @@ export default function OperatorActivitiesPage() {
             activityImages: normalizePackageImages(data.activityImages),
             inclusions: Array.isArray(data.inclusions) ? data.inclusions : [],
             exclusions: Array.isArray(data.exclusions) ? data.exclusions : [],
+            pricingMode: data.pricingMode === 'adultChild' ? 'adultChild' : 'standard',
+            pricingTiers: Array.isArray(data.pricingTiers) ? data.pricingTiers : [],
           } as OperatorActivity;
         }),
       );
